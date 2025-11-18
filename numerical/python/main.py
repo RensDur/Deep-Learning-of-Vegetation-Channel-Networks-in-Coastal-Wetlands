@@ -1,5 +1,6 @@
 from numerical_solver import NumericalSolver
 import matplotlib.pyplot as plt
+import time
 
 solver = NumericalSolver()
 
@@ -9,7 +10,7 @@ plt.ion()
 
 # Create subplots
 figure, ax = plt.subplots(figsize=(10, 10))
-ax.imshow(solver.domain.numpy())
+plot_image = ax.imshow(solver.domain.get_h())
 
 # setting title
 plt.title("Water layer thickness", fontsize=20)
@@ -21,9 +22,17 @@ plt.ylabel("Cross shore")
 running = True
 while running:
 
+    solver.solve_step()
+
+    plot_image.set_data(solver.domain.get_h())
+
+    print(solver.domain.get_h())
+
     # Plot the domain (update existing plot)
     # Draw updated values
     figure.canvas.draw()
 
     # UI Loop: process all pending UI events
     figure.canvas.flush_events()
+
+    time.sleep(0.5)
