@@ -17,12 +17,12 @@ class NumericalSolver:
         print(f"Using torch device '{self.device}'")
 
         # Domain
-        self.domain = Domain(10, 10, 0.5)
+        self.domain = Domain(100, 100, 0.05)
         self.domain.init_preset_gaussian_wave(2.5, 2.5, 1, 1)
         self.domain.to(self.device)
 
         # Timestep
-        self.dt = 0.0001
+        self.dt = 0.01
 
 
 
@@ -59,6 +59,8 @@ class NumericalSolver:
 
         # Wetting-drying
         h_updated = torch.clamp(self.domain.h + dh, min=self.domain.Hc)
+
+        print(h_updated)
 
         #
         # Momentum equations

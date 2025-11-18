@@ -19,7 +19,7 @@ class Domain:
         self.u = torch.zeros(self.height, self.width)
         self.v = torch.zeros(self.height, self.width)
 
-        self.Hin = 1e-3
+        self.Hin = 0
         self.Hc = 1e-5
         self.grav = 9.81
 
@@ -53,4 +53,4 @@ class Domain:
         self.v.to(device)
 
     def get_h(self):
-        return self.h.cpu().numpy()
+        return self.h.clone().cpu().numpy()

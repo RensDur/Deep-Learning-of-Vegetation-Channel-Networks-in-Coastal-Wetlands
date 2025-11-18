@@ -26,7 +26,7 @@ while running:
 
     plot_image.set_data(solver.domain.get_h())
 
-    print(solver.domain.get_h())
+    # print(solver.domain.get_h())
 
     # Plot the domain (update existing plot)
     # Draw updated values
