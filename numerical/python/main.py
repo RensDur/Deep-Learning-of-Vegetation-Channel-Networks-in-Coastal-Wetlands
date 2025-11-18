@@ -22,7 +22,8 @@ plt.ylabel("Cross shore")
 running = True
 while running:
 
-    solver.solve_step()
+    for _ in range(100):
+        solver.solve_step()
 
     plot_image.set_data(solver.domain.get_h())
 
@@ -34,5 +35,3 @@ while running:
 
     # UI Loop: process all pending UI events
     figure.canvas.flush_events()
-
-    time.sleep(0.5)

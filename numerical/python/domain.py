@@ -47,10 +47,10 @@ class Domain:
     # MEMORY MANAGEMENT
     #
     def to(self, device):
-        self.h.to(device)
-        self.S.to(device)
-        self.u.to(device)
-        self.v.to(device)
+        self.h = self.h.to(device)
+        self.S = self.S.to(device)
+        self.u = self.u.to(device)
+        self.v = self.v.to(device)
 
     def get_h(self):
         return self.h.clone().cpu().numpy()
