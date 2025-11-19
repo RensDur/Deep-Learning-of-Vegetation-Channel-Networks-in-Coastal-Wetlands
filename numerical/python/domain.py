@@ -18,10 +18,13 @@ class Domain:
         self.S = torch.ones(self.height, self.width)
         self.u = torch.zeros(self.height, self.width)
         self.v = torch.zeros(self.height, self.width)
+        self.B = torch.zeros(self.height, self.width)
 
         self.Hin = 1e-5
         self.Hc = 1e-3
         self.grav = 9.81
+        self.rho = 1.0 # Water density
+        self.Du = 0.5 # Turbulent Eddy velocity
 
         # Domain properties
         self.dx = meter_per_cell

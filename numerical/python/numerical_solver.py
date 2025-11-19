@@ -33,6 +33,14 @@ class NumericalSolver:
         self.dy_conv = nn.Conv2d(1, 1, kernel_size=3, padding=1, padding_mode='replicate', bias=False).to(self.device)
         self.dy_conv.weight = torch.nn.Parameter(self.dy_kernel)
 
+        self.dx2_kernel = torch.tensor([[[[0, 0, 0], [1, -2, 1], [0, 0, 0]]]], dtype=torch.float32, device=self.device)
+        self.dx2_conv = nn.Conv2d(1, 1, kernel_size=3, padding=1, padding_mode='replicate', bias=False).to(self.device)
+        self.dx2_conv.weight = torch.nn.Parameter(self.dx2_kernel)
+
+        self.dy2_kernel = torch.tensor([[[[0, 1, 0], [0, -2, 0], [0, 1, 0]]]], dtype=torch.float32, device=self.device)
+        self.dy2_conv = nn.Conv2d(1, 1, kernel_size=3, padding=1, padding_mode='replicate', bias=False).to(self.device)
+        self.dy2_conv.weight = torch.nn.Parameter(self.dy2_kernel)
+
 
     def d_dx(self, quantity):
         # Pack and unpack the 'quantity' tensor to match expected size by the convolution,
@@ -43,6 +51,14 @@ class NumericalSolver:
         # Pack and unpack the 'quantity' tensor to match expected size by the convolution,
         # then divide by twice the dy of our domain, because we take the derivative over this cell, using both neighbors.
         return self.dy_conv(quantity.unsqueeze(0)).detach().squeeze() / (2*self.domain.dy)
+
+    def d2_dx2(self, quantity):
+        # Second partial derivative central difference
+        return self.dx2_conv(quantity.unsqueeze(0)).detach().squeeze() / (self.domain.dx**2)
+
+    def d2_dy2(self, quantity):
+        # Second partial derivative central difference
+        return self.dy2_conv(quantity.unsqueeze(0)).detach().squeeze() / (self.domain.dy**2)
 
     def solve_step(self):
         
