@@ -133,7 +133,7 @@ class NumericalSolver:
         v_updated = self.domain.v + dv
 
         #
-        # Sedimentary bed elevation
+        # Sedimentary bed elevation S
         #
 
         # The topographic diffusion term requires extra attention
@@ -158,6 +158,17 @@ class NumericalSolver:
         S_updated = self.domain.S + dS
 
         #
+        # Vegetation stem density B
+        #
+
+        dB_dt = self.domain.r * self.domain.B * (1.0 - (self.domain.B / self.domain.k))*(self.domain.Qq / (self.domain.Qq + he)) \
+                - self.domain.EB * self.domain.B * tau_b_per_rho + self.domain.DB * (self.d2_dx2(self.domain.B) + self.d2_dy2(self.domain.B))
+
+        dB = dB_dt * self.dt
+
+        B_updated = self.domain.B + dB
+
+        #
         # Enforce boundary conditions
         #
 
@@ -172,6 +183,7 @@ class NumericalSolver:
         self.domain.S = S_updated
         self.domain.u = u_updated
         self.domain.v = v_updated
+        self.domain.B = B_updated
 
 
 

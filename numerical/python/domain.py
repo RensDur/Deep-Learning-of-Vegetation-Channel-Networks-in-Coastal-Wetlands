@@ -34,6 +34,10 @@ class Domain:
         self.Qs = 6e-4 # water layer thickness at which sediment input is halved
         self.Es = 2.5e-4 # Sediment erosion rate
         self.pE = 0.9 # Fraction by which sediment erosion is reduced when vegetation is at carrying capacity
+        self.r = 3.2e-8 # Intrinsic plant growth rate (=1 per year)
+        self.Qq = 0.02 # Water layer thickness at which vegetation growth is halved
+        self.EB = 1e-5 # Vegetation erosion rate
+        self.DB = 6e-9 # Vegetation diffusivity
 
 
         # Domain properties
