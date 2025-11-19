@@ -24,8 +24,16 @@ class NumericalSolver:
         # Timestep
         self.dt = 0.005
 
+        # Parepare torch models
+        self.dx_kernel = torch.tensor([[[[0, 0, 0], [-1, 0, 1], [0, 0, 0]]]], dtype=torch.float32, device=self.device)
+        self.dx_conv = nn.Conv2d(1, 1, kernel_size=3, padding=1, bias=False).to(self.device)
+        self.dx_conv.weight = torch.nn.Parameter(dx_kernel)
 
 
+    def d_dx(self, quantity):
+        # Pack and unpack the 'quantity' tensor to match expected size by the convolution,
+        # then divide by twice the dx of our domain, because we take the derivative over this cell, using both neighoburs.
+        return dx_conv(quantity.unsqueeze(0)).detach().squeeze() / (2*self.domain.dx)
 
     def solve_step(self):
         
