@@ -11,7 +11,7 @@ plt.ion()
 # Create subplots
 figure, (axLeft, axRight) = plt.subplots(1, 2, figsize=(20, 10))
 water_thickness_plot = axLeft.imshow(solver.domain.get_h(), cmap="plasma", vmin=0.95, vmax=1.05)
-momentum_plot = axRight.imshow(solver.domain.get_h(), cmap="plasma", vmin=-0.5, vmax=0.5)
+momentum_plot = axRight.imshow(solver.domain.get_h(), cmap="plasma", vmin=-0.2, vmax=0.2)
 
 plt.colorbar(water_thickness_plot)
 plt.colorbar(momentum_plot)
