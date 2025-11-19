@@ -18,7 +18,7 @@ class NumericalSolver:
 
         # Domain
         self.domain = Domain(200, 200, 0.05)
-        self.domain.init_preset_gaussian_wave(5, 5, 1, 1)
+        self.domain.init_preset_gaussian_wave(5, 0, 1, 1)
         self.domain.to(self.device)
 
         # Timestep
@@ -114,14 +114,22 @@ class NumericalSolver:
         self.domain.v = self.domain.v + dv
 
         #
-        # Enforce boundary conditions
+        # Enforce boundary conditions on u and v
         #
 
-        # dv must be zero or positive on the top boundary
-        self.domain.v[0, :] = torch.clamp(self.domain.v[0, :], min=0)
-        self.domain.v[-1, :] = torch.clamp(self.domain.v[-1, :], max=0)
-        self.domain.u[:, 0] = torch.clamp(self.domain.u[:, 0], min=0)
-        self.domain.u[:, -1] = torch.clamp(self.domain.u[:, -1], max=0)
+        # At the open outflow boundary, the constant gradient in u is discretized as follows
+        self.domain.u[:, -1] = 2*self.domain.u[:, -2] - self.domain.u[:, -3]
+        self.domain.v[:, -1] = 2*self.domain.v[:, -2] - self.domain.v[:, -3]
+
+        # All other boundaries function as solid walls
+        self.domain.u[:, 0] = -self.domain.u[:, 1]
+        self.domain.v[:, 0] = self.domain.v[:, 1]
+
+        self.domain.u[0, :] = self.domain.u[1, :]
+        self.domain.v[0, :] = -self.domain.v[1, :]
+
+        self.domain.u[-1, :] = self.domain.u[-2, :]
+        self.domain.v[-1, :] = -self.domain.v[-2, :]
 
         #
         # Water Layer Thickness
@@ -187,6 +195,29 @@ class NumericalSolver:
         self.domain.h = h_updated
         self.domain.S = S_updated
         self.domain.B = B_updated
+
+        #
+        # Enforce boundary conditions on h, S and B
+        #
+
+        # Open flow boundary
+        self.domain.h[:, -1] = self.domain.h[:, -2]
+        self.domain.S[:, -1] = self.domain.S[:, -2]
+        self.domain.B[:, -1] = self.domain.B[:, -2]
+
+        # Walls
+        self.domain.h[:, 0] = self.domain.h[:, 1]
+        self.domain.S[:, 0] = self.domain.S[:, 1]
+        self.domain.B[:, 0] = self.domain.B[:, 1]
+
+        self.domain.h[0, :] = self.domain.h[1, :]
+        self.domain.S[0, :] = self.domain.S[1, :]
+        self.domain.B[0, :] = self.domain.B[1, :]
+
+        self.domain.h[-1, :] = self.domain.h[-2, :]
+        self.domain.S[-1, :] = self.domain.S[-2, :]
+        self.domain.B[-1, :] = self.domain.B[-2, :]
+
 
 
 
