@@ -98,8 +98,33 @@ class NumericalSolver:
         dv_dx = self.d_dx(self.domain.v)
         dv_dy = self.d_dy(self.domain.v)
 
+        d2u_dx2 = self.d2_dx2(self.domain.u)
+        d2u_dy2 = self.d2_dy2(self.domain.u)
+
+        d2v_dx2 = self.d2_dx2(self.domain.v)
+        d2v_dy2 = self.d2_dy2(self.domain.v)
+
+        # Compute bed roughness
+        n = self.domain.nb + (self.domain.nv - self.domain.nb) * (self.domain.B / self.domain.k)
+
+        # Compute Chezy coefficient using Manning's formulation
+        Cz = (1.0 / n) * torch.pow(self.domain.h, 1.0/6.0)
+
+        # Bed shear stress components in x and y direction
+        bed_shear_stress_precalc = self.domain.grav/torch.pow(Cz, 2.0) * torch.pow(self.domain.u * self.domain.u + self.domain.v * self.domain.v, 0.5)
+        tau_bx_per_rho = bed_shear_stress_precalc * self.domain.u
+        tau_by_per_rho = bed_shear_stress_precalc * self.domain.v
+
         du_dt = -self.domain.grav * deta_dx - self.domain.u * du_dx - self.domain.v * du_dy
         dv_dt = -self.domain.grav * deta_dy - self.domain.u * dv_dx - self.domain.v * dv_dy
+
+        # Add effects of bed friction
+        du_dt -= tau_bx_per_rho / self.domain.h
+        dv_dt -= tau_by_per_rho / self.domain.h
+
+        # Add effects of turbulent mixing
+        du_dt += self.domain.Du * (d2u_dx2 + d2u_dy2)
+        dv_dt += self.domain.Du * (d2v_dx2 + d2v_dy2)
 
         du = du_dt * self.dt
         dv = dv_dt * self.dt

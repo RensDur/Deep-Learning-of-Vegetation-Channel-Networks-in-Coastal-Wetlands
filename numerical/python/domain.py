@@ -25,6 +25,9 @@ class Domain:
         self.grav = 9.81
         self.rho = 1.0 # Water density
         self.Du = 0.5 # Turbulent Eddy velocity
+        self.nb = 0.016 # bed roughness for bare land
+        self.nv = 0.2 # bed roughness for vegetated land
+        self.k = 1500 # Vegetation carrying capacity
 
         # Domain properties
         self.dx = meter_per_cell
@@ -54,6 +57,7 @@ class Domain:
         self.S = self.S.to(device)
         self.u = self.u.to(device)
         self.v = self.v.to(device)
+        self.B = self.B.to(device)
 
     def get_h(self):
         return self.h.cpu().numpy()
