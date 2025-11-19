@@ -14,13 +14,13 @@ class Domain:
         # S: Sediment bed
         # u: shoreward depth-averaged flow velocity
         # v: alongshore depth-averaged flow velocity
-        self.h = torch.zeros(self.height, self.width)
-        self.S = torch.zeros(self.height, self.width)
+        self.h = torch.ones(self.height, self.width)
+        self.S = torch.ones(self.height, self.width)
         self.u = torch.zeros(self.height, self.width)
         self.v = torch.zeros(self.height, self.width)
 
-        self.Hin = 0
-        self.Hc = 1e-5
+        self.Hin = 1e-5
+        self.Hc = 1e-3
         self.grav = 9.81
 
         # Domain properties
@@ -39,7 +39,7 @@ class Domain:
 
         A = 1 / (2*math.pi * x_sig * y_sig * (1-correlation**2)**0.5)
 
-        self.h[:, :] = A * torch.exp(
+        self.h[:, :] = 1 + A * torch.exp(
             - (1/(2*(1-correlation**2))) * (((x-x_mu)/x_sig)**2 - 2*correlation*((x-x_mu)/x_sig)*((y-y_mu)/y_sig) + ((y-y_mu)/y_sig)**2)
         )
 
@@ -53,4 +53,7 @@ class Domain:
         self.v = self.v.to(device)
 
     def get_h(self):
-        return self.h.clone().cpu().numpy()
+        return self.h.cpu().numpy()
+
+    def get_u(self):
+        return self.u.cpu().numpy()
