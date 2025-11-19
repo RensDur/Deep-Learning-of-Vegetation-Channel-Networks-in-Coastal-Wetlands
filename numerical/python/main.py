@@ -38,7 +38,7 @@ figure.canvas.mpl_connect('close_event', __on_figure_close)
 
 while running:
 
-    for _ in range(1000):
+    for _ in range(100):
         solver.solve_step()
 
     water_thickness_plot.set_data(solver.domain.get_h())

@@ -18,11 +18,11 @@ class NumericalSolver:
 
         # Domain
         self.domain = Domain(200, 200, 0.05)
-        self.domain.init_preset_gaussian_wave(10, 10, 1, 1)
+        self.domain.init_preset_gaussian_wave(5, 5, 1, 1)
         self.domain.to(self.device)
 
         # Timestep
-        self.dt = 0.0001
+        self.dt = 0.0005
 
         # Parepare torch models
         self.dx_kernel = torch.tensor([[[[0, 0, 0], [-1, 0, 1], [0, 0, 0]]]], dtype=torch.float32, device=self.device)
