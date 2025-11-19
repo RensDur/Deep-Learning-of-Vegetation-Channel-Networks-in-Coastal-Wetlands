@@ -38,6 +38,7 @@ class Domain:
         self.Qq = 0.02 # Water layer thickness at which vegetation growth is halved
         self.EB = 1e-5 # Vegetation erosion rate
         self.DB = 6e-9 # Vegetation diffusivity
+        self.morphological_acc_factor = 44712 # Morphological acceleration factor, required for S and B
 
 
         # Domain properties

@@ -61,26 +61,6 @@ class NumericalSolver:
         return self.dy2_conv(quantity.unsqueeze(0)).detach().squeeze() / (self.domain.dy**2)
 
     def solve_step(self):
-        
-        # Compute uh and vh
-        uh = self.domain.u * self.domain.h
-        vh = self.domain.v * self.domain.h
-
-        # Convolution with 3x3 kernel and padding
-        # to compute d(uh)/dx and d(vh)/dy
-        duh_dx = self.d_dx(uh)
-
-        # Divide dvhy by dy to obtain d(vh)/dy
-        dvh_dy = self.d_dy(vh)
-
-        # Compute dh/dt
-        dh_dt = -duh_dx - dvh_dy #+ self.domain.Hin
-
-        # Multiply by timestep to obtain dh and compute new h
-        dh = dh_dt * self.dt
-
-        # Wetting-drying
-        h_updated = torch.clamp(self.domain.h + dh, min=self.domain.Hc)
 
         #
         # Momentum equations
@@ -129,8 +109,43 @@ class NumericalSolver:
         du = du_dt * self.dt
         dv = dv_dt * self.dt
 
-        u_updated = self.domain.u + du
-        v_updated = self.domain.v + dv
+        # Immediately update both u and v fields, before computing updates for h, S and B
+        self.domain.u = self.domain.u + du
+        self.domain.v = self.domain.v + dv
+
+        #
+        # Enforce boundary conditions
+        #
+
+        # dv must be zero or positive on the top boundary
+        self.domain.v[0, :] = torch.clamp(self.domain.v[0, :], min=0)
+        self.domain.v[-1, :] = torch.clamp(self.domain.v[-1, :], max=0)
+        self.domain.u[:, 0] = torch.clamp(self.domain.u[:, 0], min=0)
+        self.domain.u[:, -1] = torch.clamp(self.domain.u[:, -1], max=0)
+
+        #
+        # Water Layer Thickness
+        #
+
+        # Compute uh and vh
+        uh = self.domain.u * self.domain.h
+        vh = self.domain.v * self.domain.h
+
+        # Convolution with 3x3 kernel and padding
+        # to compute d(uh)/dx and d(vh)/dy
+        duh_dx = self.d_dx(uh)
+
+        # Divide dvhy by dy to obtain d(vh)/dy
+        dvh_dy = self.d_dy(vh)
+
+        # Compute dh/dt
+        dh_dt = -duh_dx - dvh_dy  # + self.domain.Hin
+
+        # Multiply by timestep to obtain dh and compute new h
+        dh = dh_dt * self.dt
+
+        # Wetting-drying
+        h_updated = torch.clamp(self.domain.h + dh, min=self.domain.Hc)
 
         #
         # Sedimentary bed elevation S
@@ -153,7 +168,7 @@ class NumericalSolver:
         # Compute dS_dt
         dS_dt = self.domain.Sin * (he / (self.domain.Qs + he)) - self.domain.Es*(1.0 - self.domain.pE * (self.domain.B / self.domain.k)) * self.domain.S * tau_b_per_rho + topographic_diffusion_term
 
-        dS = dS_dt * self.dt
+        dS = dS_dt * self.dt * self.domain.morphological_acc_factor
 
         S_updated = self.domain.S + dS
 
@@ -164,25 +179,13 @@ class NumericalSolver:
         dB_dt = self.domain.r * self.domain.B * (1.0 - (self.domain.B / self.domain.k))*(self.domain.Qq / (self.domain.Qq + he)) \
                 - self.domain.EB * self.domain.B * tau_b_per_rho + self.domain.DB * (self.d2_dx2(self.domain.B) + self.d2_dy2(self.domain.B))
 
-        dB = dB_dt * self.dt
+        dB = dB_dt * self.dt * self.domain.morphological_acc_factor
 
         B_updated = self.domain.B + dB
-
-        #
-        # Enforce boundary conditions
-        #
-
-        # dv must be zero or positive on the top boundary
-        v_updated[0, :] = torch.clamp(v_updated[0, :], min=0)
-        v_updated[-1, :] = torch.clamp(v_updated[-1, :], max=0)
-        u_updated[:, 0] = torch.clamp(u_updated[:, 0], min=0)
-        u_updated[:, -1] = torch.clamp(u_updated[:, -1], max=0)
 
         # Update the domain
         self.domain.h = h_updated
         self.domain.S = S_updated
-        self.domain.u = u_updated
-        self.domain.v = v_updated
         self.domain.B = B_updated
 
 
