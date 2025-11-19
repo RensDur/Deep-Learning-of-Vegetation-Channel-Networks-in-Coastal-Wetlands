@@ -133,6 +133,31 @@ class NumericalSolver:
         v_updated = self.domain.v + dv
 
         #
+        # Sedimentary bed elevation
+        #
+
+        # The topographic diffusion term requires extra attention
+        Ds = self.domain.D0 * (1.0 - self.domain.pD * (self.domain.B / self.domain.k))
+
+        dS_dx = self.d_dx(self.domain.S)
+        dS_dy = self.d_dy(self.domain.S)
+
+        topographic_diffusion_term = self.d_dx(Ds * dS_dx) + self.d_dy(Ds * dS_dy)
+
+        # Effective water layer thickness he
+        he = self.domain.h - self.domain.Hc
+
+        # Compute tau_b_per_rho
+        tau_b_per_rho = self.domain.grav/torch.pow(Cz, 2.0) * (self.domain.u * self.domain.u + self.domain.v * self.domain.v)
+
+        # Compute dS_dt
+        dS_dt = self.domain.Sin * (he / (self.domain.Qs + he)) - self.domain.Es*(1.0 - self.domain.pE * (self.domain.B / self.domain.k)) * self.domain.S * tau_b_per_rho + topographic_diffusion_term
+
+        dS = dS_dt * self.dt
+
+        S_updated = self.domain.S + dS
+
+        #
         # Enforce boundary conditions
         #
 
@@ -144,6 +169,7 @@ class NumericalSolver:
 
         # Update the domain
         self.domain.h = h_updated
+        self.domain.S = S_updated
         self.domain.u = u_updated
         self.domain.v = v_updated
 

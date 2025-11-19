@@ -28,6 +28,13 @@ class Domain:
         self.nb = 0.016 # bed roughness for bare land
         self.nv = 0.2 # bed roughness for vegetated land
         self.k = 1500 # Vegetation carrying capacity
+        self.D0 = 1e-7 # Sediment diffusivity in absence of vegetation
+        self.pD = 0.99 # fraction by which sediment diffusivity is reduced when vegetation is at carrying capacity
+        self.Sin = 5e-9 # Maximum sediment input rate
+        self.Qs = 6e-4 # water layer thickness at which sediment input is halved
+        self.Es = 2.5e-4 # Sediment erosion rate
+        self.pE = 0.9 # Fraction by which sediment erosion is reduced when vegetation is at carrying capacity
+
 
         # Domain properties
         self.dx = meter_per_cell
