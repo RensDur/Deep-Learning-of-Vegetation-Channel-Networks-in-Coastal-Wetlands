@@ -14,16 +14,17 @@ class Domain:
         # S: Sediment bed
         # u: shoreward depth-averaged flow velocity
         # v: alongshore depth-averaged flow velocity
-        self.h = torch.ones(self.height, self.width)
-        self.S = torch.ones(self.height, self.width)
+        self.h = torch.zeros(self.height, self.width)
+        self.S = torch.zeros(self.height, self.width)
         self.u = torch.zeros(self.height, self.width)
         self.v = torch.zeros(self.height, self.width)
         self.B = torch.zeros(self.height, self.width)
 
         self.Hin = 1e-5
         self.Hc = 1e-3
+        self.H0 = 0.02 # Initial water thickness
         self.grav = 9.81
-        self.rho = 1.0 # Water density
+        self.rho = 1000 # Water density
         self.Du = 0.5 # Turbulent Eddy velocity
         self.nb = 0.016 # bed roughness for bare land
         self.nv = 0.2 # bed roughness for vegetated land
@@ -39,6 +40,7 @@ class Domain:
         self.EB = 1e-5 # Vegetation erosion rate
         self.DB = 6e-9 # Vegetation diffusivity
         self.morphological_acc_factor = 44712 # Morphological acceleration factor, required for S and B
+        self.pEst = 0.002 # Probability of vegetation seedling establishment
 
 
         # Domain properties
@@ -61,6 +63,21 @@ class Domain:
             - (1/(2*(1-correlation**2))) * (((x-x_mu)/x_sig)**2 - 2*correlation*((x-x_mu)/x_sig)*((y-y_mu)/y_sig) + ((y-y_mu)/y_sig)**2)
         )
 
+    def initialize(self):
+        # Sedimentary elevation is zero everywhere
+        self.S[:, :] = 0
+
+        # Flow velocities are zero everywhere
+        self.u[:, :] = 0
+        self.v[:, :] = 0
+
+        # Uniform water thickness H0
+        self.h[:, :] = self.H0
+
+        # Vegetation density is zero everywhere, except for some randomly placed tussocks
+        self.B[:, :] = 0
+        self.B[torch.where(torch.rand(self.height, self.width) < self.pEst)] = self.k
+
     #
     # MEMORY MANAGEMENT
     #
@@ -73,6 +90,12 @@ class Domain:
 
     def get_h(self):
         return self.h.cpu().numpy()
+
+    def get_S(self):
+        return self.S.cpu().numpy()
+
+    def get_B(self):
+        return self.B.cpu().numpy()
 
     def get_u(self):
         return self.u.cpu().numpy()

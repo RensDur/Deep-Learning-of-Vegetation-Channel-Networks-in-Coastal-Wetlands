@@ -10,15 +10,14 @@ plt.ion()
 
 # Create subplots
 figure, (axLeft, axRight) = plt.subplots(1, 2, figsize=(20, 10))
-water_thickness_plot = axLeft.imshow(solver.domain.get_h(), cmap="Blues", vmin=0.95, vmax=1.1)
-momentum_plot = axRight.imshow(solver.domain.get_h(), cmap="Greens", vmin=-0.5, vmax=0.5)
 
-plt.colorbar(water_thickness_plot)
-plt.colorbar(momentum_plot)
+sediment_plot_left = axLeft.imshow(solver.domain.get_S(), cmap="gray", vmin=0, vmax=0.2)
+sediment_plot_right = axRight.imshow(solver.domain.get_S(), cmap="gray", vmin=0, vmax=0.2)
+vegetation_plot_right = axRight.imshow(solver.domain.get_B(), cmap="YlGn", vmin=0, vmax=solver.domain.k, alpha=0.8)
 
 # setting title
-axLeft.set(title="Water layer thickness")
-axRight.set(title="U Momentum")
+axLeft.set(title="Sediment bed")
+axRight.set(title="Sediment bed with vegetation")
 
 # setting x-axis label and y-axis label
 axLeft.set(xlabel="Along shore", ylabel="Cross shore")
@@ -41,8 +40,9 @@ while running:
     for _ in range(100):
         solver.solve_step()
 
-    water_thickness_plot.set_data(solver.domain.get_h())
-    momentum_plot.set_data(solver.domain.get_u())
+    sediment_plot_left.set_data(solver.domain.get_S())
+    sediment_plot_right.set_data(solver.domain.get_S())
+    vegetation_plot_right.set_data(solver.domain.get_B())
 
     # Plot the domain (update existing plot)
     # Draw updated values

@@ -17,12 +17,12 @@ class NumericalSolver:
         print(f"Using torch device '{self.device}'")
 
         # Domain
-        self.domain = Domain(200, 200, 0.05)
-        self.domain.init_preset_gaussian_wave(5, 5, 1, 1)
+        self.domain = Domain(200, 200, 0.5)
+        self.domain.initialize()
         self.domain.to(self.device)
 
         # Timestep
-        self.dt = 0.0005
+        self.dt = 0.0125
 
         # Parepare torch models
         self.dx_kernel = torch.tensor([[[[0, 0, 0], [-1, 0, 1], [0, 0, 0]]]], dtype=torch.float32, device=self.device)
@@ -139,7 +139,7 @@ class NumericalSolver:
         dvh_dy = self.d_dy(vh)
 
         # Compute dh/dt
-        dh_dt = -duh_dx - dvh_dy  # + self.domain.Hin
+        dh_dt = -duh_dx - dvh_dy + self.domain.Hin
 
         # Multiply by timestep to obtain dh and compute new h
         dh = dh_dt * self.dt
