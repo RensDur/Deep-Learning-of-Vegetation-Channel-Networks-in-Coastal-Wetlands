@@ -70,4 +70,4 @@ class CompressedNumericalSolver:
         d2_dx2 = self.d2_dx2(self.domain.data)
         d2_dy2 = self.d2_dy2(self.domain.data)
 
-        
+
