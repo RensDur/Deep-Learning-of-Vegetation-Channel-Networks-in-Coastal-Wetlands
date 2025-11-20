@@ -17,7 +17,7 @@ class NumericalSolver:
         print(f"Using torch device '{self.device}'")
 
         # Domain
-        self.domain = Domain(200, 200, 0.5)
+        self.domain = Domain(500, 500, 0.5)
         self.domain.initialize()
         self.domain.to(self.device)
 
