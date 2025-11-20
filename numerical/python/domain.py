@@ -99,3 +99,6 @@ class Domain:
 
     def get_u(self):
         return self.u.cpu().numpy()
+
+    def get_v(self):
+        return self.v.cpu().numpy()

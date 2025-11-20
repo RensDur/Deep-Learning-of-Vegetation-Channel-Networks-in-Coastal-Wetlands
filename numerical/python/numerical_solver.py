@@ -23,6 +23,7 @@ class NumericalSolver:
 
         # Timestep
         self.dt = 0.0125
+        self.t = 0
 
         # Parepare torch models
         self.dx_kernel = torch.tensor([[[[0, 0, 0], [-1, 0, 1], [0, 0, 0]]]], dtype=torch.float32, device=self.device)
@@ -217,6 +218,9 @@ class NumericalSolver:
         self.domain.h[-1, :] = self.domain.h[-2, :]
         self.domain.S[-1, :] = self.domain.S[-2, :]
         self.domain.B[-1, :] = self.domain.B[-2, :]
+
+        # Update the time-point
+        self.t += self.dt
 
 
 
