@@ -203,7 +203,7 @@ class NumericalSolver:
 
         # Open flow boundary
         self.domain.h[:, -1] = self.domain.h[:, -2]
-        self.domain.S[:, -1] = self.domain.S[:, -2]
+        self.domain.S[:, -1] = 0
         self.domain.B[:, -1] = self.domain.B[:, -2]
 
         # Walls
