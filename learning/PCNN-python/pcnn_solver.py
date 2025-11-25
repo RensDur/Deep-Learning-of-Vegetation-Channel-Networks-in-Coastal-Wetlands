@@ -108,10 +108,79 @@ class PCNNSolver:
     def loss_function(self, x):
         return torch.pow(x, 2)
 
-    def step_loss(self):
+    #
+    # Loss functions
+    #
+    def compute_loss_continuity(self, h_old, h_new, u_new, v_new):
+        return (h_new - h_old)/self.params.dt + self.d_dx(u_new * h_new) + self.d_dy(v_new * h_new) - self.params.Hin
+
+    def compute_loss_momentum(self, h_new, u_old, u_new, v_old, v_new, S_new, B_new):
+
+        # Compute bed roughness
+        n = self.params.nb + (self.params.nv - self.params.nb) * (B_new / self.params.k)
+
+        # Compute Chezy coefficient using Manning's formulation
+        Cz = (1.0 / n) * torch.pow(h_new, 1.0 / 6.0)
+
+        # Bed shear stress components in x and y direction
+        bed_shear_stress_precalc = self.params.grav / torch.pow(Cz, 2.0) * torch.pow(
+            u_new * u_new + v_new * v_new, 0.5)
+        tau_bx_per_rho = bed_shear_stress_precalc * u_new
+        tau_by_per_rho = bed_shear_stress_precalc * v_new
+
+        loss_u = (u_new - u_old)/self.params.dt + self.params.grav * self.d_dx(h_new + S_new) + u_new * self.d_dx(u_new) + v_new * self.d_dy(u_new) + tau_bx_per_rho / h_new - self.params.Du * (self.d2_dx2(u_new) + self.d2_dy2(u_new))
+
+        loss_v = (v_new - v_old)/self.params.dt + self.params.grav * self.d_dy(h_new + S_new) + u_new * self.d_dx(v_new) + v_new * self.d_dy(v_new) + tau_by_per_rho / h_new - self.params.Du * (self.d2_dx2(v_new) + self.d2_dy2(v_new))
+
+        return loss_u + loss_v
+
+    def compute_loss_sediment(self, h_new, u_new, v_new, S_old, S_new, B_new):
+
+        # Compute bed roughness
+        n = self.params.nb + (self.params.nv - self.params.nb) * (B_new / self.params.k)
+
+        # Compute Chezy coefficient using Manning's formulation
+        Cz = (1.0 / n) * torch.pow(h_new, 1.0 / 6.0)
+
+        # The topographic diffusion term requires extra attention
+        Ds = self.params.D0 * (1.0 - self.params.pD * (B_new / self.params.k))
+
+        topographic_diffusion_term = self.d_dx(Ds * self.d_dx(S_new)) + self.d_dy(Ds * self.d_dy(S_new))
+
+        # Effective water layer thickness he
+        he = h_new - self.params.Hc
+
+        # Compute tau_b_per_rho
+        tau_b_per_rho = self.params.grav / torch.pow(Cz, 2.0) * (
+                    u_new * u_new + v_new * v_new)
+
+        # Compute dS_dt
+        dS_dt = self.params.Sin * (he / (self.params.Qs + he)) - self.params.Es * (1.0 - self.params.pE * (
+                    B_new / self.params.k)) * S_new * tau_b_per_rho + topographic_diffusion_term
+
+        dS = dS_dt * self.dt * self.domain.morphological_acc_factor
+
+        S_updated = self.domain.S + dS
+
+        return
+
+    def solve_step(self):
         h, u, v, S, B = self.dataset.ask()
 
+        # Predict the new domain state by performing a forward pass through the network
+        h_new, u_new, v_new, S_new, B_new = self.net(h, u, v, S, B)
+
+        # Compute the loss of this update step
 
 
+        # compute gradients
+        self.optimizer.zero_grad()
+        loss.backward()
+
+        # Perform an optimization step
+        self.optimizer.step()
+
+        # Recycle the data
+        self.dataset.tell(h_new, u_new, v_new, S_new, B_new)
 
 
