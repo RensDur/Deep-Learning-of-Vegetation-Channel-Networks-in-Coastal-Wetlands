@@ -99,88 +99,164 @@ class PCNNSolver:
     def d2_dy2(self, quantity):
         return self.dy2_conv(quantity) / (self.dataset.dy**2)
 
-    def train(self):
-        """
-        Enable training of this solver
-        """
-        self.net.train()
-
     def loss_function(self, x):
         return torch.pow(x, 2)
 
-    #
-    # Loss functions
-    #
-    def compute_loss_continuity(self, h_old, h_new, u_new, v_new):
-        return (h_new - h_old)/self.params.dt + self.d_dx(u_new * h_new) + self.d_dy(v_new * h_new) - self.params.Hin
+    def train(self):
+        """
+        TRAINING ROUTINE
+        """
 
-    def compute_loss_momentum(self, h_new, u_old, u_new, v_old, v_new, S_new, B_new):
+        # Enable training of the model
+        self.net.train()
 
-        # Compute bed roughness
-        n = self.params.nb + (self.params.nv - self.params.nb) * (B_new / self.params.k)
+        # Training loop:
+        # Start from the most recently finished epoch and train until the configured number
+        # of epochs has been reached.
+        for epoch in range(self.params.load_index, self.params.n_epochs):
+            # Each epoch consists of a configurable number of batches.
+            for i in range(self.params.n_batches_per_epoch):
 
-        # Compute Chezy coefficient using Manning's formulation
-        Cz = (1.0 / n) * torch.pow(h_new, 1.0 / 6.0)
+                # Ask for a batch from the dataset
+                h_old, u_old, v_old, S_old, B_old = self.dataset.ask()
 
-        # Bed shear stress components in x and y direction
-        bed_shear_stress_precalc = self.params.grav / torch.pow(Cz, 2.0) * torch.pow(
-            u_new * u_new + v_new * v_new, 0.5)
-        tau_bx_per_rho = bed_shear_stress_precalc * u_new
-        tau_by_per_rho = bed_shear_stress_precalc * v_new
+                # TODO: MAC grid
 
-        loss_u = (u_new - u_old)/self.params.dt + self.params.grav * self.d_dx(h_new + S_new) + u_new * self.d_dx(u_new) + v_new * self.d_dy(u_new) + tau_bx_per_rho / h_new - self.params.Du * (self.d2_dx2(u_new) + self.d2_dy2(u_new))
+                # Predict the new domain state by performing a forward pass through the network
+                h_new, u_new, v_new, S_new, B_new = self.net(h_old, u_old, v_old, S_old, B_old)
 
-        loss_v = (v_new - v_old)/self.params.dt + self.params.grav * self.d_dy(h_new + S_new) + u_new * self.d_dx(v_new) + v_new * self.d_dy(v_new) + tau_by_per_rho / h_new - self.params.Du * (self.d2_dx2(v_new) + self.d2_dy2(v_new))
+                # Choose between explicit, implicit or IMEX integration schemes
+                if self.params.integrator == "explicit":
+                    h = h_old
+                    u = u_old
+                    v = v_old
+                    S = S_old
+                    B = B_old
+                elif self.params.integrator == "implicit":
+                    h = h_new
+                    u = u_new
+                    v = v_new
+                    S = S_new
+                    B = B_new
+                else: # "imex", default
+                    h = (h_new + h_old) / 2
+                    u = (u_new + u_old) / 2
+                    v = (v_new + v_old) / 2
+                    S = (S_new + S_old) / 2
+                    B = (B_new + B_old) / 2
 
-        return loss_u + loss_v
+                #
+                # COMPUTE LOSS
+                #
 
-    def compute_loss_sediment(self, h_new, u_new, v_new, S_old, S_new, B_new):
+                # 0. Precompute quantities for improved readability
+                dh_dt = (h_new - h_old) / self.params.dt
+                du_dt = (u_new - u_old) / self.params.dt
+                dv_dt = (v_new - v_old) / self.params.dt
+                dS_dt = (S_new - S_old) / self.params.dt
+                dB_dt = (B_new - B_old) / self.params.dt
 
-        # Compute bed roughness
-        n = self.params.nb + (self.params.nv - self.params.nb) * (B_new / self.params.k)
+                # Compute bed roughness
+                n = self.params.nb + (self.params.nv - self.params.nb) * (B / self.params.k)
 
-        # Compute Chezy coefficient using Manning's formulation
-        Cz = (1.0 / n) * torch.pow(h_new, 1.0 / 6.0)
+                # Compute Chezy coefficient using Manning's formulation
+                Cz = (1.0 / n) * torch.pow(h, 1.0 / 6.0)
 
-        # The topographic diffusion term requires extra attention
-        Ds = self.params.D0 * (1.0 - self.params.pD * (B_new / self.params.k))
+                # Bed shear stress components in x and y direction
+                bed_shear_stress_precalc = self.params.grav / torch.pow(Cz, 2.0) * torch.pow(u*u + v*v, 0.5)
+                tau_bx_per_rho = bed_shear_stress_precalc * u
+                tau_by_per_rho = bed_shear_stress_precalc * v
+                tau_b_per_rho = self.params.grav / torch.pow(Cz, 2.0) * (u*u + v*v)
 
-        topographic_diffusion_term = self.d_dx(Ds * self.d_dx(S_new)) + self.d_dy(Ds * self.d_dy(S_new))
+                # The topographic diffusion term requires extra attention
+                Ds = self.params.D0 * (1.0 - self.params.pD * (B / self.params.k))
 
-        # Effective water layer thickness he
-        he = h_new - self.params.Hc
+                topographic_diffusion_term = self.d_dx(Ds * self.d_dx(S)) + self.d_dy(Ds * self.d_dy(S))
 
-        # Compute tau_b_per_rho
-        tau_b_per_rho = self.params.grav / torch.pow(Cz, 2.0) * (
-                    u_new * u_new + v_new * v_new)
+                # Effective water layer thickness he
+                he = h - self.params.Hc
 
-        # Compute dS_dt
-        dS_dt = self.params.Sin * (he / (self.params.Qs + he)) - self.params.Es * (1.0 - self.params.pE * (
-                    B_new / self.params.k)) * S_new * tau_b_per_rho + topographic_diffusion_term
+                # 1. Continuity loss
+                loss_h = torch.mean(self.loss_function(
+                    dh_dt + self.d_dx(u * h) + self.d_dy(v * h) - self.params.Hin
+                ), dim=(1,2,3))
 
-        dS = dS_dt * self.dt * self.domain.morphological_acc_factor
+                # 2. Momentum loss
+                loss_u = du_dt + self.params.grav * self.d_dx(h + S) + u * self.d_dx(u) + v * self.d_dy(u)
+                loss_v = dv_dt + self.params.grav * self.d_dy(h + S) + u * self.d_dx(v) + v * self.d_dy(v)
 
-        S_updated = self.domain.S + dS
+                # Add bed friction effects
+                loss_u += tau_bx_per_rho / h
+                loss_v += tau_by_per_rho / h
 
-        return
+                # Add turbulent mixing effects
+                loss_u -= self.params.Du * (self.d2_dx2(u) + self.d2_dy2(u))
+                loss_v -= self.params.Du * (self.d2_dx2(v) + self.d2_dy2(v))
 
-    def solve_step(self):
-        h, u, v, S, B = self.dataset.ask()
+                # Apply loss function and compute mean
+                loss_u = torch.mean(self.loss_function(loss_u), dim=(1,2,3))
+                loss_v = torch.mean(self.loss_function(loss_v), dim=(1,2,3))
 
-        # Predict the new domain state by performing a forward pass through the network
-        h_new, u_new, v_new, S_new, B_new = self.net(h, u, v, S, B)
+                # 3. Sediment loss
+                loss_S = torch.mean(self.loss_function(
+                    dS_dt \
+                    - self.params.Sin * (he / (self.params.Qs + he)) \
+                    + self.params.Es * (1.0 - self.params.pE * (B / self.params.k)) * S * tau_b_per_rho \
+                    - topographic_diffusion_term
+                ), dim=(1,2,3))
 
-        # Compute the loss of this update step
+                # 4. Vegetation stem density loss
+                loss_B = torch.mean(self.loss_function(
+                    dB_dt \
+                    - self.params.r * B * (1.0 - (B / self.params.k)) * (self.params.Qq / (self.params.Qq + he)) \
+                    + self.params.EB * B * tau_b_per_rho \
+                    - self.params.DB * (self.d2_dx2(B) + self.d2_dy2(B))
+                ), dim=(1,2,3))
 
+                # 5. Boundary loss
+                loss_bound = 0
 
-        # compute gradients
-        self.optimizer.zero_grad()
-        loss.backward()
+                # Compute combined loss
+                loss = torch.mean(torch.log(
+                    self.params.loss_h * loss_h \
+                    + self.params.loss_momentum * (loss_u + loss_v) \
+                    + self.params.loss_S * loss_S \
+                    + self.params.loss_B * loss_B \
+                    + self.params.loss_bound * loss_bound
+                ))
 
-        # Perform an optimization step
-        self.optimizer.step()
+                # Compute gradients
+                self.optimizer.zero_grad()
+                loss.backward()
 
-        # Recycle the data
-        self.dataset.tell(h_new, u_new, v_new, S_new, B_new)
+                # Perform an optimization step
+                self.optimizer.step()
 
+                # TODO: Quantity normalisation? Originally done to normalize pressure and vector potential a
+
+                # Recycle the data
+                self.dataset.tell(h_new, u_new, v_new, S_new, B_new)
+
+                # log training metrics
+                if i % 10 == 0:
+                    loss = loss.cpu().numpy()
+                    loss_h = loss_h.cpu().numpy()
+                    loss_u = loss_u.cpu().numpy()
+                    loss_v = loss_v.cpu().numpy()
+                    loss_S = loss_S.cpu().numpy()
+                    loss_B = loss_B.cpu().numpy()
+                    self.logger.log(f"loss_{self.params.loss}", loss, epoch * self.params.n_batches_per_epoch + i)
+                    self.logger.log(f"loss_h_{self.params.loss}", loss_h, epoch * self.params.n_batches_per_epoch + i)
+                    self.logger.log(f"loss_u_{self.params.loss}", loss_u, epoch * self.params.n_batches_per_epoch + i)
+                    self.logger.log(f"loss_v_{self.params.loss}", loss_v, epoch * self.params.n_batches_per_epoch + i)
+                    self.logger.log(f"loss_S_{self.params.loss}", loss_S, epoch * self.params.n_batches_per_epoch + i)
+                    self.logger.log(f"loss_B_{self.params.loss}", loss_B, epoch * self.params.n_batches_per_epoch + i)
+                    self.logger.log(f"loss_bound_{self.params.loss}", loss_bound, epoch * self.params.n_batches_per_epoch + i)
+
+                    if i % 100 == 0:
+                        print(f"{epoch}: i:{i}: loss: {loss}; loss_bound: {loss_bound}; loss_h: {loss_h}; loss_u: {loss_u}; loss_v: {loss_v}; loss_S: {loss_S}; loss_B: {loss_B};")
+
+            # Save the training state after each epoch
+            if self.params.log:
+                self.logger.save_state(self.net, self.optimizer, epoch + 1)
 

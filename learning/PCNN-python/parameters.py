@@ -36,12 +36,13 @@ def params():
                         help='average sequence length in dataset (default: 5000)')
     parser.add_argument('--dataset_size', default=1000, type=int, help='size of dataset (default: 1000)')
     parser.add_argument('--cuda', default=True, type=str2bool, help='use GPU')
+
     parser.add_argument('--loss_bound', default=20, type=float, help='loss factor for boundary conditions')
-    parser.add_argument('--loss_cont', default=0, type=float, help='loss factor for continuity equation')
-    parser.add_argument('--loss_nav', default=1, type=float, help='loss factor for navier stokes equations')
-    parser.add_argument('--loss_rho', default=10, type=float, help='loss factor for keeping rho fixed')
-    parser.add_argument('--loss_mean_a', default=0, type=float, help='loss factor to keep mean of a around 0')
-    parser.add_argument('--loss_mean_p', default=0, type=float, help='loss factor to keep mean of p around 0')
+    parser.add_argument('--loss_h', default=1, type=float, help='Weight of loss factor theta_0')
+    parser.add_argument('--loss_momentum', default=1, type=float, help='Weight of loss factor theta_1')
+    parser.add_argument('--loss_S', default=1, type=float, help='Weight of loss factor theta_2')
+    parser.add_argument('--loss_B', default=1, type=float, help='Weight of loss factor theta_3')
+
     parser.add_argument('--regularize_grad_p', default=0, type=float,
                         help='regularizer for gradient of p. evt needed for very high reynolds numbers (default: 0)')
     parser.add_argument('--max_speed', default=1, type=float,
