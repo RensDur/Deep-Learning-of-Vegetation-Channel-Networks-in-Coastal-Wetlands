@@ -21,7 +21,7 @@ def params():
     parser = argparse.ArgumentParser(description='train / test a pytorch model to predict frames')
 
     # Training parameters
-    parser.add_argument('--net', default="UNet2", type=str, help='network to train (default: UNet2)',
+    parser.add_argument('--net', default="UNetSWE", type=str, help='network to train (default: UNet2)',
                         choices=["UNet1", "UNet2", "UNet3"])
     parser.add_argument('--n_epochs', default=1000, type=int,
                         help='number of epochs (after each epoch, the model gets saved)')

@@ -214,7 +214,35 @@ class PCNNSolver:
                 ), dim=(1,2,3))
 
                 # 5. Boundary loss
-                loss_bound = 0
+                loss_bound_left = torch.mean(self.loss_function(
+                    u[:, :, :, 0] + u[:, :, :, 1]
+                ))
+                loss_bound_left += torch.mean(self.loss_function(
+                    v[:, :, :, 0] - v[:, :, :, 1]
+                ))
+
+                loss_bound_right = torch.mean(self.loss_function(
+                    u[:, :, :, -1] + u[:, :, :, -2]
+                ))
+                loss_bound_right += torch.mean(self.loss_function(
+                    v[:, :, :, -1] - v[:, :, :, -2]
+                ))
+
+                loss_bound_top = torch.mean(self.loss_function(
+                    u[:, :, 0, :] - u[:, :, 1, :]
+                ))
+                loss_bound_top += torch.mean(self.loss_function(
+                    v[:, :, 0, :] + v[:, :, 1, :]
+                ))
+
+                loss_bound_bottom = torch.mean(self.loss_function(
+                    u[:, :, -1, :] - u[:, :, -2, :]
+                ))
+                loss_bound_bottom += torch.mean(self.loss_function(
+                    v[:, :, -1, :] + v[:, :, -2, :]
+                ))
+
+                loss_bound = loss_bound_left + loss_bound_right + loss_bound_top + loss_bound_bottom
 
                 # Compute combined loss
                 loss = torch.mean(torch.log(
