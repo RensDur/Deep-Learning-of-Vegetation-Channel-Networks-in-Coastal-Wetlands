@@ -36,6 +36,8 @@ def main():
     # Create solver
     solver = pcnn_solver.PCNNSolver(data, params, torch_device)
 
+    solver.train()
+
 
 
 

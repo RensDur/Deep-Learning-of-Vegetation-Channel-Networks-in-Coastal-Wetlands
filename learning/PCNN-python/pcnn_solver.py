@@ -58,7 +58,7 @@ class PCNNSolver:
         #
 
         # First order derivatives
-        self.dx_kernel = torch.Tensor([-0.5,0,0.5], device=self.device).view(1, 1, 1, 3)
+        self.dx_kernel = torch.tensor([-0.5,0,0.5], device=self.device).view(1, 1, 1, 3)
         self.dx_conv = nn.Conv2d(1, 1, kernel_size=(1, 3), padding=(0, 1), padding_mode='replicate', bias=False).to(self.device)
 
         # Copy the weights over to the convolution
@@ -66,20 +66,20 @@ class PCNNSolver:
             self.dx_conv.weight.copy_(self.dx_kernel)
         self.dx_conv.weight.requires_grad_(False)
 
-        self.dy_kernel = torch.Tensor([-0.5,0,0.5], device=self.device).view(1, 1, 3, 1)
+        self.dy_kernel = torch.tensor([-0.5,0,0.5], device=self.device).view(1, 1, 3, 1)
         self.dy_conv = nn.Conv2d(1, 1, kernel_size=(3, 1), padding=(1, 0), padding_mode='replicate', bias=False).to(self.device)
         with torch.no_grad():
             self.dy_conv.weight.copy_(self.dy_kernel)
         self.dy_conv.weight.requires_grad_(False)
 
         # Second order derivatives
-        self.dx2_kernel = torch.Tensor([1, -2, 1], device=self.device).view(1, 1, 1, 3)
+        self.dx2_kernel = torch.tensor([1, -2, 1], device=self.device).view(1, 1, 1, 3)
         self.dx2_conv = nn.Conv2d(1, 1, kernel_size=(1, 3), padding=(0, 1), padding_mode='replicate', bias=False).to(self.device)
         with torch.no_grad():
             self.dx2_conv.weight.copy_(self.dx2_kernel)
         self.dx2_conv.weight.requires_grad_(False)
 
-        self.dy2_kernel = torch.Tensor([1, -2, 1], device=self.device).view(1, 1, 3, 1)
+        self.dy2_kernel = torch.tensor([1, -2, 1], device=self.device).view(1, 1, 3, 1)
         self.dy2_conv = nn.Conv2d(1, 1, kernel_size=(3, 1), padding=(1, 0), padding_mode='replicate', bias=False).to(self.device)
         with torch.no_grad():
             self.dy2_conv.weight.copy_(self.dy2_kernel)
@@ -123,7 +123,10 @@ class PCNNSolver:
                 # TODO: MAC grid
 
                 # Predict the new domain state by performing a forward pass through the network
-                h_new, u_new, v_new, S_new, B_new = self.net(h_old, u_old, v_old, S_old, B_old)
+                h_new, u_new, v_new = self.net(h_old, u_old, v_old)
+
+                S_new = S_old
+                B_new = B_old
 
                 # Choose between explicit, implicit or IMEX integration schemes
                 if self.params.integrator == "explicit":

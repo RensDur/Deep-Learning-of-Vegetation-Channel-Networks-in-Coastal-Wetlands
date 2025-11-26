@@ -40,8 +40,8 @@ def params():
     parser.add_argument('--loss_bound', default=20, type=float, help='loss factor for boundary conditions')
     parser.add_argument('--loss_h', default=1, type=float, help='Weight of loss factor theta_0')
     parser.add_argument('--loss_momentum', default=1, type=float, help='Weight of loss factor theta_1')
-    parser.add_argument('--loss_S', default=1, type=float, help='Weight of loss factor theta_2')
-    parser.add_argument('--loss_B', default=1, type=float, help='Weight of loss factor theta_3')
+    parser.add_argument('--loss_S', default=0, type=float, help='Weight of loss factor theta_2')
+    parser.add_argument('--loss_B', default=0, type=float, help='Weight of loss factor theta_3')
 
     parser.add_argument('--regularize_grad_p', default=0, type=float,
                         help='regularizer for gradient of p. evt needed for very high reynolds numbers (default: 0)')
@@ -113,4 +113,4 @@ def params():
 
 
 def get_description(params):
-    return f"net {params.net}; hs {params.hidden_size}; mu {params.mu}; rho {params.rho}; dt {params.dt};"
+    return f"net {params.net}; hs {params.hidden_size}; dt {params.dt};"
