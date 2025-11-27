@@ -37,7 +37,7 @@ def params():
     parser.add_argument('--dataset_size', default=1000, type=int, help='size of dataset (default: 1000)')
     parser.add_argument('--cuda', default=True, type=str2bool, help='use GPU')
 
-    parser.add_argument('--loss_bound', default=20, type=float, help='loss factor for boundary conditions')
+    parser.add_argument('--loss_bound', default=5, type=float, help='loss factor for boundary conditions')
     parser.add_argument('--loss_h', default=1, type=float, help='Weight of loss factor theta_0')
     parser.add_argument('--loss_momentum', default=1, type=float, help='Weight of loss factor theta_1')
     parser.add_argument('--loss_S', default=0, type=float, help='Weight of loss factor theta_2')
@@ -96,10 +96,10 @@ def params():
     parser.add_argument('--DB', default=6e-9, type=float, help="Vegetation diffusivity")
     parser.add_argument('--morphological_acc_factor', default=44712, type=float, help="Morphological acceleration factor, required for S and B")
     parser.add_argument('--pEst', default=0.002, type=float, help="Probability of vegetation seedling establishment")
-    parser.add_argument('--dt', default=0.0125, type=float, help='timestep of fluid integrator')
+    parser.add_argument('--dt', default=0.01, type=float, help='timestep of fluid integrator')
 
     # Load parameters
-    parser.add_argument('--visualize', default=False, type=bool, help='toggle visualization routine')
+    parser.add_argument('--visualize', default=False, type=str2bool, help='toggle visualization routine')
     parser.add_argument('--load_date_time', default=None, type=str, help='date_time of run to load (default: None)')
     parser.add_argument('--load_index', default=None, type=int, help='index of run to load (default: None)')
     parser.add_argument('--load_optimizer', default=False, type=str2bool,

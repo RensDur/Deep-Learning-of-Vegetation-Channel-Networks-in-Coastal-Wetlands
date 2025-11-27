@@ -377,8 +377,6 @@ class PCNNSolver:
 
                 iter_counter += 1
 
-                time.sleep(1)
-
 
 
 
