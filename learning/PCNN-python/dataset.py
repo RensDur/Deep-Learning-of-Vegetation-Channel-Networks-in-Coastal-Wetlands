@@ -1,6 +1,8 @@
+from statistics import correlation
+
 import torch
 import numpy as np
-
+import math
 
 
 
@@ -25,8 +27,8 @@ class Dataset:
         self.h = torch.zeros(self.dataset_size, 1, self.height, self.width)
         self.u = torch.zeros(self.dataset_size, 1, self.height, self.width)
         self.v = torch.zeros(self.dataset_size, 1, self.height, self.width)
-        self.S = torch.zeros(self.dataset_size, 1, self.height, self.width)
-        self.B = torch.zeros(self.dataset_size, 1, self.height, self.width)
+        # self.S = torch.zeros(self.dataset_size, 1, self.height, self.width)
+        # self.B = torch.zeros(self.dataset_size, 1, self.height, self.width)
 
         # Domain boundaries
         # ==> Future addition
@@ -49,17 +51,34 @@ class Dataset:
         # Uniform water thickness H0
         self.h[indices, 0, :, :] = self.params.H0
 
+        x = torch.linspace(0, self.width * self.dx, self.width)
+        y = torch.linspace(0, self.height * self.dy, self.height)
+        x, y = torch.meshgrid(x, y, indexing='xy')
+
+        x_mu = np.random.uniform(0, self.width * self.dx)
+        y_mu = np.random.uniform(0, self.height * self.dy)
+        x_sig = y_sig = 1
+        correlation = 0
+
+        A = 1 / (2 * math.pi * x_sig * y_sig * (1 - correlation ** 2) ** 0.5)
+
+        self.h[indices, 0, :, :] += A * torch.exp(
+            - (1 / (2 * (1 - correlation ** 2))) * (
+                        ((x - x_mu) / x_sig) ** 2 - 2 * correlation * ((x - x_mu) / x_sig) * ((y - y_mu) / y_sig) + (
+                            (y - y_mu) / y_sig) ** 2)
+        )
+
         # Flow velocities are zero everywhere
         self.u[indices, 0, :, :] = 0
         self.v[indices, 0, :, :] = 0
 
-        # Sedimentary elevation is zero everywhere
-        self.S[indices, 0, :, :] = 0
-
-        # Vegetation density is zero everywhere, except for some randomly placed tussocks
-        mask = torch.zeros_like(self.B, dtype=torch.bool)
-        mask[indices, 0] = torch.rand(len(indices), self.height, self.width) < self.params.pEst
-        self.B[mask] = self.params.k
+        # # Sedimentary elevation is zero everywhere
+        # self.S[indices, 0, :, :] = 0
+        #
+        # # Vegetation density is zero everywhere, except for some randomly placed tussocks
+        # mask = torch.zeros_like(self.B, dtype=torch.bool)
+        # mask[indices, 0] = torch.rand(len(indices), self.height, self.width) < self.params.pEst
+        # self.B[mask] = self.params.k
 
         # Reset time-tracking for each selected environment
         self.t[indices] = 0
@@ -81,10 +100,10 @@ class Dataset:
         return  self.h[self.asked_indices].to(self.device), \
                 self.u[self.asked_indices].to(self.device), \
                 self.v[self.asked_indices].to(self.device), \
-                self.S[self.asked_indices].to(self.device), \
-                self.B[self.asked_indices].to(self.device)
+                # self.S[self.asked_indices].to(self.device), \
+                # self.B[self.asked_indices].to(self.device)
 
-    def tell(self, h, u, v, S, B):
+    def tell(self, h, u, v):
         """
         Return the updated state to the dataset
         :param h: updated h
@@ -98,8 +117,8 @@ class Dataset:
         self.h[self.asked_indices] = h.detach().cpu()
         self.u[self.asked_indices] = u.detach().cpu()
         self.v[self.asked_indices] = v.detach().cpu()
-        self.S[self.asked_indices] = S.detach().cpu()
-        self.B[self.asked_indices] = B.detach().cpu()
+        # self.S[self.asked_indices] = S.detach().cpu()
+        # self.B[self.asked_indices] = B.detach().cpu()
 
         # Update time-tracking
         self.t[self.asked_indices] += self.params.dt
