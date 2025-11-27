@@ -148,6 +148,8 @@ class PCNNSolver:
                     # S = (S_new + S_old) / 2
                     # B = (B_new + B_old) / 2
 
+                S = torch.zeros_like(h).to(self.device)
+
                 #
                 # COMPUTE LOSS
                 #
