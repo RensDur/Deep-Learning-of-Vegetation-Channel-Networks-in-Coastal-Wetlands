@@ -19,15 +19,17 @@ def main():
 
     print(f"Using torch device '{torch_device}'")
 
-    # Initialize randomization seeds
-    torch.manual_seed(0)
-    np.random.seed(0)
-
     # Initialize torch CPU threads
     torch.set_num_threads(8)
 
     # Extract parameters
     params = parameters.params()
+
+    # If visualization is requested through parameter '--visualize'
+    if params.visualize:
+        params.dataset_size = 1
+        params.batch_size = 1
+
     print(f"Parameters: {vars(params)}")
 
     # Create dataset
@@ -36,7 +38,10 @@ def main():
     # Create solver
     solver = pcnn_solver.PCNNSolver(data, params, torch_device)
 
-    solver.train()
+    if params.visualize:
+        solver.visualize()
+    else:
+        solver.train()
 
 
 

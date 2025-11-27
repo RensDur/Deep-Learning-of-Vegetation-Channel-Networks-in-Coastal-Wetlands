@@ -99,6 +99,7 @@ def params():
     parser.add_argument('--dt', default=0.0125, type=float, help='timestep of fluid integrator')
 
     # Load parameters
+    parser.add_argument('--visualize', default=False, type=bool, help='toggle visualization routine')
     parser.add_argument('--load_date_time', default=None, type=str, help='date_time of run to load (default: None)')
     parser.add_argument('--load_index', default=None, type=int, help='index of run to load (default: None)')
     parser.add_argument('--load_optimizer', default=False, type=str2bool,

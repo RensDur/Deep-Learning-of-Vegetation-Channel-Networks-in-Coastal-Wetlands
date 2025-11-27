@@ -55,9 +55,9 @@ class Dataset:
         y = torch.linspace(0, self.height * self.dy, self.height)
         x, y = torch.meshgrid(x, y, indexing='xy')
 
-        x_mu = np.random.uniform(0, self.width * self.dx)
-        y_mu = np.random.uniform(0, self.height * self.dy)
-        x_sig = y_sig = 1
+        x_mu = (self.width * self.dx) / 2 #np.random.uniform(0, self.width * self.dx)
+        y_mu = (self.height * self.dy) / 2 #np.random.uniform(0, self.height * self.dy)
+        x_sig = y_sig = 20
         correlation = 0
 
         A = 1 / (2 * math.pi * x_sig * y_sig * (1 - correlation ** 2) ** 0.5)

@@ -6,6 +6,8 @@ from dataset import Dataset
 from pde_cnn import get_Net
 import parameters
 from Logger import Logger,t_step
+import cv2
+import time
 
 
 
@@ -31,27 +33,6 @@ class PCNNSolver:
         # Torch model
         #
         self.net = get_Net(params).to(self.device)
-
-        #
-        # Optimizer
-        #
-        self.optimizer = Adam(self.net.parameters(), lr=params.lr)
-
-        #
-        # Logger
-        #
-        self.logger = Logger(parameters.get_description(params),use_csv=False,use_tensorboard=params.log)
-        if params.load_latest or params.load_date_time is not None or params.load_index is not None:
-            self.load_logger = Logger(parameters.get_description(params), use_csv=False, use_tensorboard=False)
-            if params.load_optimizer:
-                params.load_date_time, params.load_index = self.logger.load_state(self.net, self.optimizer,
-                                                                             params.load_date_time, params.load_index)
-            else:
-                params.load_date_time, params.load_index = self.logger.load_state(self.net, None, params.load_date_time,
-                                                                             params.load_index)
-            params.load_index = int(params.load_index)
-            print(f"loaded: {params.load_date_time}, {params.load_index}")
-        params.load_index = 0 if params.load_index is None else params.load_index
 
         #
         # Convolution kernels
@@ -106,6 +87,32 @@ class PCNNSolver:
         """
         TRAINING ROUTINE
         """
+
+        # Initialize randomization seeds
+        torch.manual_seed(0)
+        np.random.seed(0)
+
+        #
+        # Optimizer
+        #
+        self.optimizer = Adam(self.net.parameters(), lr=self.params.lr)
+
+        #
+        # Logger
+        #
+        self.logger = Logger(parameters.get_description(self.params), use_csv=False, use_tensorboard=self.params.log)
+        if self.params.load_latest or self.params.load_date_time is not None or self.params.load_index is not None:
+            self.load_logger = Logger(parameters.get_description(self.params), use_csv=False, use_tensorboard=False)
+            if self.params.load_optimizer:
+                self.params.load_date_time, self.params.load_index = self.logger.load_state(self.net, self.optimizer,
+                                                                                  self.params.load_date_time,
+                                                                                  self.params.load_index)
+            else:
+                self.params.load_date_time, self.params.load_index = self.logger.load_state(self.net, None, self.params.load_date_time,
+                                                                                  self.params.load_index)
+            self.params.load_index = int(self.params.load_index)
+            print(f"loaded: {self.params.load_date_time}, {self.params.load_index}")
+        self.params.load_index = 0 if self.params.load_index is None else self.params.load_index
 
         # Enable training of the model
         self.net.train()
@@ -292,4 +299,91 @@ class PCNNSolver:
             # Save the training state after each epoch
             if self.params.log:
                 self.logger.save_state(self.net, self.optimizer, epoch + 1)
+
+
+
+
+    def visualize(self):
+        """
+        VISUALIZING RESULTS
+        """
+
+        # Initialize randomization seeds
+        torch.manual_seed(1)
+        np.random.seed(6)
+
+        #
+        # Logger
+        #
+        self.logger = Logger(parameters.get_description(self.params), use_csv=False, use_tensorboard=False)
+
+        # Load the trained model state
+        date_time, index = self.logger.load_state(self.net, None, datetime=self.params.load_date_time, index=self.params.load_index)
+
+        # Enable evaluation of the model
+        self.net.eval()
+
+        print(f"Loaded {self.params.net}: {date_time}, index: {index}")
+
+        # Setup an OpenCV window
+        cv2.namedWindow('h', cv2.WINDOW_NORMAL)
+
+        FPS = 0
+        quit = False
+
+        with torch.no_grad():
+
+            FPS_Counter = 0
+            iter_counter = 0
+            last_time = time.time()
+
+            # Simulation loop
+            while not quit:
+
+                # Ask for a batch from the dataset
+                h_old, u_old, v_old = self.dataset.ask()
+
+                # TODO: MAC grid
+
+                # Show & print results only once every _ cycles
+                if iter_counter%1 == 0:
+                    print(f"{iter_counter}: FPS={FPS}")
+
+                    FPS_Counter += 1
+                    if time.time() - last_time >= 1:
+                        last_time = time.time()
+                        FPS = FPS_Counter
+                        FPS_Counter = 0
+
+                    # Display water level thickness h
+                    h = h_old[0, 0].clone()
+                    h = h - torch.min(h)
+                    h = h / torch.max(h)
+                    h = h.detach().cpu().unsqueeze(2).repeat(1,1,3).numpy()
+                    cv2.imshow('h', h)
+
+                    # keyboard interactions:
+                    key = cv2.waitKey(1)
+
+                    if key == ord('q'):  # quit simulation
+                        quit = True
+                        break
+
+                # Predict the new domain state by performing a forward pass through the network
+                h_new, u_new, v_new = self.net(h_old, u_old, v_old)
+
+                # Store the newly obtained result in the dataset
+                self.dataset.tell(h_new, u_new, v_new)
+
+                iter_counter += 1
+
+                time.sleep(1)
+
+
+
+
+
+
+
+
 
