@@ -232,12 +232,18 @@ class PCNNSolver:
                 loss_bound_left += torch.mean(self.loss_function(
                     v[:, :, :, 0] - v[:, :, :, 1]
                 ))
+                loss_bound_left += torch.mean(self.loss_function(
+                    h[:, :, :, 0] - h[:, :, :, 1]
+                ))
 
                 loss_bound_right = torch.mean(self.loss_function(
                     u[:, :, :, -1] + u[:, :, :, -2]
                 ))
                 loss_bound_right += torch.mean(self.loss_function(
                     v[:, :, :, -1] - v[:, :, :, -2]
+                ))
+                loss_bound_right += torch.mean(self.loss_function(
+                    h[:, :, :, -1] - h[:, :, :, -2]
                 ))
 
                 loss_bound_top = torch.mean(self.loss_function(
@@ -246,12 +252,18 @@ class PCNNSolver:
                 loss_bound_top += torch.mean(self.loss_function(
                     v[:, :, 0, :] + v[:, :, 1, :]
                 ))
+                loss_bound_top += torch.mean(self.loss_function(
+                    h[:, :, 0, :] - h[:, :, 1, :]
+                ))
 
                 loss_bound_bottom = torch.mean(self.loss_function(
                     u[:, :, -1, :] - u[:, :, -2, :]
                 ))
                 loss_bound_bottom += torch.mean(self.loss_function(
                     v[:, :, -1, :] + v[:, :, -2, :]
+                ))
+                loss_bound_bottom += torch.mean(self.loss_function(
+                    h[:, :, -1, :] - h[:, :, -2, :]
                 ))
 
                 loss_bound = loss_bound_left + loss_bound_right + loss_bound_top + loss_bound_bottom
