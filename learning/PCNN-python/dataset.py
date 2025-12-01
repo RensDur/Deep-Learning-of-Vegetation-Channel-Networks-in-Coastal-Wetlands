@@ -104,6 +104,13 @@ class Dataset:
         # self.S[indices, :, :, -1] = self.S[indices, :, :, -2]
         # self.B[indices, :, :, -1] = self.B[indices, :, :, -2]
 
+        # Right boundary: open
+        # self.u[indices, :, :, -1] = 2*self.u[indices, :, :, -2] - self.u[indices, :, :, -3]
+        # self.v[indices, :, :, -1] = 2*self.v[indices, :, :, -2] - self.v[indices, :, :, -3]
+        # self.h[indices, :, :, -1] = self.h[indices, :, :, -2]
+        # self.S[indices, :, :, -1] = self.S[indices, :, :, -2]
+        # self.B[indices, :, :, -1] = self.B[indices, :, :, -2]
+
         # Top
         self.u[indices, :, 0, :] = self.u[indices, :, 1, :]
         self.v[indices, :, 0, :] = -self.v[indices, :, 1, :]
