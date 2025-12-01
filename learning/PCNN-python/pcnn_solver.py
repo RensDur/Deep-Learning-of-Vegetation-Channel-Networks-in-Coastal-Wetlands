@@ -155,7 +155,9 @@ class PCNNSolver:
                     # S = (S_new + S_old) / 2
                     # B = (B_new + B_old) / 2
 
+                # TODO: REMOVE!!
                 S = torch.zeros_like(h).to(self.device)
+                B = torch.zeros_like(h).to(self.device)
 
                 #
                 # COMPUTE LOSS
@@ -226,6 +228,8 @@ class PCNNSolver:
                 # ), dim=(1,2,3))
 
                 # 5. Boundary loss
+
+                # Closed boundary on the left
                 loss_bound_left = torch.mean(self.loss_function(
                     u[:, :, :, 0] + u[:, :, :, 1]
                 ))
@@ -235,7 +239,14 @@ class PCNNSolver:
                 loss_bound_left += torch.mean(self.loss_function(
                     h[:, :, :, 0] - h[:, :, :, 1]
                 ))
+                # loss_bound_left += torch.mean(self.loss_function(
+                #     S[:, :, :, 0] - S[:, :, :, 1]
+                # ))
+                # loss_bound_left += torch.mean(self.loss_function(
+                #     B[:, :, :, 0] - B[:, :, :, 1]
+                # ))
 
+                # Closed boundary on the right
                 loss_bound_right = torch.mean(self.loss_function(
                     u[:, :, :, -1] + u[:, :, :, -2]
                 ))
@@ -245,7 +256,31 @@ class PCNNSolver:
                 loss_bound_right += torch.mean(self.loss_function(
                     h[:, :, :, -1] - h[:, :, :, -2]
                 ))
+                # loss_bound_right += torch.mean(self.loss_function(
+                #     S[:, :, :, -1] - S[:, :, :, -2]
+                # ))
+                # loss_bound_right += torch.mean(self.loss_function(
+                #     B[:, :, :, -1] - B[:, :, :, -2]
+                # ))
 
+                # Open boundary on the right
+                # loss_bound_right = torch.mean(self.loss_function(
+                #     u[:, :, :, -1] - 2*u[:, :, :, -2] + u[:, :, :, -3]
+                # ))
+                # loss_bound_right += torch.mean(self.loss_function(
+                #     v[:, :, :, -1] - 2*v[:, :, :, -2] + v[:, :, :, -3]
+                # ))
+                # loss_bound_right += torch.mean(self.loss_function(
+                #     h[:, :, :, -1] - h[:, :, :, -2]
+                # ))
+                # loss_bound_right += torch.mean(self.loss_function(
+                #     S[:, :, :, -1]
+                # ))
+                # loss_bound_right += torch.mean(self.loss_function(
+                #     B[:, :, :, -1] - B[:, :, :, -2]
+                # ))
+
+                # Closed boundary at the top
                 loss_bound_top = torch.mean(self.loss_function(
                     u[:, :, 0, :] - u[:, :, 1, :]
                 ))
@@ -255,7 +290,14 @@ class PCNNSolver:
                 loss_bound_top += torch.mean(self.loss_function(
                     h[:, :, 0, :] - h[:, :, 1, :]
                 ))
+                # loss_bound_top += torch.mean(self.loss_function(
+                #     S[:, :, 0, :] - S[:, :, 1, :]
+                # ))
+                # loss_bound_top += torch.mean(self.loss_function(
+                #     B[:, :, 0, :] - B[:, :, 1, :]
+                # ))
 
+                # Closed boundary at the bottom
                 loss_bound_bottom = torch.mean(self.loss_function(
                     u[:, :, -1, :] - u[:, :, -2, :]
                 ))
@@ -265,16 +307,31 @@ class PCNNSolver:
                 loss_bound_bottom += torch.mean(self.loss_function(
                     h[:, :, -1, :] - h[:, :, -2, :]
                 ))
+                # loss_bound_bottom += torch.mean(self.loss_function(
+                #     S[:, :, -1, :] - S[:, :, -2, :]
+                # ))
+                # loss_bound_bottom += torch.mean(self.loss_function(
+                #     B[:, :, -1, :] - B[:, :, -2, :]
+                # ))
 
+                # Final boundary loss
                 loss_bound = loss_bound_left + loss_bound_right + loss_bound_top + loss_bound_bottom
+
+                #
+                # Regularizers
+                #
+                loss_reg = torch.mean(self.loss_function(
+                    torch.sum(h_new) - torch.sum(h_old)
+                ))
 
                 # Compute combined loss
                 loss = torch.mean(torch.log(
-                    self.params.loss_h * loss_h \
-                    + self.params.loss_momentum * (loss_u + loss_v) \
-                    # + self.params.loss_S * loss_S \
-                    # + self.params.loss_B * loss_B \
+                    self.params.loss_h * loss_h
+                    + self.params.loss_momentum * (loss_u + loss_v)
+                    # + self.params.loss_S * loss_S
+                    # + self.params.loss_B * loss_B
                     + self.params.loss_bound * loss_bound
+                    + self.params.loss_reg * loss_reg
                 ))
 
                 # Compute gradients
@@ -287,7 +344,7 @@ class PCNNSolver:
                 # TODO: Quantity normalisation? Originally done to normalize pressure and vector potential a
 
                 # Recycle the data
-                self.dataset.tell(h_new, u_new, v_new)
+                self.dataset.tell(h_new, u_new, v_new, random_reset=True)
 
                 # log training metrics
                 if i % 10 == 0:
@@ -304,8 +361,9 @@ class PCNNSolver:
                     # self.logger.log(f"loss_S_{self.params.loss}", loss_S, epoch * self.params.n_batches_per_epoch + i)
                     # self.logger.log(f"loss_B_{self.params.loss}", loss_B, epoch * self.params.n_batches_per_epoch + i)
                     self.logger.log(f"loss_bound_{self.params.loss}", loss_bound, epoch * self.params.n_batches_per_epoch + i)
+                    self.logger.log(f"loss_reg_{self.params.loss}", loss_reg, epoch * self.params.n_batches_per_epoch + i)
 
-                    print(f"{epoch}: i:{i}: loss: {loss}; loss_bound: {loss_bound}; loss_h: {loss_h}; loss_u: {loss_u}; loss_v: {loss_v};")
+                    print(f"{epoch}: i:{i}: loss: {loss}; loss_bound: {loss_bound}; loss_h: {loss_h}; loss_u: {loss_u}; loss_v: {loss_v}; loss_reg: {loss_reg}")
                     # if i % 100 == 0:
 
             # Save the training state after each epoch

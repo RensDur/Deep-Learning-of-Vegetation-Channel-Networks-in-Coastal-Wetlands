@@ -83,6 +83,42 @@ class Dataset:
         # Reset time-tracking for each selected environment
         self.t[indices] = 0
 
+    def update(self, indices):
+        """
+        Update selected environments
+        """
+
+        # Enforce boundary condition effects
+
+        # Left boundary
+        self.u[indices, :, :, 0] = -self.u[indices, :, :, 1]
+        self.v[indices, :, :, 0] = self.v[indices, :, :, 1]
+        self.h[indices, :, :, 0] = self.h[indices, :, :, 1]
+        # self.S[indices, :, :, 0] = self.S[indices, :, :, 1]
+        # self.B[indices, :, :, 0] = self.B[indices, :, :, 1]
+
+        # Right boundary
+        self.u[indices, :, :, -1] = -self.u[indices, :, :, -2]
+        self.v[indices, :, :, -1] = self.v[indices, :, :, -2]
+        self.h[indices, :, :, -1] = self.h[indices, :, :, -2]
+        # self.S[indices, :, :, -1] = self.S[indices, :, :, -2]
+        # self.B[indices, :, :, -1] = self.B[indices, :, :, -2]
+
+        # Top
+        self.u[indices, :, 0, :] = self.u[indices, :, 1, :]
+        self.v[indices, :, 0, :] = -self.v[indices, :, 1, :]
+        self.h[indices, :, 0, :] = self.h[indices, :, 1, :]
+        # self.S[indices, :, 0, :] = self.S[indices, :, 1, :]
+        # self.B[indices, :, 0, :] = self.B[indices, :, 1, :]
+
+        # Bottom
+        self.u[indices, :, -1, :] = self.u[indices, :, -2, :]
+        self.v[indices, :, -1, :] = -self.v[indices, :, -2, :]
+        self.h[indices, :, -1, :] = self.h[indices, :, -2, :]
+        # self.S[indices, :, -1, :] = self.S[indices, :, -2, :]
+        # self.B[indices, :, -1, :] = self.B[indices, :, -2, :]
+
+
     #
     # ASK & TELL
     #
@@ -96,6 +132,9 @@ class Dataset:
         # update the corresponding environments upon 'tell' after 'ask'
         self.asked_indices = np.random.choice(self.dataset_size, self.batch_size)
 
+        # Update the environments before sending them out
+        self.update(self.asked_indices)
+
         # Return the chosen batch
         return  self.h[self.asked_indices].to(self.device), \
                 self.u[self.asked_indices].to(self.device), \
@@ -103,7 +142,7 @@ class Dataset:
                 # self.S[self.asked_indices].to(self.device), \
                 # self.B[self.asked_indices].to(self.device)
 
-    def tell(self, h, u, v):
+    def tell(self, h, u, v, random_reset=False):
         """
         Return the updated state to the dataset
         :param h: updated h
@@ -123,9 +162,10 @@ class Dataset:
         # Update time-tracking
         self.t[self.asked_indices] += self.params.dt
 
-        # Reset an environment randomly after progressing a certain amount of time
-        r = np.random.uniform(0, 1, self.batch_size)
+        if random_reset:
+            # Reset an environment randomly after progressing a certain amount of time
+            r = np.random.uniform(0, 1, self.batch_size)
 
-        reset_indices = [self.asked_indices[i] for i in range(self.batch_size) if r[i] < 0.05 and self.t[self.asked_indices[i]] > 1.0]
-        self.reset(reset_indices)
+            reset_indices = [self.asked_indices[i] for i in range(self.batch_size) if r[i] < 0.01]
+            self.reset(reset_indices)
 

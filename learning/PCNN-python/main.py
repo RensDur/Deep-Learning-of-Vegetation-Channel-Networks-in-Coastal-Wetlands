@@ -6,7 +6,7 @@ import dataset
 import pcnn_solver
 
 # Find the number of available CPUs, capped at 8
-NUM_CPUS = max(multiprocessing.cpu_count(), 8)
+NUM_CPUS = min(multiprocessing.cpu_count(), 8)
 torch.set_num_threads(NUM_CPUS)
 print(f"Using {NUM_CPUS} threads")
 
