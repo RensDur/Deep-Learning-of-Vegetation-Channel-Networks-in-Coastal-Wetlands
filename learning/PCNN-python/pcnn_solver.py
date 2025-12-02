@@ -232,13 +232,13 @@ class PCNNSolver:
                 # Closed boundary on the left
                 loss_bound_left = torch.mean(self.loss_function(
                     u[:, :, :, 0] + u[:, :, :, 1]
-                ), dim=(1,2,3))
+                ))
                 loss_bound_left += torch.mean(self.loss_function(
                     v[:, :, :, 0] - v[:, :, :, 1]
-                ), dim=(1,2,3))
+                ))
                 loss_bound_left += torch.mean(self.loss_function(
                     h[:, :, :, 0] - h[:, :, :, 1]
-                ), dim=(1,2,3))
+                ))
                 # loss_bound_left += torch.mean(self.loss_function(
                 #     S[:, :, :, 0] - S[:, :, :, 1]
                 # ))
@@ -249,13 +249,13 @@ class PCNNSolver:
                 # Closed boundary on the right
                 loss_bound_right = torch.mean(self.loss_function(
                     u[:, :, :, -1] + u[:, :, :, -2]
-                ), dim=(1,2,3))
+                ))
                 loss_bound_right += torch.mean(self.loss_function(
                     v[:, :, :, -1] - v[:, :, :, -2]
-                ), dim=(1,2,3))
+                ))
                 loss_bound_right += torch.mean(self.loss_function(
                     h[:, :, :, -1] - h[:, :, :, -2]
-                ), dim=(1,2,3))
+                ))
                 # loss_bound_right += torch.mean(self.loss_function(
                 #     S[:, :, :, -1] - S[:, :, :, -2]
                 # ))
@@ -283,13 +283,13 @@ class PCNNSolver:
                 # Closed boundary at the top
                 loss_bound_top = torch.mean(self.loss_function(
                     u[:, :, 0, :] - u[:, :, 1, :]
-                ), dim=(1,2,3))
+                ))
                 loss_bound_top += torch.mean(self.loss_function(
                     v[:, :, 0, :] + v[:, :, 1, :]
-                ), dim=(1,2,3))
+                ))
                 loss_bound_top += torch.mean(self.loss_function(
                     h[:, :, 0, :] - h[:, :, 1, :]
-                ), dim=(1,2,3))
+                ))
                 # loss_bound_top += torch.mean(self.loss_function(
                 #     S[:, :, 0, :] - S[:, :, 1, :]
                 # ))
@@ -300,13 +300,13 @@ class PCNNSolver:
                 # Closed boundary at the bottom
                 loss_bound_bottom = torch.mean(self.loss_function(
                     u[:, :, -1, :] - u[:, :, -2, :]
-                ), dim=(1,2,3))
+                ))
                 loss_bound_bottom += torch.mean(self.loss_function(
                     v[:, :, -1, :] + v[:, :, -2, :]
-                ), dim=(1,2,3))
+                ))
                 loss_bound_bottom += torch.mean(self.loss_function(
                     h[:, :, -1, :] - h[:, :, -2, :]
-                ), dim=(1,2,3))
+                ))
                 # loss_bound_bottom += torch.mean(self.loss_function(
                 #     S[:, :, -1, :] - S[:, :, -2, :]
                 # ))
