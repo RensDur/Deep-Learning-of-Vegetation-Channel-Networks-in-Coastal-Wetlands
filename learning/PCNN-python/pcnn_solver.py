@@ -1,5 +1,5 @@
 import torch
-from torch import nn
+import torch.nn.functional as F
 from torch.optim import Adam
 import numpy as np
 from dataset import Dataset
@@ -40,45 +40,55 @@ class PCNNSolver:
 
         # First order derivatives
         self.dx_kernel = torch.tensor([-0.5,0,0.5], device=self.device).view(1, 1, 1, 3)
-        self.dx_conv = nn.Conv2d(1, 1, kernel_size=(1, 3), padding=(0, 1), padding_mode='replicate', bias=False).to(self.device)
-
-        # Copy the weights over to the convolution
-        with torch.no_grad():
-            self.dx_conv.weight.copy_(self.dx_kernel)
-        self.dx_conv.weight.requires_grad_(False)
-
         self.dy_kernel = torch.tensor([-0.5,0,0.5], device=self.device).view(1, 1, 3, 1)
-        self.dy_conv = nn.Conv2d(1, 1, kernel_size=(3, 1), padding=(1, 0), padding_mode='replicate', bias=False).to(self.device)
-        with torch.no_grad():
-            self.dy_conv.weight.copy_(self.dy_kernel)
-        self.dy_conv.weight.requires_grad_(False)
 
         # Second order derivatives
         self.dx2_kernel = torch.tensor([1, -2, 1], device=self.device).view(1, 1, 1, 3)
-        self.dx2_conv = nn.Conv2d(1, 1, kernel_size=(1, 3), padding=(0, 1), padding_mode='replicate', bias=False).to(self.device)
-        with torch.no_grad():
-            self.dx2_conv.weight.copy_(self.dx2_kernel)
-        self.dx2_conv.weight.requires_grad_(False)
-
         self.dy2_kernel = torch.tensor([1, -2, 1], device=self.device).view(1, 1, 3, 1)
-        self.dy2_conv = nn.Conv2d(1, 1, kernel_size=(3, 1), padding=(1, 0), padding_mode='replicate', bias=False).to(self.device)
-        with torch.no_grad():
-            self.dy2_conv.weight.copy_(self.dy2_kernel)
-        self.dy2_conv.weight.requires_grad_(False)
+
+        #
+        # MAC-grid convolutions
+        #
+        self.mean_left_kernel = torch.tensor([0.5, 0.5, 0], device=self.device).view(1, 1, 1, 3)
+        self.mean_right_kernel = torch.tensor([0, 0.5, 0.5], device=self.device).view(1, 1, 1, 3)
+        self.mean_top_kernel = torch.tensor([0.5, 0.5, 0], device=self.device).view(1, 1, 3, 1)
+        self.mean_bottom_kernel = torch.tensor([0, 0.5, 0.5], device=self.device).view(1, 1, 3, 1)
 
 
 
     def d_dx(self, quantity):
-        return self.dx_conv(quantity) / self.dataset.dx
+        return F.conv2d(quantity, self.dx_kernel, padding=(0,1)) / self.dataset.dx
 
     def d_dy(self, quantity):
-        return self.dy_conv(quantity) / self.dataset.dy
+        return F.conv2d(quantity, self.dy_kernel, padding=(1,0)) / self.dataset.dy
 
     def d2_dx2(self, quantity):
-        return self.dx2_conv(quantity) / (self.dataset.dx**2)
+        return F.conv2d(quantity, self.dx2_kernel, padding=(0,1)) / (self.dataset.dx**2)
 
     def d2_dy2(self, quantity):
-        return self.dy2_conv(quantity) / (self.dataset.dy**2)
+        return F.conv2d(quantity, self.dy2_kernel, padding=(1,0)) / (self.dataset.dy**2)
+
+    def mac_mean_left(self, quantity):
+        return F.conv2d(quantity, self.mean_left_kernel, padding=(0,1))
+
+    def mac_mean_right(self, quantity):
+        return F.conv2d(quantity, self.mean_right_kernel, padding=(0,1))
+
+    def mac_mean_top(self, quantity):
+        return F.conv2d(quantity, self.mean_top_kernel, padding=(1,0))
+
+    def mac_mean_bottom(self, quantity):
+        return F.conv2d(quantity, self.mean_bottom_kernel, padding=(1,0))
+
+    def staggered2normal(self, u, v):
+        u = self.mac_mean_left(u)
+        v = self.mac_mean_top(v)
+        return u, v
+
+    def normal2staggered(self, u, v):
+        u = self.mac_mean_right(u)
+        v = self.mac_mean_bottom(v)
+        return u, v
 
     def loss_function(self, x):
         return torch.pow(x, 2)
