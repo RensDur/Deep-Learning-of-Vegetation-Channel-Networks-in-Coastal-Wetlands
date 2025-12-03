@@ -410,6 +410,7 @@ class PCNNSolver:
 
         # Open a visualization window
         win = Window("Water Layer Thickness", self.params.width, self.params.height)
+        win.set_data_range(self.params.H0 - 0.0005, self.params.H0+0.0005)
 
         with torch.no_grad():
 
@@ -423,7 +424,6 @@ class PCNNSolver:
 
                 # Display water level thickness h
                 h = h_old[0, 0].clone()
-                h = h / torch.max(h)
                 h = h.detach().cpu().numpy()
 
                 win.put_image(h)

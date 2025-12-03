@@ -57,7 +57,7 @@ class Dataset:
 
         x_mu = np.random.uniform(0, self.width * self.dx)
         y_mu = np.random.uniform(0, self.height * self.dy)
-        x_sig = y_sig = np.random.uniform(5, 20)
+        x_sig = y_sig = np.random.uniform(3, 7)
         correlation = 0
 
         A = 1 / (2 * math.pi * x_sig * y_sig * (1 - correlation ** 2) ** 0.5)
