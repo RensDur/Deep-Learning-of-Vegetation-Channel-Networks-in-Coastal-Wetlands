@@ -331,7 +331,7 @@ class PCNNSolver:
                 # Regularizers
                 #
                 loss_reg = torch.mean(self.loss_function(
-                    torch.sum(h_new, dim=(1,2,3)) - torch.sum(h_old, dim=(1,2,3))
+                    (torch.sum(h_new, dim=(1,2,3)) - torch.sum(h_old, dim=(1,2,3))) / (self.params.width * self.params.height)
                 ))
 
                 # Compute combined loss
@@ -358,12 +358,14 @@ class PCNNSolver:
 
                 # log training metrics
                 if i % 10 == 0:
-                    loss = loss.detach().cpu().numpy()
-                    loss_h = torch.mean(loss_h).detach().cpu().numpy()
-                    loss_u = torch.mean(loss_u).detach().cpu().numpy()
-                    loss_v = torch.mean(loss_v).detach().cpu().numpy()
-                    # loss_S = torch.mean(loss_S).detach().cpu().numpy()
-                    # loss_B = torch.mean(loss_B).detach().cpu().numpy()
+                    loss = float(loss.detach().cpu().numpy())
+                    loss_h = float(torch.mean(loss_h).detach().cpu().numpy())
+                    loss_u = float(torch.mean(loss_u).detach().cpu().numpy())
+                    loss_v = float(torch.mean(loss_v).detach().cpu().numpy())
+                    # loss_S = float(torch.mean(loss_S).detach().cpu().numpy())
+                    # loss_B = float(torch.mean(loss_B).detach().cpu().numpy())
+                    loss_bound = float(torch.mean(loss_bound).detach().cpu().numpy())
+                    loss_reg = float(torch.mean(loss_reg).detach().cpu().numpy())
                     self.logger.log(f"loss_{self.params.loss}", loss, epoch * self.params.n_batches_per_epoch + i)
                     self.logger.log(f"loss_h_{self.params.loss}", loss_h, epoch * self.params.n_batches_per_epoch + i)
                     self.logger.log(f"loss_u_{self.params.loss}", loss_u, epoch * self.params.n_batches_per_epoch + i)
@@ -373,7 +375,7 @@ class PCNNSolver:
                     self.logger.log(f"loss_bound_{self.params.loss}", loss_bound, epoch * self.params.n_batches_per_epoch + i)
                     self.logger.log(f"loss_reg_{self.params.loss}", loss_reg, epoch * self.params.n_batches_per_epoch + i)
 
-                    print(f"{epoch}: i:{i}: loss: {loss}; loss_bound: {loss_bound}; loss_h: {loss_h}; loss_u: {loss_u}; loss_v: {loss_v}; loss_reg: {loss_reg}")
+                    print(f"Epoch {epoch}, iter.{i}:\tloss: {round(loss,2)};\tloss_bound: {round(loss_bound,2)};\tloss_h: {round(loss_h,2)};\tloss_u: {round(loss_u,2)};\tloss_v: {round(loss_v,2)};\tloss_reg: {round(loss_reg,2)} \tvRAM allocated: {round(torch.mps.current_allocated_memory()/1000000000.0, 2)}GB")
                     # if i % 100 == 0:
 
             # Save the training state after each epoch
