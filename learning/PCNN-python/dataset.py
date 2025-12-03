@@ -90,6 +90,9 @@ class Dataset:
 
         # Enforce boundary condition effects
 
+        # Minimum water layer thickness
+        self.h[indices, :, :, :] = torch.clamp(self.h[indices, :, :, :], min=self.params.Hc)
+
         # Left boundary
         self.u[indices, :, :, 0] = -self.u[indices, :, :, 1]
         self.v[indices, :, :, 0] = self.v[indices, :, :, 1]

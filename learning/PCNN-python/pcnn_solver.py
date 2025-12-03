@@ -8,6 +8,7 @@ import parameters
 from Logger import Logger,t_step
 import cv2
 import time
+from window import Window
 
 
 
@@ -407,49 +408,26 @@ class PCNNSolver:
 
         print(f"Loaded {self.params.net}: {date_time}, index: {index}")
 
-        # Setup an OpenCV window
-        cv2.namedWindow('h', cv2.WINDOW_NORMAL)
-
-        FPS = 0
-        quit = False
+        # Open a visualization window
+        win = Window("Water Layer Thickness", self.params.width, self.params.height)
 
         with torch.no_grad():
 
-            FPS_Counter = 0
-            iter_counter = 0
-            last_time = time.time()
-
             # Simulation loop
-            while not quit:
+            while win.is_open():
 
                 # Ask for a batch from the dataset
                 h_old, u_old, v_old = self.dataset.ask()
 
                 # TODO: MAC grid
 
-                # Show & print results only once every _ cycles
-                if iter_counter%1 == 0:
-                    print(f"{iter_counter}: FPS={FPS}")
+                # Display water level thickness h
+                h = h_old[0, 0].clone()
+                h = h / torch.max(h)
+                h = h.detach().cpu().numpy()
 
-                    FPS_Counter += 1
-                    if time.time() - last_time >= 1:
-                        last_time = time.time()
-                        FPS = FPS_Counter
-                        FPS_Counter = 0
-
-                    # Display water level thickness h
-                    h = h_old[0, 0].clone()
-                    h = h - torch.min(h)
-                    h = h / torch.max(h)
-                    h = h.detach().cpu().unsqueeze(2).repeat(1,1,3).numpy()
-                    cv2.imshow('h', h)
-
-                    # keyboard interactions:
-                    key = cv2.waitKey(1)
-
-                    if key == ord('q'):  # quit simulation
-                        quit = True
-                        break
+                win.put_image(h)
+                win.update()
 
                 # Predict the new domain state by performing a forward pass through the network
                 h_new, u_new, v_new = self.net(h_old, u_old, v_old)
@@ -457,13 +435,73 @@ class PCNNSolver:
                 # Store the newly obtained result in the dataset
                 self.dataset.tell(h_new, u_new, v_new, random_reset=True)
 
-                iter_counter += 1
 
+    def visualize_numerical(self):
+        """
+        VISUALIZING NUMERICAL REFERENCE SIMULATION
+        """
 
+        # Initialize randomization seeds
+        torch.manual_seed(1)
+        np.random.seed(6)
 
+        # Open a visualization window
+        win = Window("Water Layer Thickness", self.params.width, self.params.height)
+        win.set_data_range(self.params.H0 - 0.0005, self.params.H0+0.0005)
 
+        with torch.no_grad():
 
+            # Simulation loop
+            while win.is_open():
 
+                # Ask for a batch from the dataset
+                h_old, u_old, v_old = self.dataset.ask()
 
+                # TODO: MAC grid
 
+                # Display water level thickness h
+                h = h_old[0, 0].clone()
+                h = h.detach().cpu().numpy()
+                win.put_image(h)
+                win.update()
+
+                # Predict the new domain state by numerical simulation
+                h = h_old
+                u = u_old
+                v = v_old
+                S = torch.zeros_like(h).to(self.device)
+
+                du_dt = -self.params.grav * self.d_dx(h + S) - u * self.d_dx(u) - v * self.d_dy(u)
+                dv_dt = -self.params.grav * self.d_dy(h + S) - u * self.d_dx(v) - v * self.d_dy(v)
+
+                u += du_dt * self.params.dt
+                v += dv_dt * self.params.dt
+
+                # Left boundary
+                u[:, :, :, 0] = -u[:, :, :, 1]
+                v[:, :, :, 0] = v[:, :, :, 1]
+
+                # Right boundary
+                u[:, :, :, -1] = -u[:, :, :, -2]
+                v[:, :, :, -1] = v[:, :, :, -2]
+
+                # Top
+                u[:, :, 0, :] = u[:, :, 1, :]
+                v[:, :, 0, :] = -v[:, :, 1, :]
+
+                # Bottom
+                u[:, :, -1, :] = u[:, :, -2, :]
+                v[:, :, -1, :] = -v[:, :, -2, :]
+
+                dh_dt = - self.d_dx(u * h) - self.d_dy(v * h) # + self.params.Hin
+
+                h += dh_dt * self.params.dt
+
+                h[:, :, :, 0] = h[:, :, :, 1]
+                h[:, :, :, -1] = h[:, :, :, -2]
+                h[:, :, 0, :] = h[:, :, 1, :]
+                h[:, :, -1, :] = h[:, :, -2, :]
+
+                # Store the newly obtained result in the dataset
+                self.dataset.tell(h, u, v, random_reset=False)
 
