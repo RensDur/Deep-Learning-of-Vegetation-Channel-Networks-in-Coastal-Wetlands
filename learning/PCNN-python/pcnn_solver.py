@@ -445,8 +445,8 @@ class PCNNSolver:
         np.random.seed(6)
 
         # Open a visualization window
-        win = Window("Water Layer Thickness", self.params.width, self.params.height)
-        win.set_data_range(self.params.H0 - 0.0005, self.params.H0+0.0005)
+        win = Window("Vegetation Stem Density", self.params.width, self.params.height)
+        win.set_data_range(0, self.params.k)
 
         with torch.no_grad():
 
@@ -454,35 +454,56 @@ class PCNNSolver:
             while win.is_open():
 
                 # Ask for a batch from the dataset
-                h_old, u_old, v_old = self.dataset.ask()
-
-                # TODO: MAC grid
-
-                # Display water level thickness h
-                h = h_old[0, 0].clone()
-                h = h.detach().cpu().numpy()
-                win.put_image(h)
-                win.update()
+                h_old, u_old, v_old, S_old, B_old = self.dataset.ask()
 
                 # Predict the new domain state by numerical simulation
                 h = h_old
                 u = u_old
                 v = v_old
-                S = torch.zeros_like(h).to(self.device)
+                S = S_old
+                B = B_old
 
+                #
+                # MOMENTUM EQUATIONS
+                #
+
+                # Compute bed roughness
+                n = self.params.nb + (self.params.nv - self.params.nb) * (B / self.params.k)
+
+                # Compute Chezy coefficient using Manning's formulation
+                Cz = (1.0 / n) * torch.pow(h, 1.0/6.0)
+
+                # Bed shear stress components in x and y direction
+                bed_shear_stress_precalc = self.params.grav/torch.pow(Cz, 2.0) * torch.pow(u * u + v * v, 0.5)
+                tau_bx_per_rho = bed_shear_stress_precalc * u
+                tau_by_per_rho = bed_shear_stress_precalc * v
+
+                # Base momentum parts
                 du_dt = -self.params.grav * self.d_dx(h + S) - u * self.d_dx(u) - v * self.d_dy(u)
                 dv_dt = -self.params.grav * self.d_dy(h + S) - u * self.d_dx(v) - v * self.d_dy(v)
 
+                # Add effects of bed friction
+                du_dt -= tau_bx_per_rho / h
+                dv_dt -= tau_by_per_rho / h
+
+                # Add effects of turbulent mixing
+                du_dt += self.params.Du * (self.d2_dx2(u) + self.d2_dy2(u))
+                dv_dt += self.params.Du * (self.d2_dx2(v) + self.d2_dy2(v))
+
                 u += du_dt * self.params.dt
                 v += dv_dt * self.params.dt
+
+                #
+                # Enforce boundary conditions on u and v
+                #
 
                 # Left boundary
                 u[:, :, :, 0] = -u[:, :, :, 1]
                 v[:, :, :, 0] = v[:, :, :, 1]
 
-                # Right boundary
-                u[:, :, :, -1] = -u[:, :, :, -2]
-                v[:, :, :, -1] = v[:, :, :, -2]
+                # Right boundary: open outflow
+                u[:, :, :, -1] = 2*u[:, :, :, -2] - u[:, :, :, -3]
+                v[:, :, :, -1] = 2*v[:, :, :, -2] - v[:, :, :, -3]
 
                 # Top
                 u[:, :, 0, :] = u[:, :, 1, :]
@@ -492,15 +513,79 @@ class PCNNSolver:
                 u[:, :, -1, :] = u[:, :, -2, :]
                 v[:, :, -1, :] = -v[:, :, -2, :]
 
-                dh_dt = - self.d_dx(u * h) - self.d_dy(v * h) # + self.params.Hin
+                #
+                # WATER LAYER THICKNESS
+                #
 
-                h += dh_dt * self.params.dt
+                dh_dt = - self.d_dx(u * h) - self.d_dy(v * h) + self.params.Hin
+                h_new = torch.clamp(h + dh_dt * self.params.dt, min=self.params.Hc)
 
+                #
+                # SEDIMENTARY BED ELEVATION S
+                #
+
+                # The topographic diffusion term requires extra attention
+                Ds = self.params.D0 * (1.0 - self.params.pD * (B / self.params.k))
+
+                topographic_diffusion_term = self.d_dx(Ds * self.d_dx(S)) + self.d_dy(Ds * self.d_dy(S))
+
+                # Effective water layer thickness he
+                he = h - self.params.Hc
+
+                # Compute tau_b_per_rho
+                tau_b_per_rho = self.params.grav/torch.pow(Cz, 2.0) * (u*u + v*v)
+
+                # Compute dS_dt
+                dS_dt = self.params.Sin * (he / (self.params.Qs + he)) - self.params.Es*(1.0 - self.params.pE * (B / self.params.k)) * S * tau_b_per_rho + topographic_diffusion_term
+                dS = dS_dt * self.dt * self.domain.morphological_acc_factor
+                S_new = self.domain.S + dS
+
+                #
+                # VEGETATION STEM DENSITY B
+                #
+
+                dB_dt = self.params.r * B * (1.0 - (B / self.params.k))*(self.params.Qq / (self.params.Qq + he)) \
+                        - self.params.EB * B * tau_b_per_rho + self.params.DB * (self.d2_dx2(B) + self.d2_dy2(B))
+
+                dB = dB_dt * self.dt * self.params.morphological_acc_factor
+                B_new = self.domain.B + dB
+
+                #
+                # Now update the dataset in one go
+                #
+                h = h_new
+                S = S_new
+                B = B_new
+
+                #
+                # Enforce boundary conditions on h, S and B
+                #
+
+                # Left
                 h[:, :, :, 0] = h[:, :, :, 1]
+                S[:, :, :, 0] = S[:, :, :, 1]
+                B[:, :, :, 0] = B[:, :, :, 1]
+
+                # Right: open outflow
                 h[:, :, :, -1] = h[:, :, :, -2]
+                S[:, :, :, -1] = 0 # Due to balance in erosion and sedimentation on the open boundary, always zero
+                B[:, :, :, -1] = B[:, :, :, -2]
+
+                # Top
                 h[:, :, 0, :] = h[:, :, 1, :]
+                S[:, :, 0, :] = S[:, :, 1, :]
+                B[:, :, 0, :] = B[:, :, 1, :]
+
+                # Bottom
                 h[:, :, -1, :] = h[:, :, -2, :]
+                S[:, :, -1, :] = S[:, :, -2, :]
+                B[:, :, -1, :] = B[:, :, -2, :]
+                
+
+                # Display water level thickness h
+                win.put_image(B[0, 0].clone().detach().cpu().numpy())
+                win.update()
 
                 # Store the newly obtained result in the dataset
-                self.dataset.tell(h, u, v, random_reset=False)
+                self.dataset.tell(h, u, v, S, B, random_reset=False)
 

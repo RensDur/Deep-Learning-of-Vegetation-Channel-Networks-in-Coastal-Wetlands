@@ -51,7 +51,7 @@ class PDE_UNet_SWE(nn.Module):
 
 class PDE_UNet_Saltmarsh(nn.Module):
 	def __init__(self, hidden_size=64,bilinear=True):
-		super(PDE_UNet_SWE, self).__init__()
+		super(PDE_UNet_Saltmarsh, self).__init__()
 		self.hidden_size = hidden_size
 		self.bilinear = bilinear
 

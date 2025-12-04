@@ -25,7 +25,7 @@ class Window:
         self.data_img = np.zeros((self.canvas_height, self.canvas_width))
         self.data_min = 0
         self.data_max = 1
-        self.colormap = colormaps.WHITE_BLUE
+        self.colormap = colormaps.WHITE_GREEN
 
         # Window stats
         self.open = True
