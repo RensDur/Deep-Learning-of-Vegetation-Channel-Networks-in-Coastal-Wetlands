@@ -80,7 +80,7 @@ class PDE_UNet_Saltmarsh(nn.Module):
 		x = self.up4(x, x1)
 		x = self.outc(x)
 
-		h_new = 100 * torch.tanh((h_old + x[:,0:1]) / 100)
+		h_new = (100 * torch.tanh((h_old + x[:,0:1]) / 100))**2 + 1e-6 # Square to make negative values for h impossible
 		u_new = 400 * torch.tanh((u_old + x[:,1:2]) / 400)
 		v_new = 400 * torch.tanh((v_old + x[:,2:3]) / 400)
 		S_new = 100 * torch.tanh((S_old + x[:,3:4]) / 100)
