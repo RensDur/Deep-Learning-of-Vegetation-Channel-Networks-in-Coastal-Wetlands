@@ -267,7 +267,7 @@ class PCNNSolver:
                 #     B[:, :, :, -1] - B[:, :, :, -2]
                 # ))
 
-                Open boundary on the right
+                # Open boundary on the right
                 loss_bound_right = torch.mean(self.loss_function(
                     u[:, :, :, -1] - 2*u[:, :, :, -2] + u[:, :, :, -3]
                 ))
@@ -346,7 +346,7 @@ class PCNNSolver:
                 self.optimizer.step()
 
                 # Recycle the data
-                self.dataset.tell(h_new, u_new, v_new, random_reset=True)
+                self.dataset.tell(h_new, u_new, v_new, S_new, B_new, random_reset=True)
 
                 # log training metrics
                 if i % 10 == 0:
@@ -400,9 +400,8 @@ class PCNNSolver:
         print(f"Loaded {self.params.net}: {date_time}, index: {index}")
 
         # Open a visualization window
-        win = Window("Water Layer Thickness", self.params.width, self.params.height)
-        win.set_data_range(self.params.H0 - 0.0005, self.params.H0+0.0005)
-        win.set_data_range(-0.01, 0.01)
+        win = Window("Sediment Bed", self.params.width, self.params.height)
+        win.set_data_range(0, 1)
 
         with torch.no_grad():
 
@@ -410,22 +409,17 @@ class PCNNSolver:
             while win.is_open():
 
                 # Ask for a batch from the dataset
-                h_old, u_old, v_old = self.dataset.ask()
-
-                # TODO: MAC grid
-
-                # Display water level thickness h
-                h = h_old[0, 0].clone()
-                h = h.detach().cpu().numpy()
-
-                win.put_image(h)
-                win.update()
+                h_old, u_old, v_old, S_old, B_old = self.dataset.ask()
 
                 # Predict the new domain state by performing a forward pass through the network
-                h_new, u_new, v_new = self.net(h_old, u_old, v_old)
+                h_new, u_new, v_new, S_new, B_new = self.net(h_old, u_old, v_old, S_old, B_old)
+
+                # Display water level thickness h
+                win.put_image(S_new[0, 0].clone().detach().cpu().numpy())
+                win.update()
 
                 # Store the newly obtained result in the dataset
-                self.dataset.tell(h_new, u_new, v_new, random_reset=False)
+                self.dataset.tell(h_new, u_new, v_new, S_new, B_new, random_reset=False)
 
 
     def visualize_numerical(self):

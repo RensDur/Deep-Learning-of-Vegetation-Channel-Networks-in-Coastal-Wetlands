@@ -37,10 +37,10 @@ def params():
     parser.add_argument('--dataset_size', default=1000, type=int, help='size of dataset (default: 1000)')
     parser.add_argument('--cuda', default=True, type=str2bool, help='use GPU')
 
-    parser.add_argument('--loss_h', default=2, type=float, help='Weight of loss factor theta_0')
+    parser.add_argument('--loss_h', default=1, type=float, help='Weight of loss factor theta_0')
     parser.add_argument('--loss_momentum', default=1, type=float, help='Weight of loss factor theta_1')
-    parser.add_argument('--loss_S', default=0, type=float, help='Weight of loss factor theta_2')
-    parser.add_argument('--loss_B', default=0, type=float, help='Weight of loss factor theta_3')
+    parser.add_argument('--loss_S', default=1, type=float, help='Weight of loss factor theta_2')
+    parser.add_argument('--loss_B', default=1, type=float, help='Weight of loss factor theta_3')
     parser.add_argument('--loss_bound', default=20, type=float, help='loss factor for boundary conditions')
     parser.add_argument('--loss_reg', default=0, type=float, help='Weight of regularizers in loss')
 
