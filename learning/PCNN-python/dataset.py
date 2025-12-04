@@ -135,7 +135,7 @@ class Dataset:
                 self.S[self.asked_indices].to(self.device), \
                 self.B[self.asked_indices].to(self.device)
 
-    def tell(self, h, u, v, random_reset=False):
+    def tell(self, h, u, v, S, B, random_reset=False):
         """
         Return the updated state to the dataset
         :param h: updated h

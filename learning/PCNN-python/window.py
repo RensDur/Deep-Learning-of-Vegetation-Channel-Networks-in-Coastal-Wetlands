@@ -72,7 +72,7 @@ class Window:
             return
 
         # Clear the image
-        self.img[:, :, :] = 255
+        self.img[:, :, :] = 1
 
         # Canvas border
         self.img[self.padding-self.border_size:-self.padding+self.border_size, self.padding-self.border_size:-self.padding+self.border_size, :] = 0

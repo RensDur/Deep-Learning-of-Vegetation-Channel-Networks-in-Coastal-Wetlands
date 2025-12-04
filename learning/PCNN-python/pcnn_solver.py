@@ -44,8 +44,8 @@ class PCNNSolver:
         self.dy_kernel = torch.tensor([-0.5,0,0.5], device=self.device).view(1, 1, 3, 1)
 
         # Second order derivatives
-        self.dx2_kernel = torch.tensor([1, -2, 1], device=self.device).view(1, 1, 1, 3)
-        self.dy2_kernel = torch.tensor([1, -2, 1], device=self.device).view(1, 1, 3, 1)
+        self.dx2_kernel = torch.tensor([1.0, -2.0, 1.0], device=self.device).view(1, 1, 1, 3)
+        self.dy2_kernel = torch.tensor([1.0, -2.0, 1.0], device=self.device).view(1, 1, 3, 1)
 
         #
         # MAC-grid convolutions
@@ -445,8 +445,8 @@ class PCNNSolver:
         np.random.seed(6)
 
         # Open a visualization window
-        win = Window("Vegetation Stem Density", self.params.width, self.params.height)
-        win.set_data_range(0, self.params.k)
+        win = Window("Sediment Bed", self.params.width, self.params.height)
+        win.set_data_range(0, 1)
 
         with torch.no_grad():
 
@@ -537,8 +537,8 @@ class PCNNSolver:
 
                 # Compute dS_dt
                 dS_dt = self.params.Sin * (he / (self.params.Qs + he)) - self.params.Es*(1.0 - self.params.pE * (B / self.params.k)) * S * tau_b_per_rho + topographic_diffusion_term
-                dS = dS_dt * self.dt * self.domain.morphological_acc_factor
-                S_new = self.domain.S + dS
+                dS = dS_dt * self.params.dt * self.params.morphological_acc_factor
+                S_new = S + dS
 
                 #
                 # VEGETATION STEM DENSITY B
@@ -547,8 +547,8 @@ class PCNNSolver:
                 dB_dt = self.params.r * B * (1.0 - (B / self.params.k))*(self.params.Qq / (self.params.Qq + he)) \
                         - self.params.EB * B * tau_b_per_rho + self.params.DB * (self.d2_dx2(B) + self.d2_dy2(B))
 
-                dB = dB_dt * self.dt * self.params.morphological_acc_factor
-                B_new = self.domain.B + dB
+                dB = dB_dt * self.params.dt * self.params.morphological_acc_factor
+                B_new = B + dB
 
                 #
                 # Now update the dataset in one go
@@ -580,10 +580,9 @@ class PCNNSolver:
                 h[:, :, -1, :] = h[:, :, -2, :]
                 S[:, :, -1, :] = S[:, :, -2, :]
                 B[:, :, -1, :] = B[:, :, -2, :]
-                
 
                 # Display water level thickness h
-                win.put_image(B[0, 0].clone().detach().cpu().numpy())
+                win.put_image(S[0, 0].clone().detach().cpu().numpy())
                 win.update()
 
                 # Store the newly obtained result in the dataset
