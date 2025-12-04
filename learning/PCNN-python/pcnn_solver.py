@@ -352,8 +352,6 @@ class PCNNSolver:
                 # Perform an optimization step
                 self.optimizer.step()
 
-                # TODO: Quantity normalisation? Originally done to normalize pressure and vector potential a
-
                 # Recycle the data
                 self.dataset.tell(h_new, u_new, v_new, random_reset=True)
 
@@ -411,6 +409,7 @@ class PCNNSolver:
         # Open a visualization window
         win = Window("Water Layer Thickness", self.params.width, self.params.height)
         win.set_data_range(self.params.H0 - 0.0005, self.params.H0+0.0005)
+        win.set_data_range(-0.01, 0.01)
 
         with torch.no_grad():
 
@@ -433,7 +432,7 @@ class PCNNSolver:
                 h_new, u_new, v_new = self.net(h_old, u_old, v_old)
 
                 # Store the newly obtained result in the dataset
-                self.dataset.tell(h_new, u_new, v_new, random_reset=True)
+                self.dataset.tell(h_new, u_new, v_new, random_reset=False)
 
 
     def visualize_numerical(self):

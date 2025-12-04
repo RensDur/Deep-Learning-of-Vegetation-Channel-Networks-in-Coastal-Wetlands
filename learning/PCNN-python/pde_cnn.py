@@ -44,7 +44,7 @@ class PDE_UNet_SWE(nn.Module):
 		x = self.up3(x, x2)
 		x = self.up4(x, x1)
 		x = self.outc(x)
-		h_new, u_new, v_new = 10 * torch.tanh((h_old + x[:,0:1]) / 10), 400 * torch.tanh((u_old + x[:,1:2]) / 400), 400 * torch.tanh((v_old + x[:,2:3]) / 400)
+		h_new, u_new, v_new = 100 * torch.tanh((h_old + x[:,0:1]) / 100), 400 * torch.tanh((u_old + x[:,1:2]) / 400), 400 * torch.tanh((v_old + x[:,2:3]) / 400)
 		return h_new, u_new, v_new
 
 

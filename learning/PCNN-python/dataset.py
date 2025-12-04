@@ -55,18 +55,19 @@ class Dataset:
         y = torch.linspace(0, self.height * self.dy, self.height)
         x, y = torch.meshgrid(x, y, indexing='xy')
 
-        x_mu = np.random.uniform(0, self.width * self.dx)
-        y_mu = np.random.uniform(0, self.height * self.dy)
-        x_sig = y_sig = np.random.uniform(3, 7)
-        correlation = 0
+        for _ in range(3):
+            x_mu = np.random.uniform(0, self.width * self.dx)
+            y_mu = np.random.uniform(0, self.height * self.dy)
+            x_sig = y_sig = np.random.uniform(0.1, 0.3)
+            correlation = 0
 
-        A = 1 / (2 * math.pi * x_sig * y_sig * (1 - correlation ** 2) ** 0.5)
+            A = 1 / (2 * math.pi * x_sig * y_sig * (1 - correlation ** 2) ** 0.5)
 
-        self.h[indices, 0, :, :] += A * torch.exp(
-            - (1 / (2 * (1 - correlation ** 2))) * (
-                        ((x - x_mu) / x_sig) ** 2 - 2 * correlation * ((x - x_mu) / x_sig) * ((y - y_mu) / y_sig) + (
-                            (y - y_mu) / y_sig) ** 2)
-        )
+            self.h[indices, 0, :, :] += self.params.H0 * 0.25 * torch.exp(
+                - (1 / (2 * (1 - correlation ** 2))) * (
+                            ((x - x_mu) / x_sig) ** 2 - 2 * correlation * ((x - x_mu) / x_sig) * ((y - y_mu) / y_sig) + (
+                                (y - y_mu) / y_sig) ** 2)
+            )
 
         # Flow velocities are zero everywhere
         self.u[indices, 0, :, :] = 0

@@ -22,7 +22,7 @@ def params():
 
     # Training parameters
     parser.add_argument('--net', default="UNetSWE", type=str, help='network to train (default: UNet2)',
-                        choices=["UNet1", "UNet2", "UNet3"])
+                        choices=["UNet1", "UNet2", "UNet3", "UNetSWE"])
     parser.add_argument('--n_epochs', default=1000, type=int,
                         help='number of epochs (after each epoch, the model gets saved)')
     parser.add_argument('--n_grad_steps', default=500, type=int, help='number of gradient descent steps')
@@ -37,7 +37,7 @@ def params():
     parser.add_argument('--dataset_size', default=1000, type=int, help='size of dataset (default: 1000)')
     parser.add_argument('--cuda', default=True, type=str2bool, help='use GPU')
 
-    parser.add_argument('--loss_h', default=1, type=float, help='Weight of loss factor theta_0')
+    parser.add_argument('--loss_h', default=2, type=float, help='Weight of loss factor theta_0')
     parser.add_argument('--loss_momentum', default=1, type=float, help='Weight of loss factor theta_1')
     parser.add_argument('--loss_S', default=0, type=float, help='Weight of loss factor theta_2')
     parser.add_argument('--loss_B', default=0, type=float, help='Weight of loss factor theta_3')
@@ -71,9 +71,9 @@ def params():
                         help='target frequency of optimal control algorithm (default: 7; choose value between 2-8)')
 
     # Setup parameters
-    parser.add_argument('--width', default=200, type=int, help='setup width')
-    parser.add_argument('--height', default=200, type=int, help='setup height')
-    parser.add_argument('--separation', default=0.5, type=float, help='cell separation in meters')
+    parser.add_argument('--width', default=500, type=int, help='setup width')
+    parser.add_argument('--height', default=500, type=int, help='setup height')
+    parser.add_argument('--separation', default=0.05, type=float, help='cell separation in meters')
 
     # Domain parameters
     parser.add_argument('--Hin', default=1e-5, type=float, help="")
@@ -97,7 +97,7 @@ def params():
     parser.add_argument('--DB', default=6e-9, type=float, help="Vegetation diffusivity")
     parser.add_argument('--morphological_acc_factor', default=44712, type=float, help="Morphological acceleration factor, required for S and B")
     parser.add_argument('--pEst', default=0.002, type=float, help="Probability of vegetation seedling establishment")
-    parser.add_argument('--dt', default=0.2, type=float, help='timestep of fluid integrator')
+    parser.add_argument('--dt', default=0.05, type=float, help='timestep of fluid integrator')
 
     # Load parameters
     parser.add_argument('--load_date_time', default=None, type=str, help='date_time of run to load (default: None)')
