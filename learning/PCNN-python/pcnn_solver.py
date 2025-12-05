@@ -330,12 +330,13 @@ class PCNNSolver:
 
                 # Compute combined loss
                 loss = torch.mean(torch.log(
-                    self.params.loss_h * loss_h
+                    (self.params.loss_h * loss_h
                     + self.params.loss_momentum * (loss_u + loss_v)
                     + self.params.loss_S * loss_S
                     + self.params.loss_B * loss_B
                     + self.params.loss_bound * loss_bound
                     # + self.params.loss_reg * loss_reg
+                    ) * self.params.loss_multiplier
                 ))
 
                 # Compute gradients

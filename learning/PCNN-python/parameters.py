@@ -26,7 +26,7 @@ def params():
     parser.add_argument('--n_epochs', default=1000, type=int,
                         help='number of epochs (after each epoch, the model gets saved)')
     parser.add_argument('--n_grad_steps', default=500, type=int, help='number of gradient descent steps')
-    parser.add_argument('--hidden_size', default=20, type=int, help='hidden size of network (default: 20)')
+    parser.add_argument('--hidden_size', default=64, type=int, help='hidden size of network (default: 20)')
     parser.add_argument('--n_batches_per_epoch', default=5000, type=int,
                         help='number of batches per epoch (default: 5000)')
     parser.add_argument('--batch_size', default=100, type=int, help='batch size (default: 100)')
@@ -37,11 +37,11 @@ def params():
     parser.add_argument('--dataset_size', default=1000, type=int, help='size of dataset (default: 1000)')
     parser.add_argument('--cuda', default=True, type=str2bool, help='use GPU')
 
-    parser.add_argument('--loss_h', default=1, type=float, help='Weight of loss factor theta_0')
-    parser.add_argument('--loss_momentum', default=1, type=float, help='Weight of loss factor theta_1')
-    parser.add_argument('--loss_S', default=1, type=float, help='Weight of loss factor theta_2')
-    parser.add_argument('--loss_B', default=1, type=float, help='Weight of loss factor theta_3')
-    parser.add_argument('--loss_bound', default=20, type=float, help='loss factor for boundary conditions')
+    parser.add_argument('--loss_h', default=1e3, type=float, help='Weight of loss factor theta_0')
+    parser.add_argument('--loss_momentum', default=1e3, type=float, help='Weight of loss factor theta_1')
+    parser.add_argument('--loss_S', default=1e-10, type=float, help='Weight of loss factor theta_2')
+    parser.add_argument('--loss_B', default=1e-10, type=float, help='Weight of loss factor theta_3')
+    parser.add_argument('--loss_bound', default=1e5, type=float, help='loss factor for boundary conditions')
     parser.add_argument('--loss_reg', default=0, type=float, help='Weight of regularizers in loss')
 
     parser.add_argument('--regularize_grad_p', default=0, type=float,
@@ -66,7 +66,7 @@ def params():
                         choices=['explicit', 'implicit', 'imex'])
     parser.add_argument('--loss', default='square', type=str, help='loss type to train network (default: square)',
                         choices=['square'])
-    parser.add_argument('--loss_multiplier', default=1, type=float, help='multiply loss / gradients (default: 1)')
+    parser.add_argument('--loss_multiplier', default=1e-5, type=float, help='multiply loss / gradients (default: 1)')
     parser.add_argument('--target_freq', default=7, type=float,
                         help='target frequency of optimal control algorithm (default: 7; choose value between 2-8)')
 
