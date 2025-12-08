@@ -43,7 +43,7 @@ def main():
     solver = pcnn_solver.PCNNSolver(data, params, torch_device)
 
     # Visualize the output
-    solver.visualize_numerical()
+    solver.visualize()
 
 
 if __name__ == "__main__":

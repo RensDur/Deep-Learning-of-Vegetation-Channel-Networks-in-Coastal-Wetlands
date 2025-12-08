@@ -44,7 +44,16 @@ class PDE_UNet_SWE(nn.Module):
 		x = self.up3(x, x2)
 		x = self.up4(x, x1)
 		x = self.outc(x)
-		h_new, u_new, v_new = 100 * torch.tanh((h_old + x[:,0:1]) / 100), 400 * torch.tanh((u_old + x[:,1:2]) / 400), 400 * torch.tanh((v_old + x[:,2:3]) / 400)
+
+		h_delta = 10 * torch.tanh((x[:,0:1]) / 10)
+
+		# Normalize delta in h to make sure that the total amount of water in the basin always remains
+		h_delta = h_delta.data-torch.mean(h_delta.data,dim=(1,2,3)).unsqueeze(1).unsqueeze(2).unsqueeze(3)
+		h_new = h_old + h_delta
+
+		u_new = 400 * torch.tanh((u_old + x[:,1:2]) / 400)
+		v_new = 400 * torch.tanh((v_old + x[:,2:3]) / 400)
+
 		return h_new, u_new, v_new
 
 
