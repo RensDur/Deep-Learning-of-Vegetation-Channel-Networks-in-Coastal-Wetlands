@@ -107,6 +107,12 @@ def params():
     parser.add_argument('--load_latest', default=False, type=str2bool,
                         help='load latest version for training (if True: leave load_date_time and load_index None. default: False)')
 
+    #
+    # INSERTED FOR SPLINE-PINN
+    #
+    parser.add_argument('--resolution_factor', default=8, type=int, help='resolution factor for superres / kernels (default: 8)')
+    parser.add_argument('--sample_size', default=10, type=int, help='number of samples (different offsets) per batch (default: 10)')
+
     # parse parameters
     params = parser.parse_args()
 

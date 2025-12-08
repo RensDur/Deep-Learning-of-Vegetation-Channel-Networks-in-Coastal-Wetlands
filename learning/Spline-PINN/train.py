@@ -107,8 +107,8 @@ def p_multidim(offsets,orders,indices):
 
 def main():
     
-    xpoints = np.arange(100) / 100 - 0.5
-    ypoints = p_multidim(torch.tensor(xpoints), [0,1,2], [0,0,0]).numpy()
+    xpoints = np.arange(100) / 100 * 2 - 1
+    ypoints = p2_2(torch.tensor(xpoints)).numpy()
 	
     plt.plot(xpoints, ypoints)
     plt.show()

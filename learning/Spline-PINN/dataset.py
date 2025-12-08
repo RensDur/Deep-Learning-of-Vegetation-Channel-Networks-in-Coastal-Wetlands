@@ -10,23 +10,35 @@ class Dataset:
         # Dimensions
         self.width = params.width
         self.height = params.height
+        self.resolution_factor = params.resolution_factor
+
+        # Distance between cells
         self.dx = params.separation
         self.dy = params.separation
 
         self.batch_size = params.batch_size
         self.dataset_size = params.dataset_size
+        self.sample_size = params.sample_size
+
+        # Sequence
+        self.average_sequence_length = params.average_sequence_length
 
         #
         # Store local copy of the parameters
         #
         self.params = params
 
-        # Fields (scalar fields)
-        self.h = torch.zeros(self.dataset_size, 1, self.height, self.width)
-        self.u = torch.zeros(self.dataset_size, 1, self.height, self.width)
-        self.v = torch.zeros(self.dataset_size, 1, self.height, self.width)
-        # self.S = torch.zeros(self.dataset_size, 1, self.height, self.width)
-        # self.B = torch.zeros(self.dataset_size, 1, self.height, self.width)
+        # Hidden state
+        orders_h = [params.orders_h, params.orders_h]
+        orders_u = [params.orders_u, params.orders_u]
+        orders_v = [params.orders_v, params.orders_v]
+        h_size = np.prod([i + 1 for i in orders_h])
+        u_size = np.prod([i + 1 for i in orders_u])
+        v_size = np.prod([i + 1 for i in orders_v])
+        hidden_size = h_size + u_size + v_size
+        self.hidden_states = torch.zeros(self.dataset_size, hidden_size, self.width-1,  self.height-1)
+        self.t = 0
+        self.i = 0
 
         # Domain boundaries
         # ==> Future addition
