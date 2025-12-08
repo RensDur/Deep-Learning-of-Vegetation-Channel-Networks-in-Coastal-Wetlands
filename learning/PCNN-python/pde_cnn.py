@@ -59,13 +59,13 @@ class PDE_UNet_SWE(nn.Module):
 class PDE_CNN_SWE(nn.Module):
 	def __init__(self, hidden_size=32,bilinear=True):
 		super(PDE_CNN_SWE, self).__init__()
-		self.hidden_size = 20
+		self.hidden_size = 50
 		self.bilinear = bilinear
 
 		self.conv1 = nn.Conv2d(3, self.hidden_size, kernel_size=3,padding=1)
 		self.conv2 = nn.Conv2d(self.hidden_size, self.hidden_size, kernel_size=3,padding=1)
-		self.conv3 = nn.Conv2d(self.hidden_size, self.hidden_size, kernel_size=3,padding=1)
-		self.conv4 = nn.Conv2d(self.hidden_size, 3, kernel_size=3,padding=1)
+		self.conv3 = nn.Conv2d(self.hidden_size, 18, kernel_size=3,padding=1)
+		self.conv4 = nn.Conv2d(18, 3, kernel_size=3,padding=1)
 
 	def forward(self, h_old, u_old, v_old):
 		x = torch.cat([h_old, u_old, v_old],dim=1)
@@ -78,14 +78,9 @@ class PDE_CNN_SWE(nn.Module):
 		x = torch.relu(x)
 		x = self.conv4(x)
 
-		h_new = 10 * torch.tanh((x[:,0:1]) / 10)
-
-		# Normalize delta in h to make sure that the total amount of water in the basin always remains
-		h_delta = h_delta.data-torch.mean(h_delta.data,dim=(1,2,3)).unsqueeze(1).unsqueeze(2).unsqueeze(3)
-		h_new = h_old + h_delta
-
-		u_new = 10 * torch.tanh((u_old + x[:,1:2]) / 10)
-		v_new = 10 * torch.tanh((v_old + x[:,2:3]) / 10)
+		h_new = 10 * torch.tanh((h_old + x[:,0:1]) / 10)
+		u_new = 50 * torch.tanh((u_old + x[:,1:2]) / 50)
+		v_new = 50 * torch.tanh((v_old + x[:,2:3]) / 50)
 
 		return h_new, u_new, v_new
 
