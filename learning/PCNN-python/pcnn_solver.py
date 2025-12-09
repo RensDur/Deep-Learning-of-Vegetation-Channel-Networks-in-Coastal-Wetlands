@@ -106,7 +106,7 @@ class PCNNSolver:
         #
         # Optimizer
         #
-        self.optimizer = Adam(self.net.parameters(), lr=self.params.lr, amsgrad=True)
+        self.optimizer = Adam(self.net.parameters(), lr=self.params.lr)
 
         #
         # Logger
