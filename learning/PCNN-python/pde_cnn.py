@@ -62,10 +62,10 @@ class PDE_CNN_SWE(nn.Module):
 		self.hidden_size = 50
 		self.bilinear = bilinear
 
-		self.conv1 = nn.Conv2d(3, self.hidden_size, kernel_size=3,padding=1)
-		self.conv2 = nn.Conv2d(self.hidden_size, self.hidden_size, kernel_size=3,padding=1)
-		self.conv3 = nn.Conv2d(self.hidden_size, 18, kernel_size=3,padding=1)
-		self.conv4 = nn.Conv2d(18, 3, kernel_size=3,padding=1)
+		self.conv1 = nn.Conv2d(3, 64, kernel_size=3,padding=1, padding_mode='replicate')
+		self.conv2 = nn.Conv2d(64, 64, kernel_size=3,padding=1, padding_mode='replicate')
+		self.conv3 = nn.Conv2d(64, 32, kernel_size=3,padding=1, padding_mode='replicate')
+		self.conv4 = nn.Conv2d(32, 3, kernel_size=3,padding=1, padding_mode='replicate')
 
 	def forward(self, h_old, u_old, v_old):
 		x = torch.cat([h_old, u_old, v_old],dim=1)
