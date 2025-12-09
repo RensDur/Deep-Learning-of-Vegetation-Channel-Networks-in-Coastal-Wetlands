@@ -374,7 +374,7 @@ class PCNNSolver:
                     self.logger.log(f"loss_bound_{self.params.loss}", loss_bound, epoch * self.params.n_batches_per_epoch + i)
                     self.logger.log(f"loss_reg_{self.params.loss}", loss_reg, epoch * self.params.n_batches_per_epoch + i)
 
-                    print(f"Epoch {epoch}, iter.{i}:\tloss: {round(loss,2)};\tloss_bound: {round(loss_bound,2)};\tloss_h: {round(loss_h,2)};\tloss_u: {round(loss_u,2)};\tloss_v: {round(loss_v,2)};\tloss_reg: {round(loss_reg,2)} \tvRAM allocated: {round(torch.mps.current_allocated_memory()/1000000000.0, 2)}GB")
+                    print(f"Epoch {epoch}, iter.{i}:\tloss: {round(loss,5)};\tloss_bound: {round(loss_bound,5)};\tloss_h: {round(loss_h,5)};\tloss_u: {round(loss_u,5)};\tloss_v: {round(loss_v,5)};\tloss_reg: {round(loss_reg,5)} \tvRAM allocated: {round(torch.mps.current_allocated_memory()/1000000000.0, 2)}GB")
                     # if i % 100 == 0:
 
             # Save the training state after each epoch
