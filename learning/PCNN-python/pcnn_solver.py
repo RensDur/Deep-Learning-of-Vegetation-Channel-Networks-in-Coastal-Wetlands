@@ -140,6 +140,13 @@ class PCNNSolver:
             plot_axs[1].set(title="Total loss", xlabel="x", ylabel="y")
             plot_axs[2].set(title="Loss terms", xlabel="x", ylabel="y")
 
+            # plot_axs[0].grid()
+            # plot_axs[0].grid(which="minor", color="0.5")
+            # plot_axs[1].grid()
+            # plot_axs[1].grid(which="minor", color="0.5")
+            # plot_axs[2].grid()
+            # plot_axs[2].grid(which="minor", color="0.5")
+
             # Leftmost plot shows loss image
             plot_loss_image_padding = 10
             plot_loss_image = plot_axs[0].imshow(np.zeros((self.params.height + plot_loss_image_padding, self.params.width + plot_loss_image_padding)), cmap="gray", vmin=0, vmax=1)
@@ -151,14 +158,16 @@ class PCNNSolver:
             plot_loss_h_data = np.array([])
             plot_loss_momentum_data = np.array([])
             plot_loss_bound_data = np.array([])
+            plot_loss_reg_data = np.array([])
 
-            plot_loss_total_graph = plot_axs[1].plot(range(len(plot_loss_total_data)), plot_loss_total_data)[0]
+            plot_loss_total_graph = plot_axs[1].plot(range(plot_loss_total_data.shape[0]), plot_loss_total_data)[0]
 
-            plot_loss_h_graph = plot_axs[2].plot(range(len(plot_loss_h_data)), plot_loss_h_data, label="h-loss")[0]
-            plot_loss_momentum_graph = plot_axs[2].plot(range(len(plot_loss_momentum_data)), plot_loss_momentum_data, label="u,v-loss")[0]
-            plot_loss_bound_graph = plot_axs[2].plot(range(len(plot_loss_bound_data)), plot_loss_bound_data, label="bound-loss")[0]
+            plot_loss_h_graph = plot_axs[2].plot(range(plot_loss_h_data.shape[0]), plot_loss_h_data, label="h-loss")[0]
+            plot_loss_momentum_graph = plot_axs[2].plot(range(plot_loss_momentum_data.shape[0]), plot_loss_momentum_data, label="u,v-loss")[0]
+            plot_loss_bound_graph = plot_axs[2].plot(range(plot_loss_bound_data.shape[0]), plot_loss_bound_data, label="bound-loss")[0]
+            plot_loss_reg_graph = plot_axs[2].plot(range(plot_loss_reg_data.shape[0]), plot_loss_reg_data, label="reg-loss")[0]
 
-            plot_axs[2].legend(handles=[plot_loss_h_graph, plot_loss_momentum_graph, plot_loss_bound_graph], loc="upper right")
+            plot_axs[2].legend(handles=[plot_loss_h_graph, plot_loss_momentum_graph, plot_loss_bound_graph, plot_loss_reg_graph], loc="upper right")
 
             plt.show()
 
@@ -255,7 +264,7 @@ class PCNNSolver:
 
                 # 1. Continuity loss
                 loss_h = torch.mean(self.loss_function(
-                    dh_dt + self.d_dx(u * h) + self.d_dy(v * h) # - self.params.Hin
+                    flow_mask * (dh_dt + self.d_dx(u * h) + self.d_dy(v * h)) # - self.params.Hin
                 ), dim=0)
 
                 # 2. Momentum loss
@@ -271,8 +280,8 @@ class PCNNSolver:
                 # loss_v -= self.params.Du * (self.d2_dx2(v) + self.d2_dy2(v))
 
                 # Apply loss function and compute mean
-                loss_u = torch.mean(self.loss_function(loss_u), dim=0)
-                loss_v = torch.mean(self.loss_function(loss_v), dim=0)
+                loss_u = torch.mean(self.loss_function(flow_mask * loss_u), dim=0)
+                loss_v = torch.mean(self.loss_function(flow_mask * loss_v), dim=0)
 
                 # # 3. Sediment loss
                 # loss_S = torch.mean(self.loss_function(
@@ -309,7 +318,7 @@ class PCNNSolver:
                 # Regularizers
                 #
                 loss_reg = torch.mean(self.loss_function(
-                    (torch.sum(h_new, dim=(1,2,3)) - torch.sum(h_old, dim=(1,2,3))) / (self.params.width * self.params.height)
+                    flow_mask * (h_new - h_old)
                 ))
 
                 # Compute combined loss
@@ -319,7 +328,7 @@ class PCNNSolver:
                     + self.params.loss_reg * loss_reg 
 
                 # Log loss and mean loss
-                loss = torch.mean(torch.log(loss_tensor))
+                loss = torch.mean(torch.log(loss_tensor + 5))
 
                 # Compute gradients
                 self.optimizer.zero_grad()
@@ -366,6 +375,7 @@ class PCNNSolver:
                         plot_loss_h_data = np.append(plot_loss_h_data, np.array([self.params.loss_h * loss_h]))
                         plot_loss_momentum_data = np.append(plot_loss_momentum_data, np.array([self.params.loss_momentum * (loss_u + loss_v)]))
                         plot_loss_bound_data = np.append(plot_loss_bound_data, np.array([self.params.loss_bound * loss_bound]))
+                        plot_loss_reg_data = np.append(plot_loss_reg_data, np.array([self.params.loss_reg * loss_reg]))
 
                         plot_loss_total_graph.set_xdata(range(plot_loss_total_data.shape[0]))
                         plot_loss_total_graph.set_ydata(plot_loss_total_data)
@@ -379,9 +389,13 @@ class PCNNSolver:
                         plot_loss_bound_graph.set_xdata(range(plot_loss_bound_data.shape[0]))
                         plot_loss_bound_graph.set_ydata(plot_loss_bound_data)
 
-                        graph_limits = np.concatenate((plot_loss_h_data, plot_loss_momentum_data, plot_loss_bound_data))
+                        if self.params.loss_reg > 0:
+                            plot_loss_reg_graph.set_xdata(range(plot_loss_reg_data.shape[0]))
+                            plot_loss_reg_graph.set_ydata(plot_loss_reg_data)
+
+                        graph_limits = np.concatenate((plot_loss_h_data, plot_loss_momentum_data, plot_loss_bound_data, plot_loss_reg_data))
                         plot_axs[2].set_xlim([0, plot_loss_h_data.shape[0]])
-                        plot_axs[2].set_ylim([np.min(graph_limits), np.max(graph_limits)])
+                        plot_axs[2].set_ylim([0, np.max(graph_limits)])
                         
 
                 # Always update the plot to allow interaction
@@ -423,8 +437,8 @@ class PCNNSolver:
 
         # Open a visualization window
         win = Window("Water Layer Thickness", self.params.width, self.params.height)
-        win.set_data_range(self.params.H0 - 0.0005, self.params.H0+0.0005)
         win.set_data_range(self.params.H0 - 1e-2, self.params.H0 + 1e-2)
+        win.set_data_range(0, 1)
 
         with torch.no_grad():
 
@@ -432,21 +446,24 @@ class PCNNSolver:
             while win.is_open():
 
                 # Ask for a batch from the dataset
-                h_old, u_old, v_old = self.dataset.ask()
+                h_old, u_old, v_old, cond_mask, h_cond, u_cond, v_cond = self.dataset.ask()
+
+                # The flow mask is simply 1-cond_mask
+                flow_mask = 1 - cond_mask
 
                 # TODO: MAC grid
 
+                # Predict the new domain state by performing a forward pass through the network
+                h_new, u_new, v_new = self.net(h_old, u_old, v_old, cond_mask, flow_mask, h_cond, u_cond, v_cond)
+
                 # Display water level thickness h
-                h = h_old[0, 0].clone()
-                # h = h - torch.min(h)
-                # h = h / torch.max(h)
+                h = h_new[0, 0].clone()
+                h = h - torch.min(h)
+                h = h / torch.max(h)
                 h = h.detach().cpu().numpy()
 
                 win.put_image(h)
                 win.update()
-
-                # Predict the new domain state by performing a forward pass through the network
-                h_new, u_new, v_new = self.net(h_old, u_old, v_old)
 
                 # Store the newly obtained result in the dataset
                 self.dataset.tell(h_new, u_new, v_new, random_reset=False)

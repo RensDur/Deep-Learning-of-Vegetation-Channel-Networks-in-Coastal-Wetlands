@@ -170,4 +170,5 @@ class Dataset:
             if self.average_sequence_t % (self.average_sequence_length/self.batch_size) == 0:#ca x*batch_size steps until env gets reset
                 self.reset(int(self.average_sequence_i))
                 self.average_sequence_i = (self.average_sequence_i+1)%self.dataset_size
+                print("Resetting environment!")
 
