@@ -136,15 +136,32 @@ class PCNNSolver:
             for i in range(self.params.n_batches_per_epoch):
 
                 # Ask for a batch from the dataset
-                h_old, u_old, v_old = self.dataset.ask()
+                h_old, u_old, v_old, cond_mask, h_cond, u_cond, v_cond = self.dataset.ask()
+
+                # The flow mask is simply 1-cond_mask
+                flow_mask = 1 - cond_mask
 
                 # TODO: MAC grid
 
                 # Predict the new domain state by performing a forward pass through the network
-                h_new, u_new, v_new = self.net(h_old, u_old, v_old)
+                h_new, u_new, v_new = self.net(h_old, u_old, v_old, cond_mask, flow_mask, h_cond, u_cond, v_cond)
 
-                # S_new = S_old
-                # B_new = B_old
+                # Based on these predictions, compute the reference boundary conditions
+                # (because they're dynamic in this setting)
+                h_cond[:, 0, 0, :] = h_new[:, 0, 1, :]        # Top
+                h_cond[:, 0, -1, :] = h_new[:, 0, -2, :]      # Bottom
+                h_cond[:, 0, :, 0] = h_new[:, 0, :, 1]        # Left
+                h_cond[:, 0, :, -1] = h_new[:, 0, :, -2]      # Right
+
+                u_cond[:, 0, 0, :] = u_new[:, 0, 1, :]
+                u_cond[:, 0, -1, :] = u_new[:, 0, -2, :]
+                u_cond[:, 0, :, 0] = -u_new[:, 0, :, 1]
+                u_cond[:, 0, :, -1] = -u_new[:, 0, :, -2]
+
+                v_cond[:, 0, 0, :] = -v_new[:, 0, 1, :]
+                v_cond[:, 0, -1, :] = -v_new[:, 0, -2, :]
+                v_cond[:, 0, :, 0] = v_new[:, 0, :, 1]
+                v_cond[:, 0, :, -1] = v_new[:, 0, :, -2]
 
                 # Choose between explicit, implicit or IMEX integration schemes
                 if self.params.integrator == "explicit":
@@ -239,94 +256,19 @@ class PCNNSolver:
                 # ), dim=(1,2,3))
 
                 # 5. Boundary loss
+                loss_bound_h = torch.mean(self.loss_function(
+                    cond_mask * (h_new - h_cond)
+                ), dim=(1,2,3))
 
-                # Closed boundary on the left
-                loss_bound_left = torch.mean(self.loss_function(
-                    u[:, :, :, 0] + u[:, :, :, 1]
-                ))
-                loss_bound_left += torch.mean(self.loss_function(
-                    v[:, :, :, 0] - v[:, :, :, 1]
-                ))
-                loss_bound_left += torch.mean(self.loss_function(
-                    h[:, :, :, 0] - h[:, :, :, 1]
-                ))
-                # loss_bound_left += torch.mean(self.loss_function(
-                #     S[:, :, :, 0] - S[:, :, :, 1]
-                # ))
-                # loss_bound_left += torch.mean(self.loss_function(
-                #     B[:, :, :, 0] - B[:, :, :, 1]
-                # ))
+                loss_bound_u = torch.mean(self.loss_function(
+                    cond_mask * (u_new - u_cond)
+                ), dim=(1,2,3))
 
-                # Closed boundary on the right
-                loss_bound_right = torch.mean(self.loss_function(
-                    u[:, :, :, -1] + u[:, :, :, -2]
-                ))
-                loss_bound_right += torch.mean(self.loss_function(
-                    v[:, :, :, -1] - v[:, :, :, -2]
-                ))
-                loss_bound_right += torch.mean(self.loss_function(
-                    h[:, :, :, -1] - h[:, :, :, -2]
-                ))
-                # loss_bound_right += torch.mean(self.loss_function(
-                #     S[:, :, :, -1] - S[:, :, :, -2]
-                # ))
-                # loss_bound_right += torch.mean(self.loss_function(
-                #     B[:, :, :, -1] - B[:, :, :, -2]
-                # ))
+                loss_bound_v = torch.mean(self.loss_function(
+                    cond_mask * (v_new - v_cond)
+                ), dim=(1,2,3))
 
-                # Open boundary on the right
-                # loss_bound_right = torch.mean(self.loss_function(
-                #     u[:, :, :, -1] - 2*u[:, :, :, -2] + u[:, :, :, -3]
-                # ))
-                # loss_bound_right += torch.mean(self.loss_function(
-                #     v[:, :, :, -1] - 2*v[:, :, :, -2] + v[:, :, :, -3]
-                # ))
-                # loss_bound_right += torch.mean(self.loss_function(
-                #     h[:, :, :, -1] - h[:, :, :, -2]
-                # ))
-                # loss_bound_right += torch.mean(self.loss_function(
-                #     S[:, :, :, -1]
-                # ))
-                # loss_bound_right += torch.mean(self.loss_function(
-                #     B[:, :, :, -1] - B[:, :, :, -2]
-                # ))
-
-                # Closed boundary at the top
-                loss_bound_top = torch.mean(self.loss_function(
-                    u[:, :, 0, :] - u[:, :, 1, :]
-                ))
-                loss_bound_top += torch.mean(self.loss_function(
-                    v[:, :, 0, :] + v[:, :, 1, :]
-                ))
-                loss_bound_top += torch.mean(self.loss_function(
-                    h[:, :, 0, :] - h[:, :, 1, :]
-                ))
-                # loss_bound_top += torch.mean(self.loss_function(
-                #     S[:, :, 0, :] - S[:, :, 1, :]
-                # ))
-                # loss_bound_top += torch.mean(self.loss_function(
-                #     B[:, :, 0, :] - B[:, :, 1, :]
-                # ))
-
-                # Closed boundary at the bottom
-                loss_bound_bottom = torch.mean(self.loss_function(
-                    u[:, :, -1, :] - u[:, :, -2, :]
-                ))
-                loss_bound_bottom += torch.mean(self.loss_function(
-                    v[:, :, -1, :] + v[:, :, -2, :]
-                ))
-                loss_bound_bottom += torch.mean(self.loss_function(
-                    h[:, :, -1, :] - h[:, :, -2, :]
-                ))
-                # loss_bound_bottom += torch.mean(self.loss_function(
-                #     S[:, :, -1, :] - S[:, :, -2, :]
-                # ))
-                # loss_bound_bottom += torch.mean(self.loss_function(
-                #     B[:, :, -1, :] - B[:, :, -2, :]
-                # ))
-
-                # Final boundary loss
-                loss_bound = loss_bound_left + loss_bound_right + loss_bound_top + loss_bound_bottom
+                loss_bound = loss_bound_h + loss_bound_u + loss_bound_v
 
                 #
                 # Regularizers

@@ -62,13 +62,25 @@ class PDE_CNN_SWE(nn.Module):
 		self.hidden_size = 50
 		self.bilinear = bilinear
 
-		self.conv1 = nn.Conv2d(3, 64, kernel_size=3,padding=1, padding_mode='replicate')
-		self.conv2 = nn.Conv2d(64, 64, kernel_size=3,padding=1, padding_mode='replicate')
-		self.conv3 = nn.Conv2d(64, 32, kernel_size=3,padding=1, padding_mode='replicate')
-		self.conv4 = nn.Conv2d(32, 3, kernel_size=3,padding=1, padding_mode='replicate')
+		self.conv1 = nn.Conv2d(11, 32, kernel_size=3,padding=1, padding_mode='replicate')
+		self.conv2 = nn.Conv2d(32, 64, kernel_size=3,padding=1, padding_mode='replicate')
+		self.conv3 = nn.Conv2d(64, 64, kernel_size=3,padding=1, padding_mode='replicate')
+		self.conv4 = nn.Conv2d(64, 3, kernel_size=3,padding=1, padding_mode='replicate')
 
-	def forward(self, h_old, u_old, v_old):
-		x = torch.cat([h_old, u_old, v_old],dim=1)
+	def forward(self, h_old, u_old, v_old, cond_mask, flow_mask, h_cond, u_cond, v_cond):
+		x = torch.cat([
+			h_old,
+			u_old,
+			v_old,
+			cond_mask,
+			h_cond*cond_mask,
+			u_cond*cond_mask, 
+			v_cond*cond_mask,
+			flow_mask,
+			h_old*flow_mask,
+			u_old*flow_mask,
+			v_old*flow_mask
+		],dim=1)
 		
 		x = self.conv1(x)
 		x = torch.relu(x)
