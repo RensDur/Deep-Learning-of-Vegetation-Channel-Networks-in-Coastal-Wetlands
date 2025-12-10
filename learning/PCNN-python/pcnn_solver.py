@@ -9,6 +9,7 @@ from Logger import Logger,t_step
 import cv2
 import time
 from window import Window
+import matplotlib.pyplot as plt
 
 
 
@@ -128,6 +129,40 @@ class PCNNSolver:
         # Enable training of the model
         self.net.train()
 
+        # Open a matplot window - if plotting is enabled
+        if self.params.plot_loss:
+            plt.ion()
+
+            plot_fig, plot_axs = plt.subplots(1, 3, figsize=(20, 10))
+
+            # Plots
+            plot_axs[0].set(title="Loss image", xlabel="x", ylabel="y")
+            plot_axs[1].set(title="Total loss", xlabel="x", ylabel="y")
+            plot_axs[2].set(title="Loss terms", xlabel="x", ylabel="y")
+
+            # Leftmost plot shows loss image
+            plot_loss_image_padding = 10
+            plot_loss_image = plot_axs[0].imshow(np.zeros((self.params.height + plot_loss_image_padding, self.params.width + plot_loss_image_padding)), cmap="gray", vmin=0, vmax=1)
+
+            # Middle plot shows total loss over time
+            plot_loss_total_data = np.array([])
+
+            # Rightmost plot shows loss-terms over time (multiplied by scaling)
+            plot_loss_h_data = np.array([])
+            plot_loss_momentum_data = np.array([])
+            plot_loss_bound_data = np.array([])
+
+            plot_loss_total_graph = plot_axs[1].plot(range(len(plot_loss_total_data)), plot_loss_total_data)[0]
+
+            plot_loss_h_graph = plot_axs[2].plot(range(len(plot_loss_h_data)), plot_loss_h_data, label="h-loss")[0]
+            plot_loss_momentum_graph = plot_axs[2].plot(range(len(plot_loss_momentum_data)), plot_loss_momentum_data, label="u,v-loss")[0]
+            plot_loss_bound_graph = plot_axs[2].plot(range(len(plot_loss_bound_data)), plot_loss_bound_data, label="bound-loss")[0]
+
+            plot_axs[2].legend(handles=[plot_loss_h_graph, plot_loss_momentum_graph, plot_loss_bound_graph], loc="upper right")
+
+            plt.show()
+
+
         # Training loop:
         # Start from the most recently finished epoch and train until the configured number
         # of epochs has been reached.
@@ -221,7 +256,7 @@ class PCNNSolver:
                 # 1. Continuity loss
                 loss_h = torch.mean(self.loss_function(
                     dh_dt + self.d_dx(u * h) + self.d_dy(v * h) # - self.params.Hin
-                ), dim=(1,2,3))
+                ), dim=0)
 
                 # 2. Momentum loss
                 loss_u = du_dt + self.params.grav * self.d_dx(h + S) + u * self.d_dx(u) + v * self.d_dy(u)
@@ -236,8 +271,8 @@ class PCNNSolver:
                 # loss_v -= self.params.Du * (self.d2_dx2(v) + self.d2_dy2(v))
 
                 # Apply loss function and compute mean
-                loss_u = torch.mean(self.loss_function(loss_u), dim=(1,2,3))
-                loss_v = torch.mean(self.loss_function(loss_v), dim=(1,2,3))
+                loss_u = torch.mean(self.loss_function(loss_u), dim=0)
+                loss_v = torch.mean(self.loss_function(loss_v), dim=0)
 
                 # # 3. Sediment loss
                 # loss_S = torch.mean(self.loss_function(
@@ -245,7 +280,7 @@ class PCNNSolver:
                 #     - self.params.Sin * (he / (self.params.Qs + he)) \
                 #     + self.params.Es * (1.0 - self.params.pE * (B / self.params.k)) * S * tau_b_per_rho \
                 #     - topographic_diffusion_term
-                # ), dim=(1,2,3))
+                # ), dim=0)
                 #
                 # # 4. Vegetation stem density loss
                 # loss_B = torch.mean(self.loss_function(
@@ -253,20 +288,20 @@ class PCNNSolver:
                 #     - self.params.r * B * (1.0 - (B / self.params.k)) * (self.params.Qq / (self.params.Qq + he)) \
                 #     + self.params.EB * B * tau_b_per_rho \
                 #     - self.params.DB * (self.d2_dx2(B) + self.d2_dy2(B))
-                # ), dim=(1,2,3))
+                # ), dim=0)
 
                 # 5. Boundary loss
                 loss_bound_h = torch.mean(self.loss_function(
                     cond_mask * (h_new - h_cond)
-                ), dim=(1,2,3))
+                ), dim=0)
 
                 loss_bound_u = torch.mean(self.loss_function(
                     cond_mask * (u_new - u_cond)
-                ), dim=(1,2,3))
+                ), dim=0)
 
                 loss_bound_v = torch.mean(self.loss_function(
                     cond_mask * (v_new - v_cond)
-                ), dim=(1,2,3))
+                ), dim=0)
 
                 loss_bound = loss_bound_h + loss_bound_u + loss_bound_v
 
@@ -278,14 +313,13 @@ class PCNNSolver:
                 ))
 
                 # Compute combined loss
-                loss = torch.mean(torch.log(
-                    self.params.loss_h * loss_h
-                    + self.params.loss_momentum * (loss_u + loss_v)
-                    # + self.params.loss_S * loss_S
-                    # + self.params.loss_B * loss_B
-                    + self.params.loss_bound * loss_bound
-                    + self.params.loss_reg * loss_reg
-                ))
+                loss_tensor = self.params.loss_h * loss_h \
+                    + self.params.loss_momentum * (loss_u + loss_v) \
+                    + self.params.loss_bound * loss_bound \
+                    + self.params.loss_reg * loss_reg 
+
+                # Log loss and mean loss
+                loss = torch.mean(torch.log(loss_tensor))
 
                 # Compute gradients
                 self.optimizer.zero_grad()
@@ -299,6 +333,7 @@ class PCNNSolver:
 
                 # log training metrics
                 if i % 10 == 0:
+                    loss_tensor = loss_tensor.detach().view(self.params.height, self.params.width).cpu().numpy()
                     loss = float(loss.detach().cpu().numpy())
                     loss_h = float(torch.mean(loss_h).detach().cpu().numpy())
                     loss_u = float(torch.mean(loss_u).detach().cpu().numpy())
@@ -317,7 +352,45 @@ class PCNNSolver:
                     self.logger.log(f"loss_reg_{self.params.loss}", loss_reg, epoch * self.params.n_batches_per_epoch + i)
 
                     print(f"Epoch {epoch}, iter.{i}:\tloss: {round(loss,5)};\tloss_bound: {round(loss_bound,5)};\tloss_h: {round(loss_h,5)};\tloss_u: {round(loss_u,5)};\tloss_v: {round(loss_v,5)};\tloss_reg: {round(loss_reg,5)} \tvRAM allocated: {round(torch.mps.current_allocated_memory()/1000000000.0, 2)}GB")
-                    # if i % 100 == 0:
+
+                    #
+                    # PLOT LOSS - IF ENABLED
+                    #
+                    if self.params.plot_loss:
+                        loss_tensor -= np.min(loss_tensor)
+                        loss_tensor /= np.max(loss_tensor)
+
+                        plot_loss_image.set_data(np.pad(loss_tensor, plot_loss_image_padding, mode="edge"))
+
+                        plot_loss_total_data = np.append(plot_loss_total_data, np.array([loss]))
+                        plot_loss_h_data = np.append(plot_loss_h_data, np.array([self.params.loss_h * loss_h]))
+                        plot_loss_momentum_data = np.append(plot_loss_momentum_data, np.array([self.params.loss_momentum * (loss_u + loss_v)]))
+                        plot_loss_bound_data = np.append(plot_loss_bound_data, np.array([self.params.loss_bound * loss_bound]))
+
+                        plot_loss_total_graph.set_xdata(range(plot_loss_total_data.shape[0]))
+                        plot_loss_total_graph.set_ydata(plot_loss_total_data)
+                        plot_axs[1].set_xlim([0, plot_loss_total_data.shape[0]])
+                        plot_axs[1].set_ylim([np.min(plot_loss_total_data), np.max(plot_loss_total_data)])
+
+                        plot_loss_h_graph.set_xdata(range(plot_loss_h_data.shape[0]))
+                        plot_loss_h_graph.set_ydata(plot_loss_h_data)
+                        plot_loss_momentum_graph.set_xdata(range(plot_loss_momentum_data.shape[0]))
+                        plot_loss_momentum_graph.set_ydata(plot_loss_momentum_data)
+                        plot_loss_bound_graph.set_xdata(range(plot_loss_bound_data.shape[0]))
+                        plot_loss_bound_graph.set_ydata(plot_loss_bound_data)
+
+                        graph_limits = np.concatenate((plot_loss_h_data, plot_loss_momentum_data, plot_loss_bound_data))
+                        plot_axs[2].set_xlim([0, plot_loss_h_data.shape[0]])
+                        plot_axs[2].set_ylim([np.min(graph_limits), np.max(graph_limits)])
+                        
+
+                # Always update the plot to allow interaction
+                # Plot the domain (update existing plot)
+                # Draw updated values
+                plot_fig.canvas.draw()
+
+                # UI Loop: process all pending UI events
+                plot_fig.canvas.flush_events()
 
             # Save the training state after each epoch
             if self.params.log:

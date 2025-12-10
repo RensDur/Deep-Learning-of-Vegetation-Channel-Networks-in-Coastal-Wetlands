@@ -37,6 +37,10 @@ class Dataset:
         # Time tracking per environment
         self.t = torch.zeros(self.dataset_size)
 
+        self.average_sequence_length = params.average_sequence_length
+        self.average_sequence_t = 0
+        self.average_sequence_i = 0
+
         # Reset all environments upon initialization
         self.reset(range(self.dataset_size))
 
@@ -160,11 +164,10 @@ class Dataset:
 
         # Update time-tracking
         self.t[self.asked_indices] += self.params.dt
+        self.average_sequence_t += 1
 
         if random_reset:
-            # Reset an environment randomly after progressing a certain amount of time
-            r = np.random.uniform(0, 1, self.batch_size)
-
-            reset_indices = [self.asked_indices[i] for i in range(self.batch_size) if r[i] < 0.01]
-            self.reset(reset_indices)
+            if self.average_sequence_t % (self.average_sequence_length/self.batch_size) == 0:#ca x*batch_size steps until env gets reset
+                self.reset(int(self.average_sequence_i))
+                self.average_sequence_i = (self.average_sequence_i+1)%self.dataset_size
 
