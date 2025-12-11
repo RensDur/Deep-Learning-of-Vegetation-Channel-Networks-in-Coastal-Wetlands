@@ -148,8 +148,7 @@ class PCNNSolver:
             # plot_axs[2].grid(which="minor", color="0.5")
 
             # Leftmost plot shows loss image
-            plot_loss_image_padding = 10
-            plot_loss_image = plot_axs[0].imshow(np.zeros((self.params.height + plot_loss_image_padding, self.params.width + plot_loss_image_padding)), cmap="gray", vmin=0, vmax=1)
+            plot_loss_image = plot_axs[0].imshow(np.zeros((self.params.height, self.params.width)), cmap="gray", vmin=0, vmax=1)
 
             # Middle plot shows total loss over time
             plot_loss_total_data = np.array([])
@@ -180,7 +179,7 @@ class PCNNSolver:
             for i in range(self.params.n_batches_per_epoch):
 
                 # Ask for a batch from the dataset
-                h_old, u_old, v_old, cond_mask, h_cond, u_cond, v_cond = self.dataset.ask()
+                h_old, u_old, v_old, cond_mask, u_cond, v_cond = self.dataset.ask()
 
                 # The flow mask is simply 1-cond_mask
                 flow_mask = 1 - cond_mask
@@ -188,24 +187,7 @@ class PCNNSolver:
                 # TODO: MAC grid
 
                 # Predict the new domain state by performing a forward pass through the network
-                h_new, u_new, v_new = self.net(h_old, u_old, v_old, cond_mask, flow_mask, h_cond, u_cond, v_cond)
-
-                # Based on these predictions, compute the reference boundary conditions
-                # (because they're dynamic in this setting)
-                h_cond[:, 0, 0, :] = h_new[:, 0, 1, :]        # Top
-                h_cond[:, 0, -1, :] = h_new[:, 0, -2, :]      # Bottom
-                h_cond[:, 0, :, 0] = h_new[:, 0, :, 1]        # Left
-                h_cond[:, 0, :, -1] = h_new[:, 0, :, -2]      # Right
-
-                u_cond[:, 0, 0, :] = u_new[:, 0, 1, :]
-                u_cond[:, 0, -1, :] = u_new[:, 0, -2, :]
-                u_cond[:, 0, :, 0] = -u_new[:, 0, :, 1]
-                u_cond[:, 0, :, -1] = -u_new[:, 0, :, -2]
-
-                v_cond[:, 0, 0, :] = -v_new[:, 0, 1, :]
-                v_cond[:, 0, -1, :] = -v_new[:, 0, -2, :]
-                v_cond[:, 0, :, 0] = v_new[:, 0, :, 1]
-                v_cond[:, 0, :, -1] = v_new[:, 0, :, -2]
+                h_new, u_new, v_new = self.net(h_old, u_old, v_old, cond_mask, flow_mask, u_cond, v_cond)
 
                 # Choose between explicit, implicit or IMEX integration schemes
                 if self.params.integrator == "explicit":
@@ -300,9 +282,9 @@ class PCNNSolver:
                 # ), dim=0)
 
                 # 5. Boundary loss
-                loss_bound_h = torch.mean(self.loss_function(
-                    cond_mask * (h_new - h_cond)
-                ), dim=0)
+                # loss_bound_h = torch.mean(self.loss_function(
+                #     cond_mask * (h_new - h_cond)
+                # ), dim=0)
 
                 loss_bound_u = torch.mean(self.loss_function(
                     cond_mask * (u_new - u_cond)
@@ -312,7 +294,7 @@ class PCNNSolver:
                     cond_mask * (v_new - v_cond)
                 ), dim=0)
 
-                loss_bound = loss_bound_h + loss_bound_u + loss_bound_v
+                loss_bound = loss_bound_u + loss_bound_v
 
                 #
                 # Regularizers
@@ -328,7 +310,7 @@ class PCNNSolver:
                     + self.params.loss_reg * loss_reg 
 
                 # Log loss and mean loss
-                loss = torch.mean(torch.log(loss_tensor + 5))
+                loss = torch.mean(torch.log(loss_tensor))
 
                 # Compute gradients
                 self.optimizer.zero_grad()
@@ -369,7 +351,7 @@ class PCNNSolver:
                         loss_tensor -= np.min(loss_tensor)
                         loss_tensor /= np.max(loss_tensor)
 
-                        plot_loss_image.set_data(np.pad(loss_tensor, plot_loss_image_padding, mode="edge"))
+                        plot_loss_image.set_data(loss_tensor)
 
                         plot_loss_total_data = np.append(plot_loss_total_data, np.array([loss]))
                         plot_loss_h_data = np.append(plot_loss_h_data, np.array([self.params.loss_h * loss_h]))
@@ -395,7 +377,7 @@ class PCNNSolver:
 
                         graph_limits = np.concatenate((plot_loss_h_data, plot_loss_momentum_data, plot_loss_bound_data, plot_loss_reg_data))
                         plot_axs[2].set_xlim([0, plot_loss_h_data.shape[0]])
-                        plot_axs[2].set_ylim([0, np.max(graph_limits)])
+                        plot_axs[2].set_ylim([0, 1000])
                         
 
                 # Always update the plot to allow interaction
@@ -437,7 +419,6 @@ class PCNNSolver:
 
         # Open a visualization window
         win = Window("Water Layer Thickness", self.params.width, self.params.height)
-        win.set_data_range(self.params.H0 - 1e-2, self.params.H0 + 1e-2)
         win.set_data_range(0, 1)
 
         with torch.no_grad():
@@ -446,18 +427,15 @@ class PCNNSolver:
             while win.is_open():
 
                 # Ask for a batch from the dataset
-                h_old, u_old, v_old, cond_mask, h_cond, u_cond, v_cond = self.dataset.ask()
+                h_old, u_old, v_old, cond_mask, u_cond, v_cond = self.dataset.ask()
 
                 # The flow mask is simply 1-cond_mask
                 flow_mask = 1 - cond_mask
 
                 # TODO: MAC grid
 
-                # Predict the new domain state by performing a forward pass through the network
-                h_new, u_new, v_new = self.net(h_old, u_old, v_old, cond_mask, flow_mask, h_cond, u_cond, v_cond)
-
                 # Display water level thickness h
-                h = h_new[0, 0].clone()
+                h = h_old[0, 0].clone()
                 h = h - torch.min(h)
                 h = h / torch.max(h)
                 h = h.detach().cpu().numpy()
@@ -465,8 +443,11 @@ class PCNNSolver:
                 win.put_image(h)
                 win.update()
 
+                # Predict the new domain state by performing a forward pass through the network
+                h_new, u_new, v_new = self.net(h_old, u_old, v_old, cond_mask, flow_mask, u_cond, v_cond)
+
                 # Store the newly obtained result in the dataset
-                self.dataset.tell(h_new, u_new, v_new, random_reset=False)
+                self.dataset.tell(h_new, u_new, v_new, random_reset=True)
 
 
     def visualize_numerical(self):
@@ -480,7 +461,7 @@ class PCNNSolver:
 
         # Open a visualization window
         win = Window("Water Layer Thickness", self.params.width, self.params.height)
-        win.set_data_range(self.params.H0 - 0.0005, self.params.H0+0.0005)
+        win.set_data_range(9, 11)
 
         with torch.no_grad():
 
@@ -488,7 +469,7 @@ class PCNNSolver:
             while win.is_open():
 
                 # Ask for a batch from the dataset
-                h_old, u_old, v_old = self.dataset.ask()
+                h_old, u_old, v_old, _, _, _, _ = self.dataset.ask()
 
                 # TODO: MAC grid
 

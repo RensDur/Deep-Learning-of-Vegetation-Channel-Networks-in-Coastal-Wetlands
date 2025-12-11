@@ -10,6 +10,7 @@ class Dataset:
         # Dimensions
         self.width = params.width
         self.height = params.height
+        self.padding = 5
         self.dx = params.separation
         self.dy = params.separation
 
@@ -54,25 +55,30 @@ class Dataset:
         """
 
         # Uniform water thickness H0
-        self.h[indices, 0, :, :] = self.params.H0
+        self.h[indices, 0, :, :] = 10
 
-        x = torch.linspace(0, self.width * self.dx, self.width)
-        y = torch.linspace(0, self.height * self.dy, self.height)
-        x, y = torch.meshgrid(x, y, indexing='xy')
+        # x = torch.linspace(0, self.width * self.dx, self.width)
+        # y = torch.linspace(0, self.height * self.dy, self.height)
+        # x, y = torch.meshgrid(x, y, indexing='xy')
 
-        for _ in range(3):
-            x_mu = np.random.uniform(0, self.width * self.dx)
-            y_mu = np.random.uniform(0, self.height * self.dy)
-            x_sig = y_sig = np.random.uniform(0.1, 0.3)
-            correlation = 0
+        wavespan = int(self.width / 10)
+        x = torch.linspace(0, wavespan, wavespan)
 
-            A = 1 / (2 * math.pi * x_sig * y_sig * (1 - correlation ** 2) ** 0.5)
+        self.h[indices, 0, :, :wavespan] += torch.cos((x / wavespan) * 0.5 * math.pi)
 
-            self.h[indices, 0, :, :] += self.params.H0 * 0.25 * torch.exp(
-                - (1 / (2 * (1 - correlation ** 2))) * (
-                            ((x - x_mu) / x_sig) ** 2 - 2 * correlation * ((x - x_mu) / x_sig) * ((y - y_mu) / y_sig) + (
-                                (y - y_mu) / y_sig) ** 2)
-            )
+        # for _ in range(1):
+        #     x_mu = np.random.uniform(0, self.width * self.dx)
+        #     y_mu = np.random.uniform(0, self.height * self.dy)
+        #     x_sig = y_sig = np.random.uniform(0.1, 0.3)
+        #     correlation = 0
+
+        #     A = 1 / (2 * math.pi * x_sig * y_sig * (1 - correlation ** 2) ** 0.5)
+
+        #     self.h[indices, 0, :, :] += self.params.H0 * 0.25 * torch.exp(
+        #         - (1 / (2 * (1 - correlation ** 2))) * (
+        #                     ((x - x_mu) / x_sig) ** 2 - 2 * correlation * ((x - x_mu) / x_sig) * ((y - y_mu) / y_sig) + (
+        #                         (y - y_mu) / y_sig) ** 2)
+        #     )
 
         # Flow velocities are zero everywhere
         self.u[indices, 0, :, :] = 0
@@ -95,27 +101,12 @@ class Dataset:
         """
         
         # Boundary condition masks and conditions
-        self.cond_mask[indices, 0, :, :] = 0
-        self.cond_mask[indices, 0, 0, :] = 1
-        self.cond_mask[indices, 0, -1, :] = 1
-        self.cond_mask[indices, 0, :, 0] = 1
-        self.cond_mask[indices, 0, :, -1] = 1
+        self.cond_mask[indices, 0, :, :] = 1
+        self.cond_mask[indices, 0, self.padding:-self.padding, self.padding:-self.padding] = 0
 
         # All closed boundaries
-        self.h_cond[indices, 0, 0, :] = self.h[indices, 0, 1, :]        # Top
-        self.h_cond[indices, 0, -1, :] = self.h[indices, 0, -2, :]      # Bottom
-        self.h_cond[indices, 0, :, 0] = self.h[indices, 0, :, 1]        # Left
-        self.h_cond[indices, 0, :, -1] = self.h[indices, 0, :, -2]      # Right
-
-        self.u_cond[indices, 0, 0, :] = self.u[indices, 0, 1, :]
-        self.u_cond[indices, 0, -1, :] = self.u[indices, 0, -2, :]
-        self.u_cond[indices, 0, :, 0] = -self.u[indices, 0, :, 1]
-        self.u_cond[indices, 0, :, -1] = -self.u[indices, 0, :, -2]
-
-        self.v_cond[indices, 0, 0, :] = -self.v[indices, 0, 1, :]
-        self.v_cond[indices, 0, -1, :] = -self.v[indices, 0, -2, :]
-        self.v_cond[indices, 0, :, 0] = self.v[indices, 0, :, 1]
-        self.v_cond[indices, 0, :, -1] = self.v[indices, 0, :, -2]
+        self.u_cond[indices, 0, :, :] = 0
+        self.v_cond[indices, 0, :, :] = 0
 
 
     #
@@ -139,7 +130,6 @@ class Dataset:
                 self.u[self.asked_indices].to(self.device), \
                 self.v[self.asked_indices].to(self.device), \
                 self.cond_mask[self.asked_indices].to(self.device), \
-                self.h_cond[self.asked_indices].to(self.device), \
                 self.u_cond[self.asked_indices].to(self.device), \
                 self.v_cond[self.asked_indices].to(self.device), \
                 # self.S[self.asked_indices].to(self.device), \
