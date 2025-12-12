@@ -10,7 +10,7 @@ class Dataset:
         # Dimensions
         self.width = params.width
         self.height = params.height
-        self.padding = 5
+        self.padding = 10
         self.dx = params.separation
         self.dy = params.separation
 
@@ -30,7 +30,7 @@ class Dataset:
         # self.B = torch.zeros(self.dataset_size, 1, self.height, self.width)
 
         # Domain boundaries
-        self.cond_mask = torch.zeros(self.dataset_size, 1, self.height, self.width) # Boundary mask - [1 - Omega] - 1 on the boundaries, 0 everywhere else
+        self.cond_mask = torch.zeros(self.dataset_size, 1, self.height, self.width).int() # Boundary mask - [1 - Omega] - 1 on the boundaries, 0 everywhere else
         self.h_cond = torch.zeros(self.dataset_size, 1, self.height, self.width)
         self.u_cond = torch.zeros(self.dataset_size, 1, self.height, self.width)
         self.v_cond = torch.zeros(self.dataset_size, 1, self.height, self.width)
@@ -109,7 +109,11 @@ class Dataset:
         self.v_cond[indices, 0, :, :] = 0
 
         # The zero-velocity condition at the edges cannot physically be combined with any gradients in h at the edges. Enforce them
-        self.h_cond[indices, 0, :, :] = self.h[indices, 0, :, :]
+        h_inside = self.h[indices, 0, self.padding:-self.padding, self.padding:-self.padding]
+        h_padded = torch.nn.functional.pad(h_inside, (self.padding, self.padding, self.padding, self.padding), 'replicate')
+
+        self.h_cond[indices, 0, :, :] = h_padded
+
 
 
     #
