@@ -62,23 +62,25 @@ class PDE_CNN_SWE(nn.Module):
 		self.hidden_size = 50
 		self.bilinear = bilinear
 
-		self.interpol = nn.Conv2d(3, 5, kernel_size=3,padding=1)
-
-		self.conv1 = nn.Conv2d(8, 32, kernel_size=3,padding=1)
+		self.conv1 = nn.Conv2d(11, 32, kernel_size=3,padding=1)
 		self.conv2 = nn.Conv2d(32, 32, kernel_size=3,padding=1)
-		self.conv3 = nn.Conv2d(32, 3, kernel_size=3,padding=1)
+		self.conv3 = nn.Conv2d(32, 32, kernel_size=3,padding=1)
+		self.conv4 = nn.Conv2d(32, 3, kernel_size=3,padding=1)
 
-	def forward(self, h_old, u_old, v_old, cond_mask, flow_mask, u_cond, v_cond):
-
-		x = torch.cat([u_cond, v_cond, cond_mask], dim=1)
-
-		x = self.interpol(x)
+	def forward(self, h_old, u_old, v_old, cond_mask, flow_mask, h_cond, u_cond, v_cond):
 
 		x = torch.cat([
 			h_old,
 			u_old,
 			v_old,
-			x
+			cond_mask,
+			cond_mask*h_cond,
+			cond_mask*u_cond,
+			cond_mask*v_cond,
+			flow_mask,
+			flow_mask*h_old,
+			flow_mask*u_old,
+			flow_mask*v_old
 		],dim=1)
 		
 		x = self.conv1(x)
@@ -86,6 +88,8 @@ class PDE_CNN_SWE(nn.Module):
 		x = self.conv2(x)
 		x = torch.relu(x)
 		x = self.conv3(x)
+		x = torch.relu(x)
+		x = self.conv4(x)
 
 		h_new = 100 * torch.tanh((h_old + x[:,0:1]) / 100)
 		u_new = 100 * torch.tanh((u_old + x[:,1:2]) / 100)

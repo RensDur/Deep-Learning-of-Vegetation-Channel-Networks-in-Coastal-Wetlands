@@ -49,7 +49,7 @@ def params():
                         help='regularizer for gradient of p. evt needed for very high reynolds numbers (default: 0)')
     parser.add_argument('--max_speed', default=1, type=float,
                         help='max speed for boundary conditions in dataset (default: 1)')
-    parser.add_argument('--lr', default=0.00001, type=float, help='learning rate of optimizer (default: 0.001)')
+    parser.add_argument('--lr', default=0.0001, type=float, help='learning rate of optimizer (default: 0.001)')
     parser.add_argument('--lr_grad', default=0.001, type=float, help='learning rate of optimizer (default: 0.001)')
     parser.add_argument('--clip_grad_norm', default=None, type=float, help='gradient norm clipping (default: None)')
     parser.add_argument('--clip_grad_value', default=None, type=float, help='gradient value clipping (default: None)')

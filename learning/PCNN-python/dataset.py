@@ -108,6 +108,9 @@ class Dataset:
         self.u_cond[indices, 0, :, :] = 0
         self.v_cond[indices, 0, :, :] = 0
 
+        # The zero-velocity condition at the edges cannot physically be combined with any gradients in h at the edges. Enforce them
+        self.h_cond[indices, 0, :, :] = self.h[indices, 0, :, :]
+
 
     #
     # ASK & TELL
@@ -130,6 +133,7 @@ class Dataset:
                 self.u[self.asked_indices].to(self.device), \
                 self.v[self.asked_indices].to(self.device), \
                 self.cond_mask[self.asked_indices].to(self.device), \
+                self.h_cond[self.asked_indices].to(self.device), \
                 self.u_cond[self.asked_indices].to(self.device), \
                 self.v_cond[self.asked_indices].to(self.device), \
                 # self.S[self.asked_indices].to(self.device), \

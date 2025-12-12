@@ -179,7 +179,7 @@ class PCNNSolver:
             for i in range(self.params.n_batches_per_epoch):
 
                 # Ask for a batch from the dataset
-                h_old, u_old, v_old, cond_mask, u_cond, v_cond = self.dataset.ask()
+                h_old, u_old, v_old, cond_mask, h_cond, u_cond, v_cond = self.dataset.ask()
 
                 # The flow mask is simply 1-cond_mask
                 flow_mask = 1 - cond_mask
@@ -190,7 +190,7 @@ class PCNNSolver:
                 # flow_mask_mac = (self.normal2staggered(flow_mask.repeat(1,2,1,1))>=0.5).float()
 
                 # Predict the new domain state by performing a forward pass through the network
-                h_new, u_new, v_new = self.net(h_old, u_old, v_old, cond_mask, flow_mask, u_cond, v_cond)
+                h_new, u_new, v_new = self.net(h_old, u_old, v_old, cond_mask, flow_mask, h_cond, u_cond, v_cond)
 
                 # Choose between explicit, implicit or IMEX integration schemes
                 if self.params.integrator == "explicit":
@@ -285,9 +285,9 @@ class PCNNSolver:
                 # ), dim=0)
 
                 # 5. Boundary loss
-                # loss_bound_h = torch.mean(self.loss_function(
-                #     cond_mask * (h_new - h_cond)
-                # ), dim=0)
+                loss_bound_h = torch.mean(self.loss_function(
+                    cond_mask * (h_new - h_cond)
+                ), dim=0)
 
                 loss_bound_u = torch.mean(self.loss_function(
                     cond_mask * (u_new - u_cond)
@@ -297,7 +297,7 @@ class PCNNSolver:
                     cond_mask * (v_new - v_cond)
                 ), dim=0)
 
-                loss_bound = loss_bound_u + loss_bound_v
+                loss_bound = loss_bound_h + loss_bound_u + loss_bound_v
 
                 #
                 # Regularizers
@@ -422,7 +422,7 @@ class PCNNSolver:
 
         # Open a visualization window
         win = Window("Water Layer Thickness", self.params.width, self.params.height)
-        win.set_data_range(9,11)
+        win.set_data_range(0,1)
 
         with torch.no_grad():
 
@@ -430,7 +430,7 @@ class PCNNSolver:
             while win.is_open():
 
                 # Ask for a batch from the dataset
-                h_old, u_old, v_old, cond_mask, u_cond, v_cond = self.dataset.ask()
+                h_old, u_old, v_old, cond_mask, h_cond, u_cond, v_cond = self.dataset.ask()
 
                 # The flow mask is simply 1-cond_mask
                 flow_mask = 1 - cond_mask
@@ -439,15 +439,15 @@ class PCNNSolver:
 
                 # Display water level thickness h
                 h = h_old[0, 0].clone()
-                # h = h - torch.min(h)
-                # h = h / torch.max(h)
+                h = h - torch.min(h)
+                h = h / torch.max(h)
                 h = h.detach().cpu().numpy()
 
                 win.put_image(h)
                 win.update()
 
                 # Predict the new domain state by performing a forward pass through the network
-                h_new, u_new, v_new = self.net(h_old, u_old, v_old, cond_mask, flow_mask, u_cond, v_cond)
+                h_new, u_new, v_new = self.net(h_old, u_old, v_old, cond_mask, flow_mask, h_cond, u_cond, v_cond)
 
                 # Store the newly obtained result in the dataset
                 self.dataset.tell(h_new, u_new, v_new, random_reset=True)
