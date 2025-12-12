@@ -42,7 +42,7 @@ def params():
     parser.add_argument('--loss_S', default=0, type=float, help='Weight of loss factor theta_2')
     parser.add_argument('--loss_B', default=0, type=float, help='Weight of loss factor theta_3')
     parser.add_argument('--loss_bound', default=20, type=float, help='loss factor for boundary conditions')
-    parser.add_argument('--loss_reg', default=0, type=float, help='Weight of regularizers in loss')
+    parser.add_argument('--loss_reg', default=1, type=float, help='Weight of regularizers in loss')
     parser.add_argument('--plot_loss', default=False, type=str2bool, help='Plot loss-image alongside losses over time')
 
     parser.add_argument('--regularize_grad_p', default=0, type=float,

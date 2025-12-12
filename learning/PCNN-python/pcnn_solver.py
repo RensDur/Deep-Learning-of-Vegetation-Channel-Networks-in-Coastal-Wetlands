@@ -303,7 +303,7 @@ class PCNNSolver:
                 # Regularizers
                 #
                 loss_reg = torch.mean(self.loss_function(
-                    torch.sum(flow_mask * h_new) - torch.sum(flow_mask * h_old)
+                    flow_mask * (self.d_dx(u) + self.d_dy(v))
                 ))
 
                 # Compute combined loss
