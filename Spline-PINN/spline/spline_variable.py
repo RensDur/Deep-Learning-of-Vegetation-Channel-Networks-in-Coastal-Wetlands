@@ -1,11 +1,13 @@
 import os,pickle
 import torch
+import torch.nn.functional as F
 from numpy import np
 import kernels
+import operators
 
 class SplineVariable:
 
-    def __init__(self, name, order: int, device):
+    def __init__(self, name, order: int, requires_derivative=False, requires_laplacian=False, device=torch.device("cpu")):
 
         # Name for buffering on disk
         self.name = name
@@ -17,7 +19,11 @@ class SplineVariable:
         self.device = device
 
         # Prepare the required spline kernels for this variable
-        self.kernels = torch.zeros(1,1+2+4+2,(self.orders[0]+1),(self.orders[1]+1),2,2).to(self.device)
+        self.requires_derivative = requires_derivative or requires_laplacian # Requiring laplacian without requiring first.deriv. is unsupported.
+        self.requires_laplacian = requires_laplacian
+        self.kernel_size = 1 \
+            + (2 if self.requires_derivative else 0) \
+            + (1 if self.requires_laplacian else 0)
 
         self.offset_summary = torch.tensor([[[0,0],[1,0]],[[0,1],[1,1]]]).unsqueeze(0).permute(0,3,2,1).to(self.device)
         self.kernel_buffer = {}
@@ -61,37 +67,40 @@ class SplineVariable:
         # construct kernel matrix for 2x2 convolution based on offset:
         # => number of input channels = (orders[0]+1) * (orders[1]+1)
         # => number of output channels = 1 + 2 + 4 + 2 (a_z,v=rot(a_z),grad(v_x),grad(v_y),laplace(v_x),laplace(v_y)
-        offset_key = f"{offsets[0]} {offsets[1]}, orders: {orders}"
-        if offset_key in kernel_buffer_velocity.keys():
-            kernels = kernel_buffer_velocity[offset_key]
+        offset_key = f"{offsets[0]} {offsets[1]}, orders: {self.orders}"
+
+        if offset_key in self.kernel_buffer.keys():
+            kernels = self.kernel_buffer[offset_key]
         else:
-            offsets = (offsets.clone().unsqueeze(0).unsqueeze(2).unsqueeze(3).repeat(1,1,2,2)-offset_summary)
-            offsets = offsets.unsqueeze(2).unsqueeze(3).repeat(1,1,(orders[0]+1),(orders[1]+1),1,1).detach().requires_grad_(True)
-            
-            kernels = toCuda(torch.zeros(1,1+2+4+2,(orders[0]+1),(orders[1]+1),2,2))
-            for l in range(orders[0]+1):
-                for m in range(orders[1]+1):
-                    kernels[0:1,0:1,l,m,:,:] = p_multidim(offsets[:,:,l,m],[orders[0],orders[1]],[l,m])
-            
-            # velocity
-            kernels[0:1,1:3,:,:,:,:] = rot(kernels[:,0:1,:,:,:,:],offsets,create_graph=True,retain_graph=True)
-            # gradients of velocity
-            kernels[0:1,3:5] = grad(kernels[0:1,1:2,:,:,:,:],offsets,create_graph=True,retain_graph=True)
-            kernels[0:1,5:7] = grad(kernels[0:1,2:3,:,:,:,:],offsets,create_graph=True,retain_graph=True)
-            # laplace of velocity
-            kernels[0:1,7:8] = div(kernels[0:1,3:5],offsets,retain_graph=True)
-            kernels[0:1,8:9] = div(kernels[0:1,5:7],offsets,retain_graph=False)
-            
-            kernels = kernels.reshape(1,1+2+4+2,(orders[0]+1)*(orders[1]+1),2,2).detach()
-            
-            # buffer kernels
-            kernel_buffer_velocity[offset_key] = kernels
-            save_buffers()
 
-        output = F.conv2d(weights,kernels[0],padding=0)
+            # Prepare offsets
+            offsets = (offsets.clone().unsqueeze(0).unsqueeze(2).unsqueeze(3).repeat(1,1,2,2)-self.offset_summary)
+            offsets = offsets.unsqueeze(2).unsqueeze(3).repeat(1,1,(self.orders[0]+1),(self.orders[1]+1),1,1).detach().requires_grad_(True)
+            
+            # Prepare the new kernels for these offsets
+            self.kernels = torch.zeros(1, self.kernel_size, (self.orders[0]+1), (self.orders[1]+1), 2, 2).to(self.device)
+            for l in range(self.orders[0]+1):
+                for m in range(self.orders[1]+1):
+                    # Function value (directy from linear combination of splines)
+                    self.kernels[0,0,l,m,:,:] = kernels.p_multidim(offsets[:,:,l,m],[self.orders[0],self.orders[1]],[l,m])
+            
+            # First derivative (d/dx and d/dy)
+            if self.requires_derivative:
+                self.kernels[0,1:3] = operators.grad(self.kernels[0,0,:,:,:,:],offsets,create_graph=True,retain_graph=True)
 
-        # CODO: to be even more efficient, we could separate interpolation in x/y direction
-        return output[:,0:1],output[:,1:3],output[:,3:7],output[:,7:9]
+            # Laplace -- Note: laplacian without first derivative is not supported (quicker computation)
+            if self.requires_laplacian and self.requires_derivative:
+                self.kernels[0,3] = operators.div(self.kernels[0,1:3], offsets, retain_graph=True)
+            
+            self.kernels = self.kernels.reshape(1, self.kernel_size, (self.orders[0]+1), (self.orders[1]+1), 2, 2).detach() # TODO: Why reshape?
+            
+            # buffer self.kernels
+            self.kernel_buffer[offset_key] = self.kernels
+            self.save_buffers()
+
+        output = F.conv2d(weights,self.kernels[0],padding=0)
+
+        return output
         
     
 

@@ -1,13 +1,12 @@
 import torch
 import numpy as np
-from latent_variable import LatentVariable
-from latent_batch import LatentBatch
+from spline.spline_variable import SplineVariable
 
 
 
 class Dataset:
     
-    def __init__(self, latent_variables: list[LatentVariable], params, device=torch.device("cpu")):
+    def __init__(self, params, device=torch.device("cpu")):
 
         # Dimensions
         self.width = params.width
@@ -32,14 +31,27 @@ class Dataset:
         # Torch device
         self.device = device
 
+        # Variables in this dataset
+        self.variables = [
+            SplineVariable("h", 2, requires_derivative=True, device=self.device),
+            SplineVariable("u", 2, requires_derivative=True, device=self.device),
+            SplineVariable("v", 2, requires_derivative=True, device=self.device),
+        ]
+
         # Compute the total hidden size
-        self.hidden_size = np.sum([lv.hidden_size() for lv in latent_variables])
+        self.hidden_size = np.sum([svar.hidden_size() for svar in self.variables])
+
+        # Hidden state
         self.hidden_states = torch.zeros(
             self.dataset_size,
             self.hidden_size,
             self.width-1,
             self.height-1
         )
+
+        # Boundary conditions and masking
+        self.cond_mask = torch.zeros(self.dataset_size, 1, self.width, self.height).int()
+        self.h_cond = 
 
     def reset(self, indices):
         """
