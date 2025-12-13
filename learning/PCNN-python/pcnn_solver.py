@@ -422,7 +422,7 @@ class PCNNSolver:
 
         # Open a visualization window
         win = Window("Water Layer Thickness", self.params.width, self.params.height)
-        win.set_data_range(9,11)
+        win.set_data_range(0, 1)
 
         with torch.no_grad():
 
@@ -438,9 +438,9 @@ class PCNNSolver:
                 # TODO: MAC grid
 
                 # Display water level thickness h
-                h = h_old[0, 0].clone()
-                # h = h - torch.min(h)
-                # h = h / torch.max(h)
+                h = u_old[0, 0].clone()
+                h = h - torch.min(h)
+                h = h / torch.max(h)
                 h = h.detach().cpu().numpy()
 
                 win.put_image(h)
@@ -472,7 +472,7 @@ class PCNNSolver:
             while win.is_open():
 
                 # Ask for a batch from the dataset
-                h_old, u_old, v_old, cond_mask, u_cond, v_cond = self.dataset.ask()
+                h_old, u_old, v_old, cond_mask, h_cond, u_cond, v_cond = self.dataset.ask()
 
                 # TODO: MAC grid
 

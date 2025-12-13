@@ -10,7 +10,7 @@ class Dataset:
         # Dimensions
         self.width = params.width
         self.height = params.height
-        self.padding = 10
+        self.padding = 4
         self.dx = params.separation
         self.dy = params.separation
 
@@ -41,6 +41,7 @@ class Dataset:
         self.average_sequence_length = params.average_sequence_length
         self.average_sequence_t = 0
         self.average_sequence_i = 0
+        self.num_full_resets = 0
 
         # Reset all environments upon initialization
         self.reset(range(self.dataset_size))
@@ -55,16 +56,16 @@ class Dataset:
         """
 
         # Uniform water thickness H0
-        self.h[indices, 0, :, :] = 10
+        self.h[indices, 0, :, :] = 0
 
         # x = torch.linspace(0, self.width * self.dx, self.width)
         # y = torch.linspace(0, self.height * self.dy, self.height)
         # x, y = torch.meshgrid(x, y, indexing='xy')
 
-        wavespan = int(self.width / 10)
-        x = torch.linspace(0, wavespan, wavespan)
+        # wavespan = int(self.width / 10)
+        # x = torch.linspace(0, wavespan, wavespan)
 
-        self.h[indices, 0, :, :wavespan] += torch.cos((x / wavespan) * 0.5 * math.pi)
+        # self.h[indices, 0, :, :wavespan] += torch.cos((x / wavespan) * 0.5 * math.pi)
 
         # for _ in range(1):
         #     x_mu = np.random.uniform(0, self.width * self.dx)
@@ -107,12 +108,7 @@ class Dataset:
         # All closed boundaries
         self.u_cond[indices, 0, :, :] = 0
         self.v_cond[indices, 0, :, :] = 0
-
-        # The zero-velocity condition at the edges cannot physically be combined with any gradients in h at the edges. Enforce them
-        h_inside = self.h[indices, 0, self.padding:-self.padding, self.padding:-self.padding]
-        h_padded = torch.nn.functional.pad(h_inside, (self.padding, self.padding, self.padding, self.padding), 'replicate')
-
-        self.h_cond[indices, 0, :, :] = h_padded
+        self.h_cond[indices, 0, :, :] = 0
 
 
 
@@ -170,3 +166,9 @@ class Dataset:
                 self.average_sequence_i = (self.average_sequence_i+1)%self.dataset_size
                 print("Resetting environment!")
 
+            if self.average_sequence_t % (10*int(1 + self.num_full_resets)*self.average_sequence_length/self.batch_size) == 0:
+                # Reset the entire dataset every now and then to prevent training on unphysical data
+                self.reset(range(self.dataset_size))
+                self.num_full_resets += 1
+                self.average_sequence_t = 0
+                print("Resetting entire dataset!")
