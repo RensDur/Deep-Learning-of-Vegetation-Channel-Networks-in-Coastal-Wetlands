@@ -105,6 +105,24 @@ class Dataset:
         self.cond_mask[indices, 0, :, :] = 1
         self.cond_mask[indices, 0, self.padding:-self.padding, self.padding:-self.padding] = 0
 
+        # Add rounded corners to the cond_mask
+        circle = torch.zeros(int(self.width/4), int(self.height/4), dtype=torch.int)
+        diameter = circle.shape[0]/2
+        cx = int(circle.shape[0]/2)
+        cy = int(circle.shape[1]/2)
+
+        for x in range(circle.shape[0]):
+            for y in range(circle.shape[1]):
+                dx2 = (x - cx)**2
+                dy2 = (y - cy)**2
+                if dx2 + dy2 >= diameter**2:
+                    circle[y, x] = 1
+
+        self.cond_mask[indices, 0, self.padding:self.padding+cy, self.padding:self.padding+cx] = circle[:cy, :cx]
+        self.cond_mask[indices, 0, self.padding:self.padding+cy, -cx-self.padding:-self.padding] = circle[:cy, -cx:]
+        self.cond_mask[indices, 0, -cy-self.padding:-self.padding, self.padding:self.padding+cx] = circle[-cy:, :cx]
+        self.cond_mask[indices, 0, -cy-self.padding:-self.padding, -cx-self.padding:-self.padding] = circle[-cy:, -cx:]
+
         if self.padding == 0:
             self.cond_mask[indices, 0, :, :] = 0
 
