@@ -103,25 +103,24 @@ class PDE_CNN_SWE_Flux(nn.Module):
 		self.hidden_size = 50
 		self.bilinear = bilinear
 
-		self.conv1 = nn.Conv2d(11, 20, kernel_size=3,padding=1, padding_mode="replicate")
-		self.conv2 = nn.Conv2d(20, 20, kernel_size=3,padding=1, padding_mode="replicate")
-		self.conv3 = nn.Conv2d(20, 20, kernel_size=3,padding=1, padding_mode="replicate")
-		self.conv4 = nn.Conv2d(20, 2, kernel_size=3,padding=1, padding_mode="replicate")
+		self.conv1 = nn.Conv2d(10, 64, kernel_size=3,padding=1, padding_mode="replicate")
+		self.conv2 = nn.Conv2d(64, 64, kernel_size=3,padding=1, padding_mode="replicate")
+		self.conv3 = nn.Conv2d(64, 32, kernel_size=3,padding=1, padding_mode="replicate")
+		self.conv4 = nn.Conv2d(32, 2, kernel_size=3,padding=1, padding_mode="replicate")
 
-	def forward(self, h_old, u_old, v_old, cond_mask, flow_mask, h_cond, u_cond, v_cond):
+	def forward(self, h_old, u_old, v_old, cond_mask, flow_mask, flux_x_cond, flux_y_cond):
 
 		x = torch.cat([
 			h_old,
-			u_old,
-			v_old,
+			h_old * u_old,
+			h_old * v_old,
 			cond_mask,
-			cond_mask*h_cond,
-			cond_mask*u_cond,
-			cond_mask*v_cond,
+			cond_mask*flux_x_cond,
+			cond_mask*flux_y_cond,
 			flow_mask,
 			flow_mask*h_old,
-			flow_mask*u_old,
-			flow_mask*v_old
+			flow_mask*h_old*u_old,
+			flow_mask*h_old*v_old
 		],dim=1)
 		
 		x = self.conv1(x)

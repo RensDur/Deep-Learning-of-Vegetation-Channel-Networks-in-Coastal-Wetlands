@@ -179,18 +179,18 @@ class PCNNSolver:
             for i in range(self.params.n_batches_per_epoch):
 
                 # Ask for a batch from the dataset
-                h_old, u_old, v_old, cond_mask, h_cond, u_cond, v_cond = self.dataset.ask()
+                h_old, u_old, v_old, cond_mask, flux_x_cond, flux_y_cond = self.dataset.ask()
 
                 # The flow mask is simply 1-cond_mask
                 flow_mask = 1 - cond_mask
 
                 # # Convert u,v_cond, cond_mask and flow_mask to MAC grid
-                # u_cond, v_cond = self.normal2staggered(u_cond, v_cond)
+                # flux_x_cond, flux_y_cond = self.normal2staggered(flux_x_cond, flux_y_cond)
                 # cond_mask_mac = (self.normal2staggered(cond_mask.repeat(1,2,1,1))==1).float()
                 # flow_mask_mac = (self.normal2staggered(flow_mask.repeat(1,2,1,1))>=0.5).float()
 
                 # Predict the new domain state by performing a forward pass through the network
-                flux_x, flux_y = self.net(h_old, u_old, v_old, cond_mask, flow_mask, h_cond, u_cond, v_cond)
+                flux_x, flux_y = self.net(h_old, u_old, v_old, cond_mask, flow_mask, flux_x_cond, flux_y_cond)
 
                 dh_dt = - self.d_dx(flux_x) - self.d_dy(flux_y)
 
@@ -294,38 +294,22 @@ class PCNNSolver:
                 # ), dim=0)
 
                 # 5. Boundary loss
-                loss_bound_h = torch.mean(self.loss_function(
-                    cond_mask * self.d_dx(h)
-                ), dim=0) + torch.mean(self.loss_function(
-                    cond_mask * self.d_dy(h)
-                ), dim=0)
-
-                loss_h[:, 0, :] = 0
-                loss_h[:, -1, :] = 0
-                loss_h[:, :, 0] = 0
-                loss_h[:, :, -1] = 0
-
                 loss_bound_u = torch.mean(self.loss_function(
-                    cond_mask * (u_new - u_cond)
+                    cond_mask * h * u
                 ), dim=0)
-
-                loss_bound_u[:, :self.dataset.padding, :] = 0
-                loss_bound_u[:, -self.dataset.padding:, :] = 0
 
                 loss_bound_v = torch.mean(self.loss_function(
-                    cond_mask * (v_new - v_cond)
+                    cond_mask * h * v
                 ), dim=0)
 
-                loss_bound_v[:, :, :self.dataset.padding] = 0
-                loss_bound_v[:, :, -self.dataset.padding:] = 0
-
-                loss_bound = loss_bound_h + loss_bound_u + loss_bound_v
+                loss_bound = loss_bound_u + loss_bound_v
 
                 #
                 # Regularizers
                 #
                 loss_reg = torch.mean(
-                    self.loss_function(self.d_dx(h)) + self.loss_function(self.d_dy(h)) + self.loss_function(u) + self.loss_function(v)
+                    self.loss_function(self.d_dx(h)) + self.loss_function(self.d_dy(h)) + self.loss_function(u) + self.loss_function(v),
+                    dim=0
                 )
 
                 # Compute combined loss
@@ -449,7 +433,7 @@ class PCNNSolver:
             while win.is_open():
 
                 # Ask for a batch from the dataset
-                h_old, u_old, v_old, cond_mask, h_cond, u_cond, v_cond = self.dataset.ask()
+                h_old, u_old, v_old, cond_mask, flux_x_cond, flux_y_cond = self.dataset.ask()
 
                 # The flow mask is simply 1-cond_mask
                 flow_mask = 1 - cond_mask
@@ -466,7 +450,7 @@ class PCNNSolver:
                 win.update()
 
                 # Predict the new domain state by performing a forward pass through the network
-                flux_x, flux_y = self.net(h_old, u_old, v_old, cond_mask, flow_mask, h_cond, u_cond, v_cond)
+                flux_x, flux_y = self.net(h_old, u_old, v_old, cond_mask, flow_mask, flux_x_cond, flux_y_cond)
 
                 dh_dt = - self.d_dx(flux_x) - self.d_dy(flux_y)
 

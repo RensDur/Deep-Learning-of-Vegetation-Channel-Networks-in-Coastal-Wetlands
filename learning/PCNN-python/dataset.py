@@ -31,9 +31,8 @@ class Dataset:
 
         # Domain boundaries
         self.cond_mask = torch.zeros(self.dataset_size, 1, self.height, self.width).int() # Boundary mask - [1 - Omega] - 1 on the boundaries, 0 everywhere else
-        self.h_cond = torch.zeros(self.dataset_size, 1, self.height, self.width)
-        self.u_cond = torch.zeros(self.dataset_size, 1, self.height, self.width)
-        self.v_cond = torch.zeros(self.dataset_size, 1, self.height, self.width)
+        self.flux_x_cond = torch.zeros(self.dataset_size, 1, self.height, self.width)
+        self.flux_y_cond = torch.zeros(self.dataset_size, 1, self.height, self.width)
 
         # Time tracking per environment
         self.t = torch.zeros(self.dataset_size)
@@ -106,29 +105,29 @@ class Dataset:
         self.cond_mask[indices, 0, self.padding:-self.padding, self.padding:-self.padding] = 0
 
         # Add rounded corners to the cond_mask
-        circle = torch.zeros(int(self.width/4), int(self.height/4), dtype=torch.int)
-        diameter = circle.shape[0]/2
-        cx = int(circle.shape[0]/2)
-        cy = int(circle.shape[1]/2)
+        # circle = torch.zeros(int(self.width/4), int(self.height/4), dtype=torch.int)
+        # diameter = circle.shape[0]/2
+        # cx = int(circle.shape[0]/2)
+        # cy = int(circle.shape[1]/2)
 
-        for x in range(circle.shape[0]):
-            for y in range(circle.shape[1]):
-                dx2 = (x - cx)**2
-                dy2 = (y - cy)**2
-                if dx2 + dy2 >= diameter**2:
-                    circle[y, x] = 1
+        # for x in range(circle.shape[0]):
+        #     for y in range(circle.shape[1]):
+        #         dx2 = (x - cx)**2
+        #         dy2 = (y - cy)**2
+        #         if dx2 + dy2 >= diameter**2:
+        #             circle[y, x] = 1
 
-        self.cond_mask[indices, 0, self.padding:self.padding+cy, self.padding:self.padding+cx] = circle[:cy, :cx]
-        self.cond_mask[indices, 0, self.padding:self.padding+cy, -cx-self.padding:-self.padding] = circle[:cy, -cx:]
-        self.cond_mask[indices, 0, -cy-self.padding:-self.padding, self.padding:self.padding+cx] = circle[-cy:, :cx]
-        self.cond_mask[indices, 0, -cy-self.padding:-self.padding, -cx-self.padding:-self.padding] = circle[-cy:, -cx:]
+        # self.cond_mask[indices, 0, self.padding:self.padding+cy, self.padding:self.padding+cx] = circle[:cy, :cx]
+        # self.cond_mask[indices, 0, self.padding:self.padding+cy, -cx-self.padding:-self.padding] = circle[:cy, -cx:]
+        # self.cond_mask[indices, 0, -cy-self.padding:-self.padding, self.padding:self.padding+cx] = circle[-cy:, :cx]
+        # self.cond_mask[indices, 0, -cy-self.padding:-self.padding, -cx-self.padding:-self.padding] = circle[-cy:, -cx:]
 
         if self.padding == 0:
             self.cond_mask[indices, 0, :, :] = 0
 
         # All closed boundaries
-        self.u_cond[indices, 0, :, :] = 0
-        self.v_cond[indices, 0, :, :] = 0
+        self.flux_x_cond[indices, 0, :, :] = 0
+        self.flux_y_cond[indices, 0, :, :] = 0
 
 
 
@@ -153,9 +152,8 @@ class Dataset:
                 self.u[self.asked_indices].to(self.device), \
                 self.v[self.asked_indices].to(self.device), \
                 self.cond_mask[self.asked_indices].to(self.device), \
-                self.h_cond[self.asked_indices].to(self.device), \
-                self.u_cond[self.asked_indices].to(self.device), \
-                self.v_cond[self.asked_indices].to(self.device), \
+                self.flux_x_cond[self.asked_indices].to(self.device), \
+                self.flux_y_cond[self.asked_indices].to(self.device), \
                 # self.S[self.asked_indices].to(self.device), \
                 # self.B[self.asked_indices].to(self.device)
 
