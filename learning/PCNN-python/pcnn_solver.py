@@ -58,11 +58,19 @@ class PCNNSolver:
 
 
 
-    def d_dx(self, quantity):
-        return F.conv2d(quantity, self.dx_kernel, padding=(0,1)) / self.dataset.dx
+    def d_dx(self, quantity, padding_mode="before"):
+        if padding_mode == "before":
+            return F.conv2d(quantity, self.dx_kernel, padding=(0,1)) / self.dataset.dx
+        elif padding_mode == "after":
+            result = F.conv2d(quantity, self.dx_kernel) / self.dataset.dx
+            return F.pad(result, (1, 1, 0, 0), mode='replicate')
 
-    def d_dy(self, quantity):
-        return F.conv2d(quantity, self.dy_kernel, padding=(1,0)) / self.dataset.dy
+    def d_dy(self, quantity, padding_mode="before"):
+        if padding_mode == "before":
+            return F.conv2d(quantity, self.dy_kernel, padding=(1,0)) / self.dataset.dy
+        elif padding_mode == "after":
+            result = F.conv2d(quantity, self.dy_kernel) / self.dataset.dy
+            return F.pad(result, (0, 0, 1, 1), mode='replicate')
 
     def d2_dx2(self, quantity):
         return F.conv2d(quantity, self.dx2_kernel, padding=(0,1)) / (self.dataset.dx**2)
@@ -190,7 +198,16 @@ class PCNNSolver:
                 # flow_mask_mac = (self.normal2staggered(flow_mask.repeat(1,2,1,1))>=0.5).float()
 
                 # Predict the new domain state by performing a forward pass through the network
-                h_new, u_new, v_new = self.net(h_old, u_old, v_old, cond_mask, flow_mask, h_cond, u_cond, v_cond)
+                flux_x, flux_y = self.net(h_old, u_old, v_old, cond_mask, flow_mask, h_cond, u_cond, v_cond)
+
+                dh_dt = - self.d_dx(flux_x) - self.d_dy(flux_y)
+
+                h_new = h_old + dh_dt * self.params.dt
+
+                h_new = torch.clamp(h_new, min=self.params.Hc)
+
+                u_new = flux_x / h_new
+                v_new = flux_y / h_new
 
                 # Choose between explicit, implicit or IMEX integration schemes
                 if self.params.integrator == "explicit":
@@ -286,34 +303,37 @@ class PCNNSolver:
 
                 # 5. Boundary loss
                 loss_bound_h = torch.mean(self.loss_function(
-                    cond_mask * (h_new - h_cond)
+                    cond_mask * self.d_dx(h, padding_mode="after")
                 ), dim=0)
 
                 loss_bound_u = torch.mean(self.loss_function(
                     cond_mask * (u_new - u_cond)
                 ), dim=0)
 
+                loss_bound_u[:, :self.dataset.padding, :] = 0
+                loss_bound_u[:, -self.dataset.padding:, :] = 0
+
                 loss_bound_v = torch.mean(self.loss_function(
                     cond_mask * (v_new - v_cond)
                 ), dim=0)
 
-                loss_bound = loss_bound_h + loss_bound_u + loss_bound_v
+                loss_bound_v[:, :, :self.dataset.padding] = 0
+                loss_bound_v[:, :, -self.dataset.padding:] = 0
+
+                loss_bound = loss_bound_u + loss_bound_v
 
                 #
                 # Regularizers
                 #
-                loss_reg = torch.mean(self.loss_function(
-                    flow_mask * (self.d_dx(u) + self.d_dy(v))
-                ))
+                loss_reg = torch.mean(
+                    self.loss_function(self.d_dx(h)) + self.loss_function(self.d_dy(h)) + self.loss_function(u) + self.loss_function(v)
+                )
 
                 # Compute combined loss
-                loss_tensor = self.params.loss_h * loss_h \
-                    + self.params.loss_momentum * (loss_u + loss_v) \
-                    + self.params.loss_bound * loss_bound \
-                    + self.params.loss_reg * loss_reg
+                loss_tensor = self.params.loss_h * loss_h + self.params.loss_momentum * (loss_u + loss_v) + self.params.loss_bound * loss_bound + self.params.loss_reg * loss_reg
 
                 # Log loss and mean loss
-                loss = torch.mean(torch.log(loss_tensor))
+                loss = torch.log(torch.mean(loss_tensor))
 
                 # Compute gradients
                 self.optimizer.zero_grad()
@@ -380,7 +400,7 @@ class PCNNSolver:
 
                         graph_limits = np.concatenate((plot_loss_h_data, plot_loss_momentum_data, plot_loss_bound_data, plot_loss_reg_data))
                         plot_axs[2].set_xlim([0, plot_loss_h_data.shape[0]])
-                        plot_axs[2].set_ylim([0, np.max(graph_limits)])
+                        plot_axs[2].set_ylim([0, 100])
                         
 
                 # Always update the plot to allow interaction
@@ -422,7 +442,7 @@ class PCNNSolver:
 
         # Open a visualization window
         win = Window("Water Layer Thickness", self.params.width, self.params.height)
-        win.set_data_range(0, 1)
+        win.set_data_range(1.5, 2.5)
 
         with torch.no_grad():
 
@@ -438,16 +458,25 @@ class PCNNSolver:
                 # TODO: MAC grid
 
                 # Display water level thickness h
-                h = u_old[0, 0].clone()
-                h = h - torch.min(h)
-                h = h / torch.max(h)
+                h = h_old[0, 0].clone()
+                # h = h - torch.min(h)
+                # h = h / torch.max(h)
                 h = h.detach().cpu().numpy()
 
                 win.put_image(h)
                 win.update()
 
                 # Predict the new domain state by performing a forward pass through the network
-                h_new, u_new, v_new = self.net(h_old, u_old, v_old, cond_mask, flow_mask, h_cond, u_cond, v_cond)
+                flux_x, flux_y = self.net(h_old, u_old, v_old, cond_mask, flow_mask, h_cond, u_cond, v_cond)
+
+                dh_dt = - self.d_dx(flux_x) - self.d_dy(flux_y)
+
+                h_new = h_old + dh_dt * self.params.dt
+
+                h_new = torch.clamp(h_new, min=self.params.Hc)
+
+                u_new = flux_x / h_new
+                v_new = flux_y / h_new
 
                 # Store the newly obtained result in the dataset
                 self.dataset.tell(h_new, u_new, v_new, random_reset=True)
@@ -464,7 +493,7 @@ class PCNNSolver:
 
         # Open a visualization window
         win = Window("Water Layer Thickness", self.params.width, self.params.height)
-        win.set_data_range(9, 11)
+        win.set_data_range(1.5, 2.5)
 
         with torch.no_grad():
 

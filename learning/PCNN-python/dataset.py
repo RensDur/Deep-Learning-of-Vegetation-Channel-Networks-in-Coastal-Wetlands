@@ -10,7 +10,7 @@ class Dataset:
         # Dimensions
         self.width = params.width
         self.height = params.height
-        self.padding = 4
+        self.padding = 5
         self.dx = params.separation
         self.dy = params.separation
 
@@ -56,7 +56,7 @@ class Dataset:
         """
 
         # Uniform water thickness H0
-        self.h[indices, 0, :, :] = 0
+        self.h[indices, 0, :, :] = 2
 
         # x = torch.linspace(0, self.width * self.dx, self.width)
         # y = torch.linspace(0, self.height * self.dy, self.height)
@@ -65,7 +65,7 @@ class Dataset:
         # wavespan = int(self.width / 10)
         # x = torch.linspace(0, wavespan, wavespan)
 
-        # self.h[indices, 0, :, :wavespan] += torch.cos((x / wavespan) * 0.5 * math.pi)
+        # self.h[indices, 0, :, :wavespan] += 0.2 * torch.cos((x / wavespan) * 0.5 * math.pi)
 
         # for _ in range(1):
         #     x_mu = np.random.uniform(0, self.width * self.dx)
@@ -108,7 +108,6 @@ class Dataset:
         # All closed boundaries
         self.u_cond[indices, 0, :, :] = 0
         self.v_cond[indices, 0, :, :] = 0
-        self.h_cond[indices, 0, :, :] = 0
 
 
 
@@ -166,9 +165,9 @@ class Dataset:
                 self.average_sequence_i = (self.average_sequence_i+1)%self.dataset_size
                 print("Resetting environment!")
 
-            if self.average_sequence_t % (10*int(1 + self.num_full_resets)*self.average_sequence_length/self.batch_size) == 0:
-                # Reset the entire dataset every now and then to prevent training on unphysical data
-                self.reset(range(self.dataset_size))
-                self.num_full_resets += 1
-                self.average_sequence_t = 0
-                print("Resetting entire dataset!")
+            # if self.average_sequence_t % (10*int(1 + self.num_full_resets)*self.average_sequence_length/self.batch_size) == 0:
+            #     # Reset the entire dataset every now and then to prevent training on unphysical data
+            #     self.reset(range(self.dataset_size))
+            #     self.num_full_resets += 1
+            #     self.average_sequence_t = 0
+            #     print("Resetting entire dataset!")
