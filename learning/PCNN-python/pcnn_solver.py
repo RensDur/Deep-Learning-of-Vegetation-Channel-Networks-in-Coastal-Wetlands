@@ -45,8 +45,8 @@ class PCNNSolver:
         self.dy_kernel = torch.tensor([-0.5,0,0.5], device=self.device).view(1, 1, 3, 1)
 
         # Second order derivatives
-        self.dx2_kernel = torch.tensor([1, -2, 1], device=self.device).view(1, 1, 1, 3)
-        self.dy2_kernel = torch.tensor([1, -2, 1], device=self.device).view(1, 1, 3, 1)
+        self.dx2_kernel = torch.tensor([1.0, -2.0, 1.0], device=self.device).view(1, 1, 1, 3)
+        self.dy2_kernel = torch.tensor([1.0, -2.0, 1.0], device=self.device).view(1, 1, 3, 1)
 
         #
         # MAC-grid convolutions
@@ -58,19 +58,11 @@ class PCNNSolver:
 
 
 
-    def d_dx(self, quantity, padding_mode="before"):
-        if padding_mode == "before":
-            return F.conv2d(quantity, self.dx_kernel, padding=(0,1)) / self.dataset.dx
-        elif padding_mode == "after":
-            result = F.conv2d(quantity, self.dx_kernel) / self.dataset.dx
-            return F.pad(result, (1, 1, 0, 0), mode='replicate')
+    def d_dx(self, quantity):
+        return F.conv2d(quantity, self.dx_kernel, padding=(0,1)) / self.dataset.dx
 
-    def d_dy(self, quantity, padding_mode="before"):
-        if padding_mode == "before":
-            return F.conv2d(quantity, self.dy_kernel, padding=(1,0)) / self.dataset.dy
-        elif padding_mode == "after":
-            result = F.conv2d(quantity, self.dy_kernel) / self.dataset.dy
-            return F.pad(result, (0, 0, 1, 1), mode='replicate')
+    def d_dy(self, quantity):
+        return F.conv2d(quantity, self.dy_kernel, padding=(1,0)) / self.dataset.dy
 
     def d2_dx2(self, quantity):
         return F.conv2d(quantity, self.dx2_kernel, padding=(0,1)) / (self.dataset.dx**2)
@@ -278,8 +270,8 @@ class PCNNSolver:
                 # loss_v += tau_by_per_rho / h
                 #
                 # # Add turbulent mixing effects
-                # loss_u -= self.params.Du * (self.d2_dx2(u) + self.d2_dy2(u))
-                # loss_v -= self.params.Du * (self.d2_dx2(v) + self.d2_dy2(v))
+                loss_u -= self.params.Du * (self.d2_dx2(u) + self.d2_dy2(u))
+                loss_v -= self.params.Du * (self.d2_dx2(v) + self.d2_dy2(v))
 
                 # Apply loss function and compute mean
                 loss_u = torch.mean(self.loss_function(flow_mask * loss_u), dim=0)
@@ -303,8 +295,15 @@ class PCNNSolver:
 
                 # 5. Boundary loss
                 loss_bound_h = torch.mean(self.loss_function(
-                    cond_mask * self.d_dx(h, padding_mode="after")
+                    cond_mask * self.d_dx(h)
+                ), dim=0) + torch.mean(self.loss_function(
+                    cond_mask * self.d_dy(h)
                 ), dim=0)
+
+                loss_h[:, 0, :] = 0
+                loss_h[:, -1, :] = 0
+                loss_h[:, :, 0] = 0
+                loss_h[:, :, -1] = 0
 
                 loss_bound_u = torch.mean(self.loss_function(
                     cond_mask * (u_new - u_cond)
@@ -320,7 +319,7 @@ class PCNNSolver:
                 loss_bound_v[:, :, :self.dataset.padding] = 0
                 loss_bound_v[:, :, -self.dataset.padding:] = 0
 
-                loss_bound = loss_bound_u + loss_bound_v
+                loss_bound = loss_bound_h + loss_bound_u + loss_bound_v
 
                 #
                 # Regularizers
@@ -493,7 +492,7 @@ class PCNNSolver:
 
         # Open a visualization window
         win = Window("Water Layer Thickness", self.params.width, self.params.height)
-        win.set_data_range(1.5, 2.5)
+        win.set_data_range(1.8, 2.2)
 
         with torch.no_grad():
 

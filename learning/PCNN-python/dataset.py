@@ -58,28 +58,28 @@ class Dataset:
         # Uniform water thickness H0
         self.h[indices, 0, :, :] = 2
 
-        # x = torch.linspace(0, self.width * self.dx, self.width)
-        # y = torch.linspace(0, self.height * self.dy, self.height)
-        # x, y = torch.meshgrid(x, y, indexing='xy')
-
         # wavespan = int(self.width / 10)
         # x = torch.linspace(0, wavespan, wavespan)
 
         # self.h[indices, 0, :, :wavespan] += 0.2 * torch.cos((x / wavespan) * 0.5 * math.pi)
 
-        # for _ in range(1):
-        #     x_mu = np.random.uniform(0, self.width * self.dx)
-        #     y_mu = np.random.uniform(0, self.height * self.dy)
-        #     x_sig = y_sig = np.random.uniform(0.1, 0.3)
-        #     correlation = 0
+        x = torch.linspace(0, self.width * self.dx, self.width)
+        y = torch.linspace(0, self.height * self.dy, self.height)
+        x, y = torch.meshgrid(x, y, indexing='xy')
 
-        #     A = 1 / (2 * math.pi * x_sig * y_sig * (1 - correlation ** 2) ** 0.5)
+        for _ in range(1):
+            x_mu = np.random.uniform(0, self.width * self.dx)
+            y_mu = np.random.uniform(0, self.height * self.dy)
+            x_sig = y_sig = 1
+            correlation = 0
 
-        #     self.h[indices, 0, :, :] += self.params.H0 * 0.25 * torch.exp(
-        #         - (1 / (2 * (1 - correlation ** 2))) * (
-        #                     ((x - x_mu) / x_sig) ** 2 - 2 * correlation * ((x - x_mu) / x_sig) * ((y - y_mu) / y_sig) + (
-        #                         (y - y_mu) / y_sig) ** 2)
-        #     )
+            A = 1 / (2 * math.pi * x_sig * y_sig * (1 - correlation ** 2) ** 0.5)
+
+            self.h[indices, 0, :, :] += 0.2 * torch.exp(
+                - (1 / (2 * (1 - correlation ** 2))) * (
+                            ((x - x_mu) / x_sig) ** 2 - 2 * correlation * ((x - x_mu) / x_sig) * ((y - y_mu) / y_sig) + (
+                                (y - y_mu) / y_sig) ** 2)
+            )
 
         # Flow velocities are zero everywhere
         self.u[indices, 0, :, :] = 0
@@ -104,6 +104,9 @@ class Dataset:
         # Boundary condition masks and conditions
         self.cond_mask[indices, 0, :, :] = 1
         self.cond_mask[indices, 0, self.padding:-self.padding, self.padding:-self.padding] = 0
+
+        if self.padding == 0:
+            self.cond_mask[indices, 0, :, :] = 0
 
         # All closed boundaries
         self.u_cond[indices, 0, :, :] = 0
