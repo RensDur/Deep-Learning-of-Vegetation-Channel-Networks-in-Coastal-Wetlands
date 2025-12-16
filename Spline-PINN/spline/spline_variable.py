@@ -1,9 +1,9 @@
 import os,pickle
 import torch
 import torch.nn.functional as F
-from numpy import np
-import kernels
-import operators
+import numpy as np
+import spline.kernels as kernels
+import spline.operators as operators
 
 class SplineVariable:
 
@@ -70,7 +70,7 @@ class SplineVariable:
         offset_key = f"{offsets[0]} {offsets[1]}, orders: {self.orders}"
 
         if offset_key in self.kernel_buffer.keys():
-            kernels = self.kernel_buffer[offset_key]
+            self.kernels = self.kernel_buffer[offset_key]
         else:
 
             # Prepare offsets
@@ -89,7 +89,7 @@ class SplineVariable:
                 self.kernels[0,1:3] = operators.grad(self.kernels[0,0,:,:,:,:],offsets,create_graph=True,retain_graph=True)
 
             # Laplace -- Note: laplacian without first derivative is not supported (quicker computation)
-            if self.requires_laplacian and self.requires_derivative:
+            if self.requires_laplacian:
                 self.kernels[0,3] = operators.div(self.kernels[0,1:3], offsets, retain_graph=True)
             
             self.kernels = self.kernels.reshape(1, self.kernel_size, (self.orders[0]+1), (self.orders[1]+1), 2, 2).detach() # TODO: Why reshape?
