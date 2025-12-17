@@ -15,6 +15,8 @@ class Dataset:
         self.width_fullres = self.resolution_factor * self.width
         self.height_fullres = self.resolution_factor * self.height
 
+        self.padding = 4
+
         self.dx = params.separation
         self.dy = params.separation
 
@@ -34,8 +36,8 @@ class Dataset:
         # Variables in this dataset
         self.variables = [
             SplineVariable("h", 2, requires_derivative=True, device=self.device),
-            SplineVariable("u", 2, requires_derivative=True, device=self.device),
-            SplineVariable("v", 2, requires_derivative=True, device=self.device),
+            SplineVariable("hu", 2, requires_derivative=True, device=self.device),
+            SplineVariable("hv", 2, requires_derivative=True, device=self.device),
         ]
 
         # Compute the total hidden size
@@ -50,8 +52,9 @@ class Dataset:
         )
 
         # Boundary conditions and masking
-        self.cond_mask = torch.zeros(self.dataset_size, 1, self.width, self.height).int()
-        self.h_cond = 
+        self.cond_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.flux_x_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.flux_y_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
 
     def reset(self, indices):
         """
@@ -61,13 +64,15 @@ class Dataset:
         # Set all hidden coefficients to zero
         self.hidden_states[indices, :, :, :] = 0
 
+        # Uniform water layer
+        self.hidden_states[indices, 0, :, :] = 2
+
     def update(self, indices):
         """
         Update given environments
         """
 
-        # This method is not yet needed...
-        pass
+        
 
     def ask(self) -> LatentBatch:
         """

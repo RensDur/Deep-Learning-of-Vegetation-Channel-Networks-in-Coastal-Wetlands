@@ -36,60 +36,18 @@ class SplinePINNSolver:
         self.net = get_Net(params).to(self.device)
 
         #
-        # Convolution kernels
+        # Diffusion operation (needed, if we want to put more loss-weight to regions close to the domain boundaries)
         #
+        self.kernel_width = 3
+        self.kernel = torch.exp(-torch.arange(-2,2.001,4/(2*self.kernel_width)).float()**2)
+        self.kernel /= torch.sum(self.kernel)
+        self.kernel_x = self.kernel.unsqueeze(0).unsqueeze(1).unsqueeze(3).to(self.device)
+        self.kernel_y = self.kernel.unsqueeze(0).unsqueeze(1).unsqueeze(2).to(self.device)
 
-        # First order derivatives
-        self.dx_kernel = torch.tensor([-0.5,0,0.5], device=self.device).view(1, 1, 1, 3)
-        self.dy_kernel = torch.tensor([-0.5,0,0.5], device=self.device).view(1, 1, 3, 1)
-
-        # Second order derivatives
-        self.dx2_kernel = torch.tensor([1, -2, 1], device=self.device).view(1, 1, 1, 3)
-        self.dy2_kernel = torch.tensor([1, -2, 1], device=self.device).view(1, 1, 3, 1)
-
-        #
-        # MAC-grid convolutions
-        #
-        self.mean_left_kernel = torch.tensor([0.5, 0.5, 0], device=self.device).view(1, 1, 1, 3)
-        self.mean_right_kernel = torch.tensor([0, 0.5, 0.5], device=self.device).view(1, 1, 1, 3)
-        self.mean_top_kernel = torch.tensor([0.5, 0.5, 0], device=self.device).view(1, 1, 3, 1)
-        self.mean_bottom_kernel = torch.tensor([0, 0.5, 0.5], device=self.device).view(1, 1, 3, 1)
-
-
-
-    def d_dx(self, quantity):
-        return F.conv2d(quantity, self.dx_kernel, padding=(0,1)) / self.dataset.dx
-
-    def d_dy(self, quantity):
-        return F.conv2d(quantity, self.dy_kernel, padding=(1,0)) / self.dataset.dy
-
-    def d2_dx2(self, quantity):
-        return F.conv2d(quantity, self.dx2_kernel, padding=(0,1)) / (self.dataset.dx**2)
-
-    def d2_dy2(self, quantity):
-        return F.conv2d(quantity, self.dy2_kernel, padding=(1,0)) / (self.dataset.dy**2)
-
-    def mac_mean_left(self, quantity):
-        return F.conv2d(quantity, self.mean_left_kernel, padding=(0,1))
-
-    def mac_mean_right(self, quantity):
-        return F.conv2d(quantity, self.mean_right_kernel, padding=(0,1))
-
-    def mac_mean_top(self, quantity):
-        return F.conv2d(quantity, self.mean_top_kernel, padding=(1,0))
-
-    def mac_mean_bottom(self, quantity):
-        return F.conv2d(quantity, self.mean_bottom_kernel, padding=(1,0))
-
-    def staggered2normal(self, u, v):
-        u = self.mac_mean_left(u)
-        v = self.mac_mean_top(v)
-        return u, v
-
-    def normal2staggered(self, u, v):
-        u = self.mac_mean_right(u)
-        v = self.mac_mean_bottom(v)
-        return u, v
+    def diffuse(self, T): # needed to put extra weight on domain borders
+        T = F.conv2d(T,self.kernel_x,padding=[self.kernel_width,0])
+        T = F.conv2d(T,self.kernel_y,padding=[0,self.kernel_width])
+        return T
 
     def loss_function(self, x):
         return torch.pow(x, 2)
@@ -123,6 +81,16 @@ class SplinePINNSolver:
                                                                                   self.params.load_index)
             self.params.load_index = int(self.params.load_index)
             print(f"loaded: {self.params.load_date_time}, {self.params.load_index}")
+
+            # Perform warmup if requested
+            if self.params.n_warmup_steps is not None:
+                self.net.eval()
+                for i in range(self.params.n_warmup_steps):
+                    z_cond,z_mask,old_hidden_state,_,_,_ = self.dataset.ask()
+                    new_hidden_state = self.net(old_hidden_state,z_cond,z_mask)
+                    self.dataset.tell(new_hidden_state)
+                    if i%(self.params.n_warmup_steps//100)==0:
+                        print(f"warmup {i/(self.params.n_warmup_steps//100)} %")
         self.params.load_index = 0 if self.params.load_index is None else self.params.load_index
 
         # Enable training of the model
