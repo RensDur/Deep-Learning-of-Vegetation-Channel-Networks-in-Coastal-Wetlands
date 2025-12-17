@@ -20,6 +20,6 @@ j = 0
 offset = torch.floor(offsets[j]*resolution_factor)/resolution_factor
 offset = offset.to(torch_device)
 
-output = test.interpolate_at(weights, offset[:2])
+output = test.interpolate_superres_at(weights, offset[:2], resolution_factor)
 
-print(output)
+print(output.shape)

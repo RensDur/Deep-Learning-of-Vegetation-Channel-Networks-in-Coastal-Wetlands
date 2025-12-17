@@ -108,20 +108,20 @@ class SplineVariable:
         res_key = f"{resolution_factor}, orders: {self.orders}"
         
         if res_key in self.kernel_buffer_superres.keys():
-            superres_kernels = self.kernel_buffer_superres[res_key]
+            self.superres_kernels = self.kernel_buffer_superres[res_key]
         else:
-            superres_kernels = torch.zeros(1,1+2+4+2,(self.orders[0]+1)*(self.orders[1]+1),2*resolution_factor,2*resolution_factor).to(self.device)
+            self.superres_kernels = torch.zeros(1,self.kernel_size,(self.orders[0]+1)*(self.orders[1]+1),2*resolution_factor,2*resolution_factor).to(self.device)
 
             for i in range(resolution_factor):
                 for j in range(resolution_factor):
                     offsets = torch.tensor([i/resolution_factor,j/resolution_factor], device=self.device).unsqueeze(0).unsqueeze(2).unsqueeze(3).repeat(1,1,2,2)-1 + self.offset_summary
                     offsets = offsets.unsqueeze(2).unsqueeze(3).repeat(1,1,(self.orders[0]+1),(self.orders[1]+1),1,1).detach().requires_grad_(True)
                     
-                    kernels = torch.zeros(1,1+2+4+2,(self.orders[0]+1),(self.orders[1]+1),2,2)
+                    self.kernels = torch.zeros(1,self.kernel_size,(self.orders[0]+1),(self.orders[1]+1),2,2)
                     for l in range(self.orders[0]+1):
                         for m in range(self.orders[1]+1):
                             # Function value (directy from linear combination of splines)
-                            kernels[0:1,0:1,l,m,:,:] = kernels.p_multidim(offsets[:,:,l,m],[self.orders[0],self.orders[1]],[l,m])
+                            self.kernels[0,0,l,m,:,:] = kernels.p_multidim(offsets[:,:,l,m],[self.orders[0],self.orders[1]],[l,m])
                     
                     # First derivative (d/dx and d/dy)
                     if self.requires_derivative:
@@ -130,29 +130,18 @@ class SplineVariable:
                     # Laplace -- Note: laplacian without first derivative is not supported (quicker computation)
                     if self.requires_laplacian:
                         self.kernels[0,3] = operators.div(self.kernels[0,1:3], offsets, retain_graph=True)
-
-                    # TODO: Continue adapting
-
-                    # velocity
-                    kernels[0:1,1:3,:,:,:,:] = operators.rot(kernels[0:1,0:1,:,:,:,:],offsets,create_graph=True,retain_graph=True)
-                    # gradients of velocity
-                    kernels[0:1,3:5] = operators.grad(kernels[0:1,1:2,:,:,:,:],offsets,create_graph=True,retain_graph=True)
-                    kernels[0:1,5:7] = operators.grad(kernels[0:1,2:3,:,:,:,:],offsets,create_graph=True,retain_graph=True)
-                    # laplace of velocity
-                    kernels[0:1,7:8] = operators.div(kernels[0:1,3:5],offsets,retain_graph=True)
-                    kernels[0:1,8:9] = operators.div(kernels[0:1,5:7],offsets,retain_graph=False)
                     
-                    kernels = kernels.reshape(1,1+2+4+2,(self.orders[0]+1)*(self.orders[1]+1),2,2).detach().clone()
-                    superres_kernels[:,:,:,i::resolution_factor,j::resolution_factor] = kernels
+                    self.kernels = self.kernels.reshape(1,self.kernel_size,(self.orders[0]+1)*(self.orders[1]+1),2,2).detach().clone()
+                    self.superres_kernels[:,:,:,i::resolution_factor,j::resolution_factor] = self.kernels
 
             # buffer kernels
-            superres_kernels = superres_kernels.permute(0,2,1,3,4)
-            self.kernel_buffer_superres[res_key] = superres_kernels
+            self.superres_kernels = self.superres_kernels.permute(0,2,1,3,4)
+            self.kernel_buffer_superres[res_key] = self.superres_kernels
             self.save_buffers()
 
-        output = F.conv_transpose2d(weights,superres_kernels[0],padding=0,stride=resolution_factor)
+        output = F.conv_transpose2d(weights,self.superres_kernels[0],padding=0,stride=resolution_factor)
 
-        return output[:,0:1],output[:,1:3],output[:,3:7],output[:,7:9]
+        return output
         
     
 
