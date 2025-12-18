@@ -16,7 +16,7 @@ def get_Net(params, hidden_state_size):
 
 class ShallowWaterModel(nn.Module):
 	
-	def __init__(self, hidden_state_size=2, hidden_size=64, interpolation_size=5, bilinear=True, input_size=3, residuals=False):
+	def __init__(self, hidden_state_size=2, hidden_size=64, interpolation_size=8, bilinear=True, input_size=4, residuals=False):
 		"""
 		:orders_v: order of spline for velocity potential (should be at least 2)
 		:orders_p: order of spline for pressure field
@@ -24,6 +24,7 @@ class ShallowWaterModel(nn.Module):
 		:interpolation_size: size of first interpolation layer for v_cond and v_mask
 		"""
 		super(ShallowWaterModel, self).__init__()
+
 		self.hidden_state_size = hidden_state_size
 		self.hidden_size = hidden_size
 		self.bilinear = bilinear
@@ -35,21 +36,26 @@ class ShallowWaterModel(nn.Module):
 		self.conv1 = nn.Conv2d(self.hidden_state_size+interpolation_size, self.hidden_size,kernel_size=3,padding=1) # input: hidden_state + interpolation of v_cond and v_mask
 		self.conv2 = nn.Conv2d(self.hidden_size, self.hidden_size,kernel_size=3,padding=1) # input: hidden_state + interpolation of v_cond and v_mask
 		self.conv3 = nn.Conv2d(self.hidden_size, self.hidden_state_size,kernel_size=3,padding=1) # input: hidden_state + interpolation of v_cond and v_mask
-		
-		if self.hidden_state_size == 18: # if orders_z = 2
-			self.output_scaler_wave = toCuda(torch.Tensor([5,0.5,0.05,0.5, 0.05,0.05,0.05,0.05,0.05, 5,0.5,0.05,0.5, 0.05,0.05,0.05,0.05,0.05]).unsqueeze(0).unsqueeze(2).unsqueeze(3))
-		elif self.hidden_state_size == 8: # if orders_z = 1
-			self.output_scaler_wave = toCuda(torch.Tensor([5,0.5,0.5,0.05, 5,0.5,0.5,0.05]).unsqueeze(0).unsqueeze(2).unsqueeze(3))
-		
+
+		# The hidden size is 3*9=27
+		self.output_scalar = torch.Tensor([
+			5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5,
+			5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5,
+			5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5,
+		]).unsqueeze(0).unsqueeze(2).unsqueeze(3)
+
+	def to(self, torch_device):
+		super(ShallowWaterModel, self).to(torch_device)
+		self.output_scalar = self.output_scalar.to(torch_device)
 	
-	def forward(self,hidden_state,v_cond,v_mask):
+	def forward(self, hidden_state, u_cond, u_mask, v_cond, v_mask):
 		"""
 		:hidden_state: old hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
 		:v_cond: velocity (dirichlet) conditions on boundaries (average value within cell): bs x 2 x w x h
 		:v_mask: mask for boundary conditions (average value within cell): bs x 1 x w x h
 		:return: new hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
 		"""
-		x = torch.cat([v_cond,v_mask],dim=1)
+		x = torch.cat([u_cond, u_mask, v_cond, v_mask],dim=1)
 		
 		x = self.interpol(x)
 		
@@ -59,7 +65,7 @@ class ShallowWaterModel(nn.Module):
 		out = self.conv3(x)
 		
 		# residual connections
-		out[:,:,:,:] = self.output_scaler_wave*torch.tanh((out[:,:,:,:]+hidden_state[:,:,:,:]/self.output_scaler_wave))
+		out[:,:,:,:] = self.output_scalar*torch.tanh((out[:,:,:,:]+hidden_state[:,:,:,:]/self.output_scalar))
 		
 		return out
 

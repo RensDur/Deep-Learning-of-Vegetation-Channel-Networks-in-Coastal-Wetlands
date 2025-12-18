@@ -206,3 +206,45 @@ class Dataset:
         if self.t % int(self.average_sequence_length/self.batch_size) == 0:#ca x*batch_size steps until env gets reset
             self.reset(int(self.i))
             self.i = (self.i+1)%self.dataset_size
+
+
+
+
+
+    #
+    # Data related tasks
+    #
+
+    def interpolate_states(self, old_hidden_states,new_hidden_states,offset):
+        """
+        :old_hidden_states: old hidden states (size: bs x (v_size+p_size) x w x h)
+        :new_hidden_states: new hidden states (size: bs x (v_size+p_size) x w x h)
+        :offset: offset in x / y / t direction (vector of size 3 containing values between 0 and 1)
+        :return: interpolated fields for:
+            :z: z field
+            :grad(z): gradient of z field
+            :laplace(z): laplacian of z field
+            :dz/dt: velocity of z field
+            :dz^2/dt^2: acceleration of z field
+        """
+
+        # h field
+        old_h, old_grad_h, old_laplace_h = self.
+        
+        # z field
+        old_z,old_grad_z,old_laplace_z = interpolate_2d_wave(old_hidden_states[:,:z_size],offset[0:2],orders_z)
+        new_z,new_grad_z,new_laplace_z = interpolate_2d_wave(new_hidden_states[:,:z_size],offset[0:2],orders_z)
+        
+        # v field
+        old_v,old_grad_v,old_laplace_v = interpolate_2d_wave(old_hidden_states[:,z_size:],offset[0:2],orders_z)
+        new_v,new_grad_V,new_laplace_v = interpolate_2d_wave(new_hidden_states[:,z_size:],offset[0:2],orders_z)
+        
+        # first order interpolation of z and v fields
+        z = (1-offset[2])*old_z + offset[2]*new_z
+        grad_z = (1-offset[2])*old_grad_z + offset[2]*new_grad_z
+        laplace_z = (1-offset[2])*old_laplace_z + offset[2]*new_laplace_z
+        dz_dt = (new_z-old_z)/dt
+        v = (1-offset[2])*old_v + offset[2]*new_v # dzdt and v should be the same -> add residual loss!
+        a = (new_v-old_v)/dt
+        
+        return z,grad_z,laplace_z,dz_dt,v,a
