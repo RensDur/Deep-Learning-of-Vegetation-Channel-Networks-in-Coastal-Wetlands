@@ -9,6 +9,7 @@ from Logger import Logger,t_step
 import cv2
 import time
 from window import Window
+import matplotlib.pyplot as plt
 
 
 
@@ -44,8 +45,8 @@ class PCNNSolver:
         self.dy_kernel = torch.tensor([-0.5,0,0.5], device=self.device).view(1, 1, 3, 1)
 
         # Second order derivatives
-        self.dx2_kernel = torch.tensor([1, -2, 1], device=self.device).view(1, 1, 1, 3)
-        self.dy2_kernel = torch.tensor([1, -2, 1], device=self.device).view(1, 1, 3, 1)
+        self.dx2_kernel = torch.tensor([1.0, -2.0, 1.0], device=self.device).view(1, 1, 1, 3)
+        self.dy2_kernel = torch.tensor([1.0, -2.0, 1.0], device=self.device).view(1, 1, 3, 1)
 
         #
         # MAC-grid convolutions
@@ -128,6 +129,48 @@ class PCNNSolver:
         # Enable training of the model
         self.net.train()
 
+        # Open a matplot window - if plotting is enabled
+        if self.params.plot_loss:
+            plt.ion()
+
+            plot_fig, plot_axs = plt.subplots(1, 3, figsize=(20, 10))
+
+            # Plots
+            plot_axs[0].set(title="Loss image", xlabel="x", ylabel="y")
+            plot_axs[1].set(title="Total loss", xlabel="x", ylabel="y")
+            plot_axs[2].set(title="Loss terms", xlabel="x", ylabel="y")
+
+            # plot_axs[0].grid()
+            # plot_axs[0].grid(which="minor", color="0.5")
+            # plot_axs[1].grid()
+            # plot_axs[1].grid(which="minor", color="0.5")
+            # plot_axs[2].grid()
+            # plot_axs[2].grid(which="minor", color="0.5")
+
+            # Leftmost plot shows loss image
+            plot_loss_image = plot_axs[0].imshow(np.zeros((self.params.height, self.params.width)), cmap="gray", vmin=0, vmax=1)
+
+            # Middle plot shows total loss over time
+            plot_loss_total_data = np.array([])
+
+            # Rightmost plot shows loss-terms over time (multiplied by scaling)
+            plot_loss_h_data = np.array([])
+            plot_loss_momentum_data = np.array([])
+            plot_loss_bound_data = np.array([])
+            plot_loss_reg_data = np.array([])
+
+            plot_loss_total_graph = plot_axs[1].plot(range(plot_loss_total_data.shape[0]), plot_loss_total_data)[0]
+
+            plot_loss_h_graph = plot_axs[2].plot(range(plot_loss_h_data.shape[0]), plot_loss_h_data, label="h-loss")[0]
+            plot_loss_momentum_graph = plot_axs[2].plot(range(plot_loss_momentum_data.shape[0]), plot_loss_momentum_data, label="u,v-loss")[0]
+            plot_loss_bound_graph = plot_axs[2].plot(range(plot_loss_bound_data.shape[0]), plot_loss_bound_data, label="bound-loss")[0]
+            plot_loss_reg_graph = plot_axs[2].plot(range(plot_loss_reg_data.shape[0]), plot_loss_reg_data, label="reg-loss")[0]
+
+            plot_axs[2].legend(handles=[plot_loss_h_graph, plot_loss_momentum_graph, plot_loss_bound_graph, plot_loss_reg_graph], loc="upper right")
+
+            plt.show()
+
+
         # Training loop:
         # Start from the most recently finished epoch and train until the configured number
         # of epochs has been reached.
@@ -136,15 +179,27 @@ class PCNNSolver:
             for i in range(self.params.n_batches_per_epoch):
 
                 # Ask for a batch from the dataset
-                h_old, u_old, v_old = self.dataset.ask()
+                h_old, u_old, v_old, cond_mask, flux_x_cond, flux_y_cond = self.dataset.ask()
 
-                # TODO: MAC grid
+                # The flow mask is simply 1-cond_mask
+                flow_mask = 1 - cond_mask
+
+                # # Convert u,v_cond, cond_mask and flow_mask to MAC grid
+                # flux_x_cond, flux_y_cond = self.normal2staggered(flux_x_cond, flux_y_cond)
+                # cond_mask_mac = (self.normal2staggered(cond_mask.repeat(1,2,1,1))==1).float()
+                # flow_mask_mac = (self.normal2staggered(flow_mask.repeat(1,2,1,1))>=0.5).float()
 
                 # Predict the new domain state by performing a forward pass through the network
-                h_new, u_new, v_new = self.net(h_old, u_old, v_old)
+                flux_x, flux_y = self.net(h_old, u_old, v_old, cond_mask, flow_mask, flux_x_cond, flux_y_cond)
 
-                # S_new = S_old
-                # B_new = B_old
+                dh_dt = - self.d_dx(flux_x) - self.d_dy(flux_y)
+
+                h_new = h_old + dh_dt * self.params.dt
+
+                h_new = torch.clamp(h_new, min=self.params.Hc)
+
+                u_new = flux_x / h_new
+                v_new = flux_y / h_new
 
                 # Choose between explicit, implicit or IMEX integration schemes
                 if self.params.integrator == "explicit":
@@ -203,8 +258,8 @@ class PCNNSolver:
 
                 # 1. Continuity loss
                 loss_h = torch.mean(self.loss_function(
-                    dh_dt + self.d_dx(u * h) + self.d_dy(v * h) # - self.params.Hin
-                ), dim=(1,2,3))
+                    flow_mask * (dh_dt + self.d_dx(u * h) + self.d_dy(v * h)) # - self.params.Hin
+                ), dim=0)
 
                 # 2. Momentum loss
                 loss_u = du_dt + self.params.grav * self.d_dx(h + S) + u * self.d_dx(u) + v * self.d_dy(u)
@@ -215,12 +270,12 @@ class PCNNSolver:
                 # loss_v += tau_by_per_rho / h
                 #
                 # # Add turbulent mixing effects
-                # loss_u -= self.params.Du * (self.d2_dx2(u) + self.d2_dy2(u))
-                # loss_v -= self.params.Du * (self.d2_dx2(v) + self.d2_dy2(v))
+                loss_u -= self.params.Du * (self.d2_dx2(u) + self.d2_dy2(u))
+                loss_v -= self.params.Du * (self.d2_dx2(v) + self.d2_dy2(v))
 
                 # Apply loss function and compute mean
-                loss_u = torch.mean(self.loss_function(loss_u), dim=(1,2,3))
-                loss_v = torch.mean(self.loss_function(loss_v), dim=(1,2,3))
+                loss_u = torch.mean(self.loss_function(flow_mask * loss_u), dim=0)
+                loss_v = torch.mean(self.loss_function(flow_mask * loss_v), dim=0)
 
                 # # 3. Sediment loss
                 # loss_S = torch.mean(self.loss_function(
@@ -228,7 +283,7 @@ class PCNNSolver:
                 #     - self.params.Sin * (he / (self.params.Qs + he)) \
                 #     + self.params.Es * (1.0 - self.params.pE * (B / self.params.k)) * S * tau_b_per_rho \
                 #     - topographic_diffusion_term
-                # ), dim=(1,2,3))
+                # ), dim=0)
                 #
                 # # 4. Vegetation stem density loss
                 # loss_B = torch.mean(self.loss_function(
@@ -236,114 +291,32 @@ class PCNNSolver:
                 #     - self.params.r * B * (1.0 - (B / self.params.k)) * (self.params.Qq / (self.params.Qq + he)) \
                 #     + self.params.EB * B * tau_b_per_rho \
                 #     - self.params.DB * (self.d2_dx2(B) + self.d2_dy2(B))
-                # ), dim=(1,2,3))
+                # ), dim=0)
 
                 # 5. Boundary loss
+                loss_bound_u = torch.mean(self.loss_function(
+                    cond_mask * h * u
+                ), dim=0)
 
-                # Closed boundary on the left
-                loss_bound_left = torch.mean(self.loss_function(
-                    u[:, :, :, 0] + u[:, :, :, 1]
-                ))
-                loss_bound_left += torch.mean(self.loss_function(
-                    v[:, :, :, 0] - v[:, :, :, 1]
-                ))
-                loss_bound_left += torch.mean(self.loss_function(
-                    h[:, :, :, 0] - h[:, :, :, 1]
-                ))
-                # loss_bound_left += torch.mean(self.loss_function(
-                #     S[:, :, :, 0] - S[:, :, :, 1]
-                # ))
-                # loss_bound_left += torch.mean(self.loss_function(
-                #     B[:, :, :, 0] - B[:, :, :, 1]
-                # ))
+                loss_bound_v = torch.mean(self.loss_function(
+                    cond_mask * h * v
+                ), dim=0)
 
-                # Closed boundary on the right
-                loss_bound_right = torch.mean(self.loss_function(
-                    u[:, :, :, -1] + u[:, :, :, -2]
-                ))
-                loss_bound_right += torch.mean(self.loss_function(
-                    v[:, :, :, -1] - v[:, :, :, -2]
-                ))
-                loss_bound_right += torch.mean(self.loss_function(
-                    h[:, :, :, -1] - h[:, :, :, -2]
-                ))
-                # loss_bound_right += torch.mean(self.loss_function(
-                #     S[:, :, :, -1] - S[:, :, :, -2]
-                # ))
-                # loss_bound_right += torch.mean(self.loss_function(
-                #     B[:, :, :, -1] - B[:, :, :, -2]
-                # ))
-
-                # Open boundary on the right
-                # loss_bound_right = torch.mean(self.loss_function(
-                #     u[:, :, :, -1] - 2*u[:, :, :, -2] + u[:, :, :, -3]
-                # ))
-                # loss_bound_right += torch.mean(self.loss_function(
-                #     v[:, :, :, -1] - 2*v[:, :, :, -2] + v[:, :, :, -3]
-                # ))
-                # loss_bound_right += torch.mean(self.loss_function(
-                #     h[:, :, :, -1] - h[:, :, :, -2]
-                # ))
-                # loss_bound_right += torch.mean(self.loss_function(
-                #     S[:, :, :, -1]
-                # ))
-                # loss_bound_right += torch.mean(self.loss_function(
-                #     B[:, :, :, -1] - B[:, :, :, -2]
-                # ))
-
-                # Closed boundary at the top
-                loss_bound_top = torch.mean(self.loss_function(
-                    u[:, :, 0, :] - u[:, :, 1, :]
-                ))
-                loss_bound_top += torch.mean(self.loss_function(
-                    v[:, :, 0, :] + v[:, :, 1, :]
-                ))
-                loss_bound_top += torch.mean(self.loss_function(
-                    h[:, :, 0, :] - h[:, :, 1, :]
-                ))
-                # loss_bound_top += torch.mean(self.loss_function(
-                #     S[:, :, 0, :] - S[:, :, 1, :]
-                # ))
-                # loss_bound_top += torch.mean(self.loss_function(
-                #     B[:, :, 0, :] - B[:, :, 1, :]
-                # ))
-
-                # Closed boundary at the bottom
-                loss_bound_bottom = torch.mean(self.loss_function(
-                    u[:, :, -1, :] - u[:, :, -2, :]
-                ))
-                loss_bound_bottom += torch.mean(self.loss_function(
-                    v[:, :, -1, :] + v[:, :, -2, :]
-                ))
-                loss_bound_bottom += torch.mean(self.loss_function(
-                    h[:, :, -1, :] - h[:, :, -2, :]
-                ))
-                # loss_bound_bottom += torch.mean(self.loss_function(
-                #     S[:, :, -1, :] - S[:, :, -2, :]
-                # ))
-                # loss_bound_bottom += torch.mean(self.loss_function(
-                #     B[:, :, -1, :] - B[:, :, -2, :]
-                # ))
-
-                # Final boundary loss
-                loss_bound = loss_bound_left + loss_bound_right + loss_bound_top + loss_bound_bottom
+                loss_bound = loss_bound_u + loss_bound_v
 
                 #
                 # Regularizers
                 #
-                loss_reg = torch.mean(self.loss_function(
-                    (torch.sum(h_new, dim=(1,2,3)) - torch.sum(h_old, dim=(1,2,3))) / (self.params.width * self.params.height)
-                ))
+                loss_reg = torch.mean(
+                    self.loss_function(self.d_dx(h)) + self.loss_function(self.d_dy(h)) + self.loss_function(u) + self.loss_function(v),
+                    dim=0
+                )
 
                 # Compute combined loss
-                loss = torch.mean(torch.log(
-                    self.params.loss_h * loss_h
-                    + self.params.loss_momentum * (loss_u + loss_v)
-                    # + self.params.loss_S * loss_S
-                    # + self.params.loss_B * loss_B
-                    + self.params.loss_bound * loss_bound
-                    + self.params.loss_reg * loss_reg
-                ))
+                loss_tensor = self.params.loss_h * loss_h + self.params.loss_momentum * (loss_u + loss_v) + self.params.loss_bound * loss_bound + self.params.loss_reg * loss_reg
+
+                # Log loss and mean loss
+                loss = torch.log(torch.mean(loss_tensor))
 
                 # Compute gradients
                 self.optimizer.zero_grad()
@@ -357,6 +330,7 @@ class PCNNSolver:
 
                 # log training metrics
                 if i % 10 == 0:
+                    loss_tensor = loss_tensor.detach().view(self.params.height, self.params.width).cpu().numpy()
                     loss = float(loss.detach().cpu().numpy())
                     loss_h = float(torch.mean(loss_h).detach().cpu().numpy())
                     loss_u = float(torch.mean(loss_u).detach().cpu().numpy())
@@ -375,7 +349,50 @@ class PCNNSolver:
                     self.logger.log(f"loss_reg_{self.params.loss}", loss_reg, epoch * self.params.n_batches_per_epoch + i)
 
                     print(f"Epoch {epoch}, iter.{i}:\tloss: {round(loss,5)};\tloss_bound: {round(loss_bound,5)};\tloss_h: {round(loss_h,5)};\tloss_u: {round(loss_u,5)};\tloss_v: {round(loss_v,5)};\tloss_reg: {round(loss_reg,5)} \tvRAM allocated: {round(torch.mps.current_allocated_memory()/1000000000.0, 2)}GB")
-                    # if i % 100 == 0:
+
+                    #
+                    # PLOT LOSS - IF ENABLED
+                    #
+                    if self.params.plot_loss:
+                        loss_tensor -= np.min(loss_tensor)
+                        loss_tensor /= np.max(loss_tensor)
+
+                        plot_loss_image.set_data(loss_tensor)
+
+                        plot_loss_total_data = np.append(plot_loss_total_data, np.array([loss]))
+                        plot_loss_h_data = np.append(plot_loss_h_data, np.array([self.params.loss_h * loss_h]))
+                        plot_loss_momentum_data = np.append(plot_loss_momentum_data, np.array([self.params.loss_momentum * (loss_u + loss_v)]))
+                        plot_loss_bound_data = np.append(plot_loss_bound_data, np.array([self.params.loss_bound * loss_bound]))
+                        plot_loss_reg_data = np.append(plot_loss_reg_data, np.array([self.params.loss_reg * loss_reg]))
+
+                        plot_loss_total_graph.set_xdata(range(plot_loss_total_data.shape[0]))
+                        plot_loss_total_graph.set_ydata(plot_loss_total_data)
+                        plot_axs[1].set_xlim([0, plot_loss_total_data.shape[0]])
+                        plot_axs[1].set_ylim([np.min(plot_loss_total_data), np.max(plot_loss_total_data)])
+
+                        plot_loss_h_graph.set_xdata(range(plot_loss_h_data.shape[0]))
+                        plot_loss_h_graph.set_ydata(plot_loss_h_data)
+                        plot_loss_momentum_graph.set_xdata(range(plot_loss_momentum_data.shape[0]))
+                        plot_loss_momentum_graph.set_ydata(plot_loss_momentum_data)
+                        plot_loss_bound_graph.set_xdata(range(plot_loss_bound_data.shape[0]))
+                        plot_loss_bound_graph.set_ydata(plot_loss_bound_data)
+
+                        if self.params.loss_reg > 0:
+                            plot_loss_reg_graph.set_xdata(range(plot_loss_reg_data.shape[0]))
+                            plot_loss_reg_graph.set_ydata(plot_loss_reg_data)
+
+                        graph_limits = np.concatenate((plot_loss_h_data, plot_loss_momentum_data, plot_loss_bound_data, plot_loss_reg_data))
+                        plot_axs[2].set_xlim([0, plot_loss_h_data.shape[0]])
+                        plot_axs[2].set_ylim([0, 100])
+                        
+
+                # Always update the plot to allow interaction
+                # Plot the domain (update existing plot)
+                # Draw updated values
+                plot_fig.canvas.draw()
+
+                # UI Loop: process all pending UI events
+                plot_fig.canvas.flush_events()
 
             # Save the training state after each epoch
             if self.params.log:
@@ -408,8 +425,7 @@ class PCNNSolver:
 
         # Open a visualization window
         win = Window("Water Layer Thickness", self.params.width, self.params.height)
-        win.set_data_range(self.params.H0 - 0.0005, self.params.H0+0.0005)
-        win.set_data_range(self.params.H0 - 1e-2, self.params.H0 + 1e-2)
+        win.set_data_range(1.5, 2.5)
 
         with torch.no_grad():
 
@@ -417,7 +433,10 @@ class PCNNSolver:
             while win.is_open():
 
                 # Ask for a batch from the dataset
-                h_old, u_old, v_old = self.dataset.ask()
+                h_old, u_old, v_old, cond_mask, flux_x_cond, flux_y_cond = self.dataset.ask()
+
+                # The flow mask is simply 1-cond_mask
+                flow_mask = 1 - cond_mask
 
                 # TODO: MAC grid
 
@@ -431,10 +450,19 @@ class PCNNSolver:
                 win.update()
 
                 # Predict the new domain state by performing a forward pass through the network
-                h_new, u_new, v_new = self.net(h_old, u_old, v_old)
+                flux_x, flux_y = self.net(h_old, u_old, v_old, cond_mask, flow_mask, flux_x_cond, flux_y_cond)
+
+                dh_dt = - self.d_dx(flux_x) - self.d_dy(flux_y)
+
+                h_new = h_old + dh_dt * self.params.dt
+
+                h_new = torch.clamp(h_new, min=self.params.Hc)
+
+                u_new = flux_x / h_new
+                v_new = flux_y / h_new
 
                 # Store the newly obtained result in the dataset
-                self.dataset.tell(h_new, u_new, v_new, random_reset=False)
+                self.dataset.tell(h_new, u_new, v_new, random_reset=True)
 
 
     def visualize_numerical(self):
@@ -448,7 +476,7 @@ class PCNNSolver:
 
         # Open a visualization window
         win = Window("Water Layer Thickness", self.params.width, self.params.height)
-        win.set_data_range(self.params.H0 - 0.0005, self.params.H0+0.0005)
+        win.set_data_range(1.8, 2.2)
 
         with torch.no_grad():
 
@@ -456,7 +484,7 @@ class PCNNSolver:
             while win.is_open():
 
                 # Ask for a batch from the dataset
-                h_old, u_old, v_old = self.dataset.ask()
+                h_old, u_old, v_old, cond_mask, h_cond, u_cond, v_cond = self.dataset.ask()
 
                 # TODO: MAC grid
 

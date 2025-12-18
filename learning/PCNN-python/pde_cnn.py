@@ -11,7 +11,7 @@ def get_Net(params):
 	elif params.net == "UNet3":
 		pde_cnn = PDE_UNet3(params.hidden_size)
 	elif params.net == "UNetSWE":
-		pde_cnn = PDE_CNN_SWE(params.hidden_size)
+		pde_cnn = PDE_CNN_SWE_Flux(params.hidden_size)
 	return pde_cnn
 
 class PDE_UNet_SWE(nn.Module):
@@ -62,13 +62,26 @@ class PDE_CNN_SWE(nn.Module):
 		self.hidden_size = 50
 		self.bilinear = bilinear
 
-		self.conv1 = nn.Conv2d(3, 64, kernel_size=3,padding=1, padding_mode='replicate')
-		self.conv2 = nn.Conv2d(64, 64, kernel_size=3,padding=1, padding_mode='replicate')
-		self.conv3 = nn.Conv2d(64, 32, kernel_size=3,padding=1, padding_mode='replicate')
-		self.conv4 = nn.Conv2d(32, 3, kernel_size=3,padding=1, padding_mode='replicate')
+		self.conv1 = nn.Conv2d(11, 64, kernel_size=3,padding=1, padding_mode="replicate")
+		self.conv2 = nn.Conv2d(64, 64, kernel_size=3,padding=1)
+		self.conv3 = nn.Conv2d(64, 32, kernel_size=3,padding=1)
+		self.conv4 = nn.Conv2d(32, 3, kernel_size=3,padding=1)
 
-	def forward(self, h_old, u_old, v_old):
-		x = torch.cat([h_old, u_old, v_old],dim=1)
+	def forward(self, h_old, u_old, v_old, cond_mask, flow_mask, h_cond, u_cond, v_cond):
+
+		x = torch.cat([
+			h_old,
+			u_old,
+			v_old,
+			cond_mask,
+			cond_mask*h_cond,
+			cond_mask*u_cond,
+			cond_mask*v_cond,
+			flow_mask,
+			flow_mask*h_old,
+			flow_mask*u_old,
+			flow_mask*v_old
+		],dim=1)
 		
 		x = self.conv1(x)
 		x = torch.relu(x)
@@ -79,10 +92,49 @@ class PDE_CNN_SWE(nn.Module):
 		x = self.conv4(x)
 
 		h_new = 10 * torch.tanh((h_old + x[:,0:1]) / 10)
-		u_new = 50 * torch.tanh((u_old + x[:,1:2]) / 50)
-		v_new = 50 * torch.tanh((v_old + x[:,2:3]) / 50)
+		u_new = 10 * torch.tanh((u_old + x[:,1:2]) / 10)
+		v_new = 10 * torch.tanh((v_old + x[:,2:3]) / 10)
 
 		return h_new, u_new, v_new
+	
+class PDE_CNN_SWE_Flux(nn.Module):
+	def __init__(self, hidden_size=32,bilinear=True):
+		super(PDE_CNN_SWE_Flux, self).__init__()
+		self.hidden_size = 50
+		self.bilinear = bilinear
+
+		self.conv1 = nn.Conv2d(10, 64, kernel_size=3,padding=1, padding_mode="replicate")
+		self.conv2 = nn.Conv2d(64, 64, kernel_size=3,padding=1, padding_mode="replicate")
+		self.conv3 = nn.Conv2d(64, 32, kernel_size=3,padding=1, padding_mode="replicate")
+		self.conv4 = nn.Conv2d(32, 2, kernel_size=3,padding=1, padding_mode="replicate")
+
+	def forward(self, h_old, u_old, v_old, cond_mask, flow_mask, flux_x_cond, flux_y_cond):
+
+		x = torch.cat([
+			h_old,
+			h_old * u_old,
+			h_old * v_old,
+			cond_mask,
+			cond_mask*flux_x_cond,
+			cond_mask*flux_y_cond,
+			flow_mask,
+			flow_mask*h_old,
+			flow_mask*h_old*u_old,
+			flow_mask*h_old*v_old
+		],dim=1)
+		
+		x = self.conv1(x)
+		x = torch.relu(x)
+		x = self.conv2(x)
+		x = torch.relu(x)
+		x = self.conv3(x)
+		x = torch.relu(x)
+		x = self.conv4(x)
+
+		flux_x = 100 * torch.tanh((h_old + x[:,0:1]) / 100)
+		flux_y = 100 * torch.tanh((u_old + x[:,1:2]) / 100)
+
+		return flux_x, flux_y
 
 
 class PDE_UNet1(nn.Module):
