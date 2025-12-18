@@ -1,25 +1,51 @@
+import multiprocessing
 import torch
-from spline.spline_variable import SplineVariable
+import numpy as np
+import parameters
+from dataset import Dataset
+import matplotlib.pyplot as plt
+
+# Find the number of available CPUs, capped at 8
+NUM_CPUS = min(multiprocessing.cpu_count(), 8)
+torch.set_num_threads(NUM_CPUS)
+print(f"Using {NUM_CPUS} threads")
+
+# Find the GPU device for pytorch
+torch_device = torch.device('cpu')  # Default to CPU
+# # Switch to MPS (Apple Metal) if available
+# if torch.backends.mps.is_available():
+#     torch_device = torch.device('mps')
+# # Or CUDA if we're on an Nvidia machine
+# elif torch.cuda.is_available():
+#     torch_device = torch.device('cuda')
+# print(f"Using torch device '{torch_device}'")
+
+# Initialize randomization seeds
+torch.manual_seed(0)
+np.random.seed(0)
 
 
-torch_device = torch.device("cpu")
+def main():
 
-order = 2
+    # Extract parameters
+    params = parameters.params()
 
-test = SplineVariable("test", order, requires_derivative=False, requires_laplacian=False, device=torch_device)
+    # Because we're visualizing, create only one domain
+    params.dataset_size = 1
+    params.batch_size = 1
 
-hidden_size = (order+1)*(order+1)
+    print(f"Parameters: {vars(params)}")
 
-weights = torch.zeros(1, hidden_size, 4, 4)
+    # Create dataset
+    dataset = Dataset(params, torch_device)
 
-offsets = [torch.rand(3)]
+    # Ask for a batch
+    hidden_states, u_cond, u_mask, v_cond, v_mask, grid_offsets, sample_u_cond, sample_u_mask, sample_v_cond, sample_v_mask = dataset.ask()
 
-resolution_factor = 4
-j = 0
 
-offset = torch.floor(offsets[j]*resolution_factor)/resolution_factor
-offset = offset.to(torch_device)
 
-output = test.interpolate_superres_at(weights, offset[:2], resolution_factor)
 
-print(output.shape)
+
+
+if __name__ == "__main__":
+    main()

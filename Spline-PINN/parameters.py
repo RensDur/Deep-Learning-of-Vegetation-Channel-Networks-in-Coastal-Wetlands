@@ -44,7 +44,7 @@ def params():
 	parser.add_argument('--log_loss', default=True, type=str2bool, help='logarithmic loss to "normalize" gradients')
 	
 	# Network parameters
-	parser.add_argument('--net', default="Shortcut", type=str, help='network to train', choices=["Shortcut","Shortcut2","Shortcut2_residual","Shortcut4","Shortcut4_residual","Shortcut3","Fluid_model","Wave_model"])
+	parser.add_argument('--net', default="ShallowWaterModel", type=str, help='network to train', choices=["Shortcut","Shortcut2","Shortcut2_residual","Shortcut4","Shortcut4_residual","Shortcut3","Fluid_model","Wave_model"])
 	parser.add_argument('--hidden_size', default=20, type=int, help='hidden size of network (default: 20)')
 	parser.add_argument('--orders_v', default=2, type=int, help='spline order for velocity potential field (default: 2)')
 	parser.add_argument('--orders_p', default=2, type=int, help='spline order for pressure field (default: 2)')
@@ -59,10 +59,10 @@ def params():
 	parser.add_argument('--stiffness', default=10, type=float, help='stiffness coefficient for wave equation')
 	parser.add_argument('--damping', default=0.1, type=float, help='damping coefficient for wave equation')
 	
-	# Domain parameters
-	parser.add_argument('--width', default=None, type=int, help='domain width')
-	parser.add_argument('--height', default=None, type=int, help='domain height')
-	parser.add_argument('--max_speed', default=1, type=float, help='max speed for boundary conditions in dataset (default: 1)')
+	# Setup parameters
+	parser.add_argument('--width', default=10, type=int, help='setup width')
+	parser.add_argument('--height', default=10, type=int, help='setup height')
+	parser.add_argument('--separation', default=0.05, type=float, help='cell separation in meters')
 	
 	# Logger / Load parameters
 	parser.add_argument('--plot', default=False, type=str2bool, help='plot during training')
@@ -75,7 +75,7 @@ def params():
 	
 	# parse parameters
 	params = parser.parse_args()
-	print(f"Parameters: {vars(params)}")
+	# print(f"Parameters: {vars(params)}")
 	
 	return params
 
@@ -87,5 +87,3 @@ def get_hyperparam_fluid(params):
 
 def get_hyperparam_wave(params):
 	return f"wave net {params.net}; hs {params.hidden_size}; oz {params.orders_z}; stiffness {params.stiffness}; damping {params.damping}; dt {params.dt};"
-
-params = params()

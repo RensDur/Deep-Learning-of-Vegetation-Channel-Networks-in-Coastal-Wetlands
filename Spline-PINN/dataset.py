@@ -38,8 +38,8 @@ class Dataset:
         # Variables in this dataset
         self.variables = [
             SplineVariable("h", 2, requires_derivative=True, device=self.device),
-            SplineVariable("hu", 2, requires_derivative=True, device=self.device),
-            SplineVariable("hv", 2, requires_derivative=True, device=self.device),
+            SplineVariable("u", 2, requires_derivative=True, device=self.device),
+            SplineVariable("v", 2, requires_derivative=True, device=self.device),
         ]
 
         # Compute the total hidden size
@@ -77,6 +77,7 @@ class Dataset:
         self.i = 0
 
         # Reset all environments
+        print("Resetting all environments")
         self.reset(range(self.dataset_size))
 
     def reset(self, indices):
@@ -114,10 +115,10 @@ class Dataset:
 
     
             # Average pooling to create downsampled versions of the BCs
-            self.u_cond[index:(index+1)] = F.avg_pool2d(self.u_cond_full_res[index:(index+1)],self.resolution_factor)
-            self.u_mask[index:(index+1)] = F.avg_pool2d(self.u_mask_full_res[index:(index+1)],self.resolution_factor)
-            self.v_cond[index:(index+1)] = F.avg_pool2d(self.v_cond_full_res[index:(index+1)],self.resolution_factor)
-            self.v_mask[index:(index+1)] = F.avg_pool2d(self.v_mask_full_res[index:(index+1)],self.resolution_factor)
+            self.u_cond[index:(index+1)] = F.avg_pool2d(self.u_cond_fullres[index:(index+1)],self.resolution_factor)
+            self.u_mask[index:(index+1)] = F.avg_pool2d(self.u_mask_fullres[index:(index+1)],self.resolution_factor)
+            self.v_cond[index:(index+1)] = F.avg_pool2d(self.v_cond_fullres[index:(index+1)],self.resolution_factor)
+            self.v_mask[index:(index+1)] = F.avg_pool2d(self.v_mask_fullres[index:(index+1)],self.resolution_factor)
 
 
 
@@ -174,12 +175,20 @@ class Dataset:
             sample_v_cond.append(self.v_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
             sample_v_mask.append(self.v_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
 
-        # Return the hidden states and boundary conditions
-        return self.hidden_states[self.asked_indices], \
-                self.u_cond[self.asked_indices], \
-                self.u_mask[self.asked_indices], \
-                self.v_cond[self.asked_indices], \
-                self.v_mask[self.asked_indices], \
+        # Move all data to the desired device
+        for i in range(self.n_samples):
+            grid_offsets[i] = grid_offsets[i].to(self.device)
+            sample_u_cond[i] = sample_u_cond[i].to(self.device)
+            sample_u_mask[i] = sample_u_mask[i].to(self.device)
+            sample_v_cond[i] = sample_v_cond[i].to(self.device)
+            sample_v_mask[i] = sample_v_mask[i].to(self.device)
+
+        # Return the hidden states and boundary conditions after moving them to the desired device
+        return self.hidden_states[self.asked_indices].to(self.device), \
+                self.u_cond[self.asked_indices].to(self.device), \
+                self.u_mask[self.asked_indices].to(self.device), \
+                self.v_cond[self.asked_indices].to(self.device), \
+                self.v_mask[self.asked_indices].to(self.device), \
                 grid_offsets, \
                 sample_u_cond, \
                 sample_u_mask, \
@@ -188,8 +197,8 @@ class Dataset:
     
     def tell(self, hidden_states):
 
-        # Update hidden states
-        self.hidden_states[self.asked_indices] = hidden_states.detach()
+        # Update hidden states after moving them back to the CPU
+        self.hidden_states[self.asked_indices] = hidden_states.detach().cpu()
 
         # Randomly reset environments
         self.t += 1

@@ -3,13 +3,70 @@ from torch import nn
 import numpy as np
 from unet_parts import *
 
-def get_Net(params):
+def get_Net(params, hidden_state_size):
 	if params.net == "Fluid_model":
 		net = fluid_model(orders_v=[params.orders_v,params.orders_v],orders_p=[params.orders_p,params.orders_p],hidden_size=params.hidden_size,input_size=3)
 	elif params.net == "Wave_model":
 		params.orders_p = params.orders_v = params.orders_z
 		net = wave_model(orders_v=[params.orders_v,params.orders_v],orders_p=[params.orders_p,params.orders_p],hidden_size=params.hidden_size,input_size=2,residuals=True)
+	elif params.net == "ShallowWaterModel":
+		net = ShallowWaterModel(hidden_state_size, hidden_size=params.hidden_size)
 	return net
+
+
+class ShallowWaterModel(nn.Module):
+	
+	def __init__(self, hidden_state_size=2, hidden_size=64, interpolation_size=5, bilinear=True, input_size=3, residuals=False):
+		"""
+		:orders_v: order of spline for velocity potential (should be at least 2)
+		:orders_p: order of spline for pressure field
+		:hidden_size: hidden size of neural net
+		:interpolation_size: size of first interpolation layer for v_cond and v_mask
+		"""
+		super(ShallowWaterModel, self).__init__()
+		self.hidden_state_size = hidden_state_size
+		self.hidden_size = hidden_size
+		self.bilinear = bilinear
+		self.input_size = input_size
+	
+		self.residuals = residuals
+		
+		self.interpol = nn.Conv2d(input_size,interpolation_size,kernel_size=2) # interpolate v_cond (2) and v_mask (1) from 4 surrounding fields
+		self.conv1 = nn.Conv2d(self.hidden_state_size+interpolation_size, self.hidden_size,kernel_size=3,padding=1) # input: hidden_state + interpolation of v_cond and v_mask
+		self.conv2 = nn.Conv2d(self.hidden_size, self.hidden_size,kernel_size=3,padding=1) # input: hidden_state + interpolation of v_cond and v_mask
+		self.conv3 = nn.Conv2d(self.hidden_size, self.hidden_state_size,kernel_size=3,padding=1) # input: hidden_state + interpolation of v_cond and v_mask
+		
+		if self.hidden_state_size == 18: # if orders_z = 2
+			self.output_scaler_wave = toCuda(torch.Tensor([5,0.5,0.05,0.5, 0.05,0.05,0.05,0.05,0.05, 5,0.5,0.05,0.5, 0.05,0.05,0.05,0.05,0.05]).unsqueeze(0).unsqueeze(2).unsqueeze(3))
+		elif self.hidden_state_size == 8: # if orders_z = 1
+			self.output_scaler_wave = toCuda(torch.Tensor([5,0.5,0.5,0.05, 5,0.5,0.5,0.05]).unsqueeze(0).unsqueeze(2).unsqueeze(3))
+		
+	
+	def forward(self,hidden_state,v_cond,v_mask):
+		"""
+		:hidden_state: old hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
+		:v_cond: velocity (dirichlet) conditions on boundaries (average value within cell): bs x 2 x w x h
+		:v_mask: mask for boundary conditions (average value within cell): bs x 1 x w x h
+		:return: new hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
+		"""
+		x = torch.cat([v_cond,v_mask],dim=1)
+		
+		x = self.interpol(x)
+		
+		x = torch.cat([hidden_state,x],dim=1)
+		x = torch.relu(self.conv1(x))
+		x = torch.relu(self.conv2(x))
+		out = self.conv3(x)
+		
+		# residual connections
+		out[:,:,:,:] = self.output_scaler_wave*torch.tanh((out[:,:,:,:]+hidden_state[:,:,:,:]/self.output_scaler_wave))
+		
+		return out
+
+
+
+
+
 
 class fluid_model(nn.Module):
 	# inspired by UNet taken from: https://github.com/milesial/Pytorch-UNet/blob/master/unet/unet_model.py

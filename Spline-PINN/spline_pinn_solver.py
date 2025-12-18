@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from torch.optim import Adam
 import numpy as np
 from dataset import Dataset
-from pde_cnn import get_Net
+from spline_models import get_Net
 import parameters
 from Logger import Logger,t_step
 import cv2
@@ -33,7 +33,7 @@ class SplinePINNSolver:
         #
         # Torch model
         #
-        self.net = get_Net(params).to(self.device)
+        self.net = get_Net(params, self.dataset.hidden_size).to(self.device)
 
         #
         # Diffusion operation (needed, if we want to put more loss-weight to regions close to the domain boundaries)
