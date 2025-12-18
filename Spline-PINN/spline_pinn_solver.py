@@ -44,7 +44,10 @@ class SplinePINNSolver:
         self.kernel_x = self.kernel.unsqueeze(0).unsqueeze(1).unsqueeze(3).to(self.device)
         self.kernel_y = self.kernel.unsqueeze(0).unsqueeze(1).unsqueeze(2).to(self.device)
 
-    def diffuse(self, T): # needed to put extra weight on domain borders
+    def diffuse(self, T):
+        """
+        Needed to put extra weight on domain borders
+        """
         T = F.conv2d(T,self.kernel_x,padding=[self.kernel_width,0])
         T = F.conv2d(T,self.kernel_y,padding=[0,self.kernel_width])
         return T

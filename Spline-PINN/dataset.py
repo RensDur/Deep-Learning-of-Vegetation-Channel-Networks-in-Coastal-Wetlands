@@ -16,6 +16,7 @@ class Dataset:
         self.height_fullres = self.resolution_factor * self.height
 
         self.padding = 4
+        self.padding_fullres = self.padding * self.resolution_factor
 
         self.dx = params.separation
         self.dy = params.separation
@@ -53,8 +54,23 @@ class Dataset:
 
         # Boundary conditions and masking
         self.cond_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
-        self.flux_x_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
-        self.flux_y_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.h_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.cond_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
+        self.h_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
+
+        # Environment information
+        self.types = [
+            "rest-lake",
+            "oscillator"
+        ]
+        self.env_info = [{} for _ in range(self.dataset_size)]
+
+        # Environment resetting
+        self.t = 0
+        self.i = 0
+
+        # Reset all environments
+        self.reset(range(self.dataset_size))
 
     def reset(self, indices):
         """
@@ -64,17 +80,24 @@ class Dataset:
         # Set all hidden coefficients to zero
         self.hidden_states[indices, :, :, :] = 0
 
-        # Uniform water layer
-        self.hidden_states[indices, 0, :, :] = 2
+        # BC: Standard frame
+        self.cond_mask_fullres[indices] = 1
+        self.cond_mask_fullres[indices, :, self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
+
+        # For each environment, randomly choose one of the types
+        for index in indices:
+            t = np.random.choice(self.types)
+            self.env_info[index]["type"] = t
+
 
     def update(self, indices):
         """
         Update given environments
         """
-
+        pass
         
 
-    def ask(self) -> LatentBatch:
+    def ask(self):
         """
         Ask for a batch of boundary- and initial-conditions
         :return: batch
@@ -87,9 +110,8 @@ class Dataset:
         # Update the environments before sending them out
         self.update(self.asked_indices)
 
-        # Create a LatentBatch from the selected environments
-        return LatentBatch(self.hidden_states[self.asked_indices])
+        # Return the hidden states and boundary conditions
+        return self.hidden_states[self.asked_indices]
     
-    def tell(self, batch: LatentBatch):
-
-        self.hidden_states[self.asked_indices] = batch.hidden_states.detach()
+    def tell(self, hidden_states):
+        self.hidden_states[self.asked_indices] = hidden_states.detach()
