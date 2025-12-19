@@ -157,7 +157,7 @@ class Dataset:
                 # self.S[self.asked_indices].to(self.device), \
                 # self.B[self.asked_indices].to(self.device)
 
-    def tell(self, h, u, v, random_reset=False):
+    def tell(self, h, u, v, batch_loss, random_reset=False):
         """
         Return the updated state to the dataset
         :param h: updated h
@@ -178,11 +178,11 @@ class Dataset:
         self.t[self.asked_indices] += self.params.dt
         self.average_sequence_t += 1
 
-        if random_reset:
-            if self.average_sequence_t % (self.average_sequence_length/self.batch_size) == 0:#ca x*batch_size steps until env gets reset
-                self.reset(int(self.average_sequence_i))
-                self.average_sequence_i = (self.average_sequence_i+1)%self.dataset_size
-                print("Resetting environment!")
+        # if random_reset:
+        #     if self.average_sequence_t % (self.average_sequence_length/self.batch_size) == 0:#ca x*batch_size steps until env gets reset
+        #         self.reset(int(self.average_sequence_i))
+        #         self.average_sequence_i = (self.average_sequence_i+1)%self.dataset_size
+        #         print("Resetting environment!")
 
             # if self.average_sequence_t % (10*int(1 + self.num_full_resets)*self.average_sequence_length/self.batch_size) == 0:
             #     # Reset the entire dataset every now and then to prevent training on unphysical data
@@ -190,3 +190,11 @@ class Dataset:
             #     self.num_full_resets += 1
             #     self.average_sequence_t = 0
             #     print("Resetting entire dataset!")
+
+        # We will reset the 10% most 'unphysical' environments in this batch
+        # This is measured by the loss per environment, given by the batch_loss
+        num_to_reset = max(1, int(self.batch_size * 0.1))
+        largest_loss = torch.topk(batch_loss, num_to_reset)
+        
+        # Reset all these unphysical environments
+        self.reset(largest_loss.indices.cpu())

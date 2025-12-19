@@ -259,7 +259,7 @@ class PCNNSolver:
                 # 1. Continuity loss
                 loss_h = torch.mean(self.loss_function(
                     flow_mask * (dh_dt + self.d_dx(u * h) + self.d_dy(v * h)) # - self.params.Hin
-                ), dim=0)
+                ), dim=1)
 
                 # 2. Momentum loss
                 loss_u = du_dt + self.params.grav * self.d_dx(h + S) + u * self.d_dx(u) + v * self.d_dy(u)
@@ -274,8 +274,8 @@ class PCNNSolver:
                 loss_v -= self.params.Du * (self.d2_dx2(v) + self.d2_dy2(v))
 
                 # Apply loss function and compute mean
-                loss_u = torch.mean(self.loss_function(flow_mask * loss_u), dim=0)
-                loss_v = torch.mean(self.loss_function(flow_mask * loss_v), dim=0)
+                loss_u = torch.mean(self.loss_function(flow_mask * loss_u), dim=1)
+                loss_v = torch.mean(self.loss_function(flow_mask * loss_v), dim=1)
 
                 # # 3. Sediment loss
                 # loss_S = torch.mean(self.loss_function(
@@ -296,11 +296,11 @@ class PCNNSolver:
                 # 5. Boundary loss
                 loss_bound_u = torch.mean(self.loss_function(
                     cond_mask * h * u
-                ), dim=0)
+                ), dim=1)
 
                 loss_bound_v = torch.mean(self.loss_function(
                     cond_mask * h * v
-                ), dim=0)
+                ), dim=1)
 
                 loss_bound = loss_bound_u + loss_bound_v
 
@@ -309,7 +309,7 @@ class PCNNSolver:
                 #
                 loss_reg = torch.mean(
                     self.loss_function(self.d_dx(h)) + self.loss_function(self.d_dy(h)) + self.loss_function(u) + self.loss_function(v),
-                    dim=0
+                    dim=1
                 )
 
                 # Compute combined loss
@@ -317,6 +317,9 @@ class PCNNSolver:
 
                 # Log loss and mean loss
                 loss = torch.log(torch.mean(loss_tensor))
+
+                # Compute loss per environment in the batch
+                batch_loss = torch.mean(loss_tensor, dim=(1,2))
 
                 # Compute gradients
                 self.optimizer.zero_grad()
@@ -326,11 +329,11 @@ class PCNNSolver:
                 self.optimizer.step()
 
                 # Recycle the data
-                self.dataset.tell(h_new, u_new, v_new, random_reset=True)
+                self.dataset.tell(h_new, u_new, v_new, batch_loss, random_reset=True)
 
                 # log training metrics
                 if i % 10 == 0:
-                    loss_tensor = loss_tensor.detach().view(self.params.height, self.params.width).cpu().numpy()
+                    loss_tensor = torch.mean(loss_tensor, dim=0).detach().view(self.params.height, self.params.width).cpu().numpy()
                     loss = float(loss.detach().cpu().numpy())
                     loss_h = float(torch.mean(loss_h).detach().cpu().numpy())
                     loss_u = float(torch.mean(loss_u).detach().cpu().numpy())
