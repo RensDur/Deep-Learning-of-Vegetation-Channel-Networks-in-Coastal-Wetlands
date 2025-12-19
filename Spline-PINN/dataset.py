@@ -215,7 +215,7 @@ class Dataset:
     # Data related tasks
     #
 
-    def interpolate_states(self, old_hidden_states,new_hidden_states,offset):
+    def interpolate_states(self, old_hidden_states, new_hidden_states, offset):
         """
         :old_hidden_states: old hidden states (size: bs x (v_size+p_size) x w x h)
         :new_hidden_states: new hidden states (size: bs x (v_size+p_size) x w x h)
