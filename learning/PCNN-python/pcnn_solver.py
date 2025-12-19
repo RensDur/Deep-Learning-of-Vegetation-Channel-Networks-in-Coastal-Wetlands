@@ -348,7 +348,15 @@ class PCNNSolver:
                     self.logger.log(f"loss_bound_{self.params.loss}", loss_bound, epoch * self.params.n_batches_per_epoch + i)
                     self.logger.log(f"loss_reg_{self.params.loss}", loss_reg, epoch * self.params.n_batches_per_epoch + i)
 
-                    print(f"Epoch {epoch}, iter.{i}:\tloss: {round(loss,5)};\tloss_bound: {round(loss_bound,5)};\tloss_h: {round(loss_h,5)};\tloss_u: {round(loss_u,5)};\tloss_v: {round(loss_v,5)};\tloss_reg: {round(loss_reg,5)} \tvRAM allocated: {round(torch.mps.current_allocated_memory()/1000000000.0, 2)}GB")
+                    # vRAM stats
+                    if torch.cuda.is_available():
+                        vram_allocated = torch.cuda.memory_allocated(0)
+                    elif torch.backends.mps.is_available():
+                        vram_allocated = torch.mps.current_allocated_memory()
+                    else: # CPU
+                        vram_allocated = 0
+
+                    print(f"Epoch {epoch}, iter.{i}:\tloss: {round(loss,5)};\tloss_bound: {round(loss_bound,5)};\tloss_h: {round(loss_h,5)};\tloss_u: {round(loss_u,5)};\tloss_v: {round(loss_v,5)};\tloss_reg: {round(loss_reg,5)} \tvRAM allocated: {round(vram_allocated/1000000000.0, 2)}GB")
 
                     #
                     # PLOT LOSS - IF ENABLED
@@ -385,14 +393,14 @@ class PCNNSolver:
                         plot_axs[2].set_xlim([0, plot_loss_h_data.shape[0]])
                         plot_axs[2].set_ylim([0, 100])
                         
+                if self.params.plot_loss:
+                    # Always update the plot to allow interaction
+                    # Plot the domain (update existing plot)
+                    # Draw updated values
+                    plot_fig.canvas.draw()
 
-                # Always update the plot to allow interaction
-                # Plot the domain (update existing plot)
-                # Draw updated values
-                plot_fig.canvas.draw()
-
-                # UI Loop: process all pending UI events
-                plot_fig.canvas.flush_events()
+                    # UI Loop: process all pending UI events
+                    plot_fig.canvas.flush_events()
 
             # Save the training state after each epoch
             if self.params.log:
