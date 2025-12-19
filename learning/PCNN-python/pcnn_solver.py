@@ -473,7 +473,7 @@ class PCNNSolver:
                 v_new = flux_y / h_new
 
                 # Store the newly obtained result in the dataset
-                self.dataset.tell(h_new, u_new, v_new, random_reset=True)
+                self.dataset.tell(h_new, u_new, v_new, random_reset=False)
 
 
     def visualize_numerical(self):
