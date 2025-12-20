@@ -33,7 +33,7 @@ class SplinePINNSolver:
         #
         # Torch model
         #
-        self.net = get_Net(params, self.dataset.hidden_size).to(self.device)
+        self.net = get_Net(params, self.dataset.hidden_size()).to(self.device)
 
         #
         # Diffusion operation (needed, if we want to put more loss-weight to regions close to the domain boundaries)
@@ -144,15 +144,29 @@ class SplinePINNSolver:
                     # COMPUTE SAMPLE LOSS
                     #
 
-                    # TODO: What is the shape of grad...? (detach dx and dy)
-
                     # h-loss
                     loss_h = torch.mean(self.loss_function(
-                        dh_dt + grad_uh + grad_vh # - self.params.Hin
+                        dh_dt + grad_uh[:,0:1] + grad_vh[:,1:2] # - self.params.Hin
                     ), dim=1)
 
                     # Momentum loss
-                    loss_u = du_dt + self.params.grav * 
+                    loss_u = du_dt + self.params.grav * grad_h[:,0:1] + u * grad_u[:,0:1] + v * grad_u[:,1:2]
+                    loss_v = dv_dt + self.params.grav * grad_h[:,1:2] + u * grad_v[:,0:1] + v * grad_v[:,1:2]
+
+
+                    loss_u = torch.mean(self.loss_function(loss_u), dim=1)
+                    loss_v = torch.mean(self.loss_function(loss_v), dim=1)
+
+
+
+                    loss_total += self.params.loss_h * loss_h + self.params.loss_momentum * (loss_u + loss_v)
+
+                if self.params.log_loss:
+                    loss_total = torch.mean(torch.log(loss_total))/self.params.n_samples
+                else:
+                    loss_total = torch.mean(loss_total)/self.params.n_samples
+
+                
 
 
 

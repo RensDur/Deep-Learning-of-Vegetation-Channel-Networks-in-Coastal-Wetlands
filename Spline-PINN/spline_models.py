@@ -39,14 +39,15 @@ class ShallowWaterModel(nn.Module):
 
 		# The hidden size is 3*9=27
 		self.output_scalar = torch.Tensor([
-			5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5,
-			5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5,
-			5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5,
+			5, 0.5, 0.5, 0.5,
+			5, 0.5, 0.5, 0.5,
+			5, 0.5, 0.5, 0.5,
 		]).unsqueeze(0).unsqueeze(2).unsqueeze(3)
 
 	def to(self, torch_device):
 		super(ShallowWaterModel, self).to(torch_device)
 		self.output_scalar = self.output_scalar.to(torch_device)
+		return self
 	
 	def forward(self, hidden_state, u_cond, u_mask, v_cond, v_mask):
 		"""

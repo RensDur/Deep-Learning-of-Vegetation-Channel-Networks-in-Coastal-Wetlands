@@ -91,15 +91,15 @@ class SplineVariable:
             for l in range(self.orders[0]+1):
                 for m in range(self.orders[1]+1):
                     # Function value (directy from linear combination of splines)
-                    self.kernels[0,0,l,m,:,:] = kernels.p_multidim(offsets[:,:,l,m],[self.orders[0],self.orders[1]],[l,m])
+                    self.kernels[0:1,0:1,l,m,:,:] = kernels.p_multidim(offsets[:,:,l,m],[self.orders[0],self.orders[1]],[l,m])
             
             # First derivative (d/dx and d/dy)
             if self.requires_derivative:
-                self.kernels[0,1:3] = operators.grad(self.kernels[0,0,:,:,:,:],offsets,create_graph=True,retain_graph=True)
+                self.kernels[0:1,1:3] = operators.grad(self.kernels[0:1,0:1,:,:,:,:],offsets,create_graph=True,retain_graph=True)
 
             # Laplace -- Note: laplacian without first derivative is not supported (quicker computation)
             if self.requires_laplacian:
-                self.kernels[0,3] = operators.div(self.kernels[0,1:3], offsets, retain_graph=True)
+                self.kernels[0:1,3:4] = operators.div(self.kernels[0:1,1:3], offsets, retain_graph=True)
             
             self.kernels = self.kernels.reshape(1, self.kernel_size, (self.orders[0]+1)*(self.orders[1]+1), 2, 2).detach() # Group orders in one channel
             
@@ -109,7 +109,9 @@ class SplineVariable:
 
         output = F.conv2d(weights,self.kernels[0],padding=0)
 
-        return output
+        return output[:, 0:1], \
+                output[:, 1:3] if self.requires_derivative else None, \
+                output[:, 3:4] if self.requires_laplacian else None
     
 
     def interpolate_superres_at(self, weights, offsets, resolution_factor):
@@ -130,15 +132,15 @@ class SplineVariable:
                     for l in range(self.orders[0]+1):
                         for m in range(self.orders[1]+1):
                             # Function value (directy from linear combination of splines)
-                            self.kernels[0,0,l,m,:,:] = kernels.p_multidim(offsets[:,:,l,m],[self.orders[0],self.orders[1]],[l,m])
+                            self.kernels[0:1,0:1,l,m,:,:] = kernels.p_multidim(offsets[:,:,l,m],[self.orders[0],self.orders[1]],[l,m])
                     
                     # First derivative (d/dx and d/dy)
                     if self.requires_derivative:
-                        self.kernels[0,1:3] = operators.grad(self.kernels[0,0,:,:,:,:],offsets,create_graph=True,retain_graph=True)
+                        self.kernels[0:1,1:3] = operators.grad(self.kernels[0:1,0:1,:,:,:,:],offsets,create_graph=True,retain_graph=True)
 
                     # Laplace -- Note: laplacian without first derivative is not supported (quicker computation)
                     if self.requires_laplacian:
-                        self.kernels[0,3] = operators.div(self.kernels[0,1:3], offsets, retain_graph=True)
+                        self.kernels[0:1,3:4] = operators.div(self.kernels[0:1,1:3], offsets, retain_graph=True)
                     
                     self.kernels = self.kernels.reshape(1,self.kernel_size,(self.orders[0]+1)*(self.orders[1]+1),2,2).detach().clone()
                     self.superres_kernels[:,:,:,i::resolution_factor,j::resolution_factor] = self.kernels
@@ -150,7 +152,9 @@ class SplineVariable:
 
         output = F.conv_transpose2d(weights,self.superres_kernels[0],padding=0,stride=resolution_factor)
 
-        return output
+        return output[:, 0:1], \
+                output[:, 1:3] if self.requires_derivative else None, \
+                output[:, 3:4] if self.requires_laplacian else None
         
     
 

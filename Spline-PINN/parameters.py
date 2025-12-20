@@ -60,8 +60,8 @@ def params():
 	parser.add_argument('--damping', default=0.1, type=float, help='damping coefficient for wave equation')
 	
 	# Setup parameters
-	parser.add_argument('--width', default=10, type=int, help='setup width')
-	parser.add_argument('--height', default=10, type=int, help='setup height')
+	parser.add_argument('--width', default=200, type=int, help='setup width')
+	parser.add_argument('--height', default=200, type=int, help='setup height')
 	parser.add_argument('--separation', default=0.05, type=float, help='cell separation in meters')
 	
 	# Logger / Load parameters

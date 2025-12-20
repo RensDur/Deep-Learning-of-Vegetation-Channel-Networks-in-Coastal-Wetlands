@@ -31,7 +31,7 @@ class SplineArray:
 		return None
 	
 	def extract_from(self, hidden_states, varname):
-		return hidden_states[self.get_slice_for(varname)]
+		return hidden_states[:, self.get_slice_for(varname)]
 
 	def __len__(self):
 		return len(self.variables)

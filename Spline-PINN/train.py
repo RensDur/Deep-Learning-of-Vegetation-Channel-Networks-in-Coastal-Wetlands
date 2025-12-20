@@ -35,13 +35,13 @@ def main():
     # Create dataset
     dataset = Dataset(params, torch_device)
 
-    print(f"Dataset hidden state size: {dataset.hidden_size}")
+    print(f"Dataset hidden state size: {dataset.variables.hidden_size()}")
 
     # Create solver
     solver = SplinePINNSolver(dataset, params, torch_device)
 
     # Run training routine
-    # solver.train()
+    solver.train()
 
 
 if __name__ == '__main__':

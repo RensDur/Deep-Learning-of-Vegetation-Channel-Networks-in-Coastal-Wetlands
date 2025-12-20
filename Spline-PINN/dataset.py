@@ -43,6 +43,7 @@ class Dataset:
             SplineVariable("h", 1, requires_derivative=True),
             SplineVariable("u", 1, requires_derivative=True, requires_laplacian=True),
             SplineVariable("v", 1, requires_derivative=True, requires_laplacian=True),
+            device=self.device
         )
 
         # Hidden state
@@ -80,6 +81,9 @@ class Dataset:
         print("Resetting all environments")
         self.reset(range(self.dataset_size))
 
+    def hidden_size(self):
+        return self.variables.hidden_size()
+
     def reset(self, indices):
         """
         Reset given environments
@@ -107,11 +111,11 @@ class Dataset:
             if self.env_info[index]["type"] == "rest-lake":
 
                 # In a lake at rest, with closed boundaries, no flow velocities at the boundaries they apply to
-                self.u_cond_fullres[indices] = 0
-                self.v_cond_fullres[indices] = 0
+                self.u_cond_fullres[index] = 0
+                self.v_cond_fullres[index] = 0
 
-                self.u_cond_fullres[indices] *= self.u_mask_fullres[indices]
-                self.v_cond_fullres[indices] *= self.v_mask_fullres[indices]
+                self.u_cond_fullres[index] *= self.u_mask_fullres[index]
+                self.v_cond_fullres[index] *= self.v_mask_fullres[index]
 
     
             # Average pooling to create downsampled versions of the BCs
@@ -229,8 +233,8 @@ class Dataset:
         """
 
         # h field: requires first derivative
-        old_h, old_grad_h = self.variables["h"].interpolate_at(self.variables.extract_from(old_hidden_states, "h"), offset[:2])
-        new_h, new_grad_h = self.variables["h"].interpolate_at(self.variables.extract_from(new_hidden_states, "h"), offset[:2])
+        old_h, old_grad_h, _ = self.variables["h"].interpolate_at(self.variables.extract_from(old_hidden_states, "h"), offset[:2])
+        new_h, new_grad_h, _ = self.variables["h"].interpolate_at(self.variables.extract_from(new_hidden_states, "h"), offset[:2])
 
         # u field: requires first derivative + laplace
         old_u, old_grad_u, old_laplace_u = self.variables["u"].interpolate_at(self.variables.extract_from(old_hidden_states, "u"), offset[:2])
