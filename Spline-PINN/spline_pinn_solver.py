@@ -120,6 +120,7 @@ class SplinePINNSolver:
                 for j, sample in enumerate(grid_offsets):
                     offset = torch.floor(sample*self.params.resolution_factor)/self.params.resolution_factor
 
+                    # For added clarity: The masks define where the BCs act, they're 1 everywhere on the boundary, 0 everywhere else
                     sample_u_cond = sample_u_conds[j]
                     sample_u_mask = sample_u_masks[j]
                     sample_v_cond = sample_v_conds[j]
@@ -136,7 +137,22 @@ class SplinePINNSolver:
                     # Interpolate spline coefficients to obtain the necessary quantities
                     h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt = self.dataset.interpolate_states(old_hidden_state, new_hidden_state, offset)
 
-                    
+                    grad_uh = h * grad_u + u * grad_h
+                    grad_vh = h * grad_v + v * grad_h
+
+                    #
+                    # COMPUTE SAMPLE LOSS
+                    #
+
+                    # TODO: What is the shape of grad...? (detach dx and dy)
+
+                    # h-loss
+                    loss_h = torch.mean(self.loss_function(
+                        dh_dt + grad_uh + grad_vh # - self.params.Hin
+                    ), dim=1)
+
+                    # Momentum loss
+                    loss_u = du_dt + self.params.grav * 
 
 
 
