@@ -19,6 +19,20 @@ class SplineArray:
 	def append(self, variable: SplineVariable):
 		self.variables.append(variable)
 
+	def get_slice_for(self, varname):
+		start = 0
+
+		for v in self.variables:
+			if varname == v.get_name():
+				return slice(start, start + v.hidden_size())
+			
+			start += v.hidden_size()
+
+		return None
+	
+	def extract_from(self, hidden_states, varname):
+		return hidden_states[self.get_slice_for(varname)]
+
 	def __len__(self):
 		return len(self.variables)
 	

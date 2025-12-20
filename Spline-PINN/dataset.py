@@ -9,6 +9,9 @@ class Dataset:
     
     def __init__(self, params, device=torch.device("cpu")):
 
+        # Local copy of the parameters
+        self.params = params
+
         # Dimensions
         self.width = params.width
         self.height = params.height
@@ -45,7 +48,7 @@ class Dataset:
         # Hidden state
         self.hidden_states = torch.zeros(
             self.dataset_size,
-            self.hidden_size,
+            self.variables.hidden_size(),
             self.width-1,
             self.height-1
         )
@@ -226,26 +229,30 @@ class Dataset:
         """
 
         # h field: requires first derivative
-        old_h, old_grad_h = self.variables["h"].interpolate_at(old_hidden_states[:, :self.variables["h"].hidden_size()], offset[:2])
-        new_h, new_grad_h = self.variables["h"].interpolate_at(new_hidden_states[:, :self.variables["h"].hidden_size()], offset[:2])
+        old_h, old_grad_h = self.variables["h"].interpolate_at(self.variables.extract_from(old_hidden_states, "h"), offset[:2])
+        new_h, new_grad_h = self.variables["h"].interpolate_at(self.variables.extract_from(new_hidden_states, "h"), offset[:2])
 
         # u field: requires first derivative + laplace
-        old_u, old_grad_u, old_laplace_u = self.variables["u"].interpolate_at(old_hidden_states[:, ])
+        old_u, old_grad_u, old_laplace_u = self.variables["u"].interpolate_at(self.variables.extract_from(old_hidden_states, "u"), offset[:2])
+        new_u, new_grad_u, new_laplace_u = self.variables["u"].interpolate_at(self.variables.extract_from(new_hidden_states, "u"), offset[:2])
+
+        # v field: requires first derivative + laplace
+        old_v, old_grad_v, old_laplace_v = self.variables["v"].interpolate_at(self.variables.extract_from(old_hidden_states, "v"), offset[:2])
+        new_v, new_grad_v, new_laplace_v = self.variables["v"].interpolate_at(self.variables.extract_from(new_hidden_states, "v"), offset[:2])
+
+        # First order interpolation in time
+        h = (1-offset[2])*old_h + offset[2]*new_h
+        grad_h = (1-offset[2])*old_grad_h + offset[2]*new_grad_h
+        dh_dt = (new_h - old_h) / self.params.dt
+
+        u = (1-offset[2])*old_u + offset[2]*new_u
+        grad_u = (1-offset[2])*old_grad_u + offset[2]*new_grad_u
+        laplace_u = (1-offset[2])*old_laplace_u + offset[2]*new_laplace_u
+        du_dt = (new_u - old_u) / self.params.dt
+
+        v = (1-offset[2])*old_v + offset[2]*new_v
+        grad_v = (1-offset[2])*old_grad_v + offset[2]*new_grad_v
+        laplace_v = (1-offset[2])*old_laplace_v + offset[2]*new_laplace_v
+        dv_dt = (new_v - old_v) / self.params.dt
         
-        # z field
-        old_z,old_grad_z,old_laplace_z = interpolate_2d_wave(old_hidden_states[:,:z_size],offset[0:2],orders_z)
-        new_z,new_grad_z,new_laplace_z = interpolate_2d_wave(new_hidden_states[:,:z_size],offset[0:2],orders_z)
-        
-        # v field
-        old_v,old_grad_v,old_laplace_v = interpolate_2d_wave(old_hidden_states[:,z_size:],offset[0:2],orders_z)
-        new_v,new_grad_V,new_laplace_v = interpolate_2d_wave(new_hidden_states[:,z_size:],offset[0:2],orders_z)
-        
-        # first order interpolation of z and v fields
-        z = (1-offset[2])*old_z + offset[2]*new_z
-        grad_z = (1-offset[2])*old_grad_z + offset[2]*new_grad_z
-        laplace_z = (1-offset[2])*old_laplace_z + offset[2]*new_laplace_z
-        dz_dt = (new_z-old_z)/dt
-        v = (1-offset[2])*old_v + offset[2]*new_v # dzdt and v should be the same -> add residual loss!
-        a = (new_v-old_v)/dt
-        
-        return z,grad_z,laplace_z,dz_dt,v,a
+        return h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt
