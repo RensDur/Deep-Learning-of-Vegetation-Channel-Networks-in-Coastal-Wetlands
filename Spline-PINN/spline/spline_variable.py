@@ -36,6 +36,15 @@ class SplineVariable:
         except:
             print(f"No buffers available for SplineVariable '{self.name}'")
 
+    def to(self, torch_device):
+        self.device = torch_device
+
+        # Move data to the new device
+        self.offset_summary = self.offset_summary.to(self.device)
+
+    def get_name(self):
+        return self.name
+
     def hidden_size(self) -> int:
         return np.prod([i+1 for i in self.orders])
 

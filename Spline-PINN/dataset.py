@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 from spline.spline_variable import SplineVariable
-
+from spline.spline_array import SplineArray
 
 
 class Dataset:
@@ -36,14 +36,11 @@ class Dataset:
         self.device = device
 
         # Variables in this dataset
-        self.variables = [
-            SplineVariable("h", 2, requires_derivative=True, device=self.device),
-            SplineVariable("u", 2, requires_derivative=True, device=self.device),
-            SplineVariable("v", 2, requires_derivative=True, device=self.device),
-        ]
-
-        # Compute the total hidden size
-        self.hidden_size = np.sum([svar.hidden_size() for svar in self.variables])
+        self.variables = SplineArray(
+            SplineVariable("h", 1, requires_derivative=True),
+            SplineVariable("u", 1, requires_derivative=True, requires_laplacian=True),
+            SplineVariable("v", 1, requires_derivative=True, requires_laplacian=True),
+        )
 
         # Hidden state
         self.hidden_states = torch.zeros(
@@ -228,8 +225,12 @@ class Dataset:
             :dz^2/dt^2: acceleration of z field
         """
 
-        # h field
-        old_h, old_grad_h, old_laplace_h = self.
+        # h field: requires first derivative
+        old_h, old_grad_h = self.variables["h"].interpolate_at(old_hidden_states[:, :self.variables["h"].hidden_size()], offset[:2])
+        new_h, new_grad_h = self.variables["h"].interpolate_at(new_hidden_states[:, :self.variables["h"].hidden_size()], offset[:2])
+
+        # u field: requires first derivative + laplace
+        old_u, old_grad_u, old_laplace_u = self.variables["u"].interpolate_at(old_hidden_states[:, ])
         
         # z field
         old_z,old_grad_z,old_laplace_z = interpolate_2d_wave(old_hidden_states[:,:z_size],offset[0:2],orders_z)
