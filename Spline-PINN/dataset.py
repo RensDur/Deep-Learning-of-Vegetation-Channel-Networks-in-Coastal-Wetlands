@@ -89,6 +89,11 @@ class Dataset:
         Reset given environments
         """
 
+        # This function accepts both arrays and a single integer as input,
+        # make sure we can process everything as an array
+        if type(indices) == int:
+            indices = np.array([indices])
+
         # Set all hidden coefficients to zero
         self.hidden_states[indices, :, :, :] = 0
 
