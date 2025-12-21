@@ -42,6 +42,12 @@ class SplineVariable:
         # Move data to the new device
         self.offset_summary = self.offset_summary.to(self.device)
 
+        for k in self.kernel_buffer.keys():
+            self.kernel_buffer[k] = self.kernel_buffer[k].to(self.device)
+
+        for k in self.kernel_buffer_superres.keys():
+            self.kernel_buffer_superres[k] = self.kernel_buffer_superres[k].to(self.device)
+
     def get_name(self):
         return self.name
 
@@ -60,6 +66,9 @@ class SplineVariable:
             buffers = pickle.load(file)
             self.kernel_buffer = buffers["kernel_buffer"]
             self.kernel_buffer_superres = buffers["kernel_buffer_superres"]
+
+        # Make sure these kernel buffers are all on the desired device
+        self.to(self.device)
     
     def interpolate_at(self, weights, offsets):
         """
