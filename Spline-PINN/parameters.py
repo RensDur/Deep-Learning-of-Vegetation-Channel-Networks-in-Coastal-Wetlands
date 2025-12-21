@@ -47,19 +47,34 @@ def params():
 	parser.add_argument('--orders_u', default=1, type=int, help='spline order for horizontal momentum [u]')
 	parser.add_argument('--orders_v', default=1, type=int, help='spline order for vertical momentum [v]')
 	
-	# Fluid parameters
-	parser.add_argument('--rho', default=1, type=float, help='fluid density rho')
-	parser.add_argument('--mu', default=1, type=float, help='fluid viscosity mu')
-	parser.add_argument('--dt', default=1, type=float, help='dt per time intetgration step')
-	
-	# Wave parameters
-	parser.add_argument('--stiffness', default=10, type=float, help='stiffness coefficient for wave equation')
-	parser.add_argument('--damping', default=0.1, type=float, help='damping coefficient for wave equation')
-	
 	# Setup parameters
 	parser.add_argument('--width', default=200, type=int, help='setup width')
 	parser.add_argument('--height', default=200, type=int, help='setup height')
 	parser.add_argument('--separation', default=0.05, type=float, help='cell separation in meters')
+
+    # Domain parameters
+	parser.add_argument('--Hin', default=1e-5, type=float, help="")
+	parser.add_argument('--Hc', default=1e-3, type=float, help="")
+	parser.add_argument('--H0', default=0.02, type=float, help="Initial water thickness")
+	parser.add_argument('--grav', default=9.81, type=float, help="")
+	parser.add_argument('--rho', default=1000, type=float, help="Water density")
+	parser.add_argument('--Du', default=0.5, type=float, help="Turbulent Eddy velocity")
+	parser.add_argument('--nb', default=0.016, type=float, help="bed roughness for bare land")
+	parser.add_argument('--nv', default=0.2, type=float, help="bed roughness for vegetated land")
+	parser.add_argument('--k', default=1500, type=float, help="Vegetation carrying capacity")
+	parser.add_argument('--D0', default=1e-7, type=float, help="Sediment diffusivity in absence of vegetation")
+	parser.add_argument('--pD', default=0.99, type=float, help="fraction by which sediment diffusivity is reduced when vegetation is at carrying capacity")
+	parser.add_argument('--Sin', default=5e-9, type=float, help="Maximum sediment input rate")
+	parser.add_argument('--Qs', default=6e-4, type=float, help="water layer thickness at which sediment input is halved")
+	parser.add_argument('--Es', default=2.5e-4, type=float, help="Sediment erosion rate")
+	parser.add_argument('--pE', default=0.9, type=float, help="Fraction by which sediment erosion is reduced when vegetation is at carrying capacity")
+	parser.add_argument('--r', default=3.2e-8, type=float, help="Intrinsic plant growth rate (=1 per year)")
+	parser.add_argument('--Qq', default=0.02, type=float, help="Water layer thickness at which vegetation growth is halved")
+	parser.add_argument('--EB', default=1e-5, type=float, help="Vegetation erosion rate")
+	parser.add_argument('--DB', default=6e-9, type=float, help="Vegetation diffusivity")
+	parser.add_argument('--morphological_acc_factor', default=44712, type=float, help="Morphological acceleration factor, required for S and B")
+	parser.add_argument('--pEst', default=0.002, type=float, help="Probability of vegetation seedling establishment")
+	parser.add_argument('--dt', default=0.001, type=float, help='timestep of fluid integrator')
 	
 	# Logger / Load parameters
 	parser.add_argument('--plot', default=False, type=str2bool, help='plot during training')
