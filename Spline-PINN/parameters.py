@@ -26,29 +26,26 @@ def params():
 	parser.add_argument('--dataset_size', default=1000, type=int, help='size of dataset (default: 1000)')
 	parser.add_argument('--average_sequence_length', default=5000, type=int, help='average sequence length in dataset (default: 5000)')
 	parser.add_argument('--resolution_factor', default=8, type=int, help='resolution factor for superres / kernels (default: 8)')
+
 	parser.add_argument('--loss_bound', default=20, type=float, help='loss factor for boundary conditions')
-	parser.add_argument('--loss_bound_reg', default=0, type=float, help='loss factor to regularize acceleration on boundaries for wave equation (default:0)')
-	parser.add_argument('--loss_domain_res', default=10, type=float, help='loss factor for residual loss in fluid domain')
-	parser.add_argument('--loss_domain_up', default=0, type=float, help='loss factor for "upwind loss" in fluid domain')
-	parser.add_argument('--loss_domain_p', default=0, type=float, help='loss factor for pressure in fluid domain')
-	parser.add_argument('--loss_wave', default=1, type=float, help='loss factor for wave equation')
-	parser.add_argument('--loss_v', default=100, type=float, help='loss factor to connect dz_dt and v')
-	parser.add_argument('--loss_mean_a', default=0, type=float, help='loss factor to make mean of a small inside fluid domain')
-	parser.add_argument('--loss_mean_p', default=0, type=float, help='loss factor to make mean of p small inside fluid domain')
+	parser.add_argument('--loss_h', default=1, type=float, help='loss factor for wave equation')
+	parser.add_argument('--loss_momentum', default=1, type=float, help='loss factor to connect dz_dt and v')
 	parser.add_argument('--border_weight', default=0, type=float, help='extra weight on fluid domain borders')
+	
 	parser.add_argument('--lr', default=0.0001, type=float, help='learning rate of ADAM-optimizer (default: 0.0001)')
 	parser.add_argument('--clip_grad_norm', default=None, type=float, help='gradient norm clipping (default: None)')
 	parser.add_argument('--clip_grad_value', default=None, type=float, help='gradient value clipping (default: None)')
 	parser.add_argument('--cuda', default=True, type=str2bool, help='use GPU')
 	parser.add_argument('--detach', default=False, type=str2bool, help='detach gradients in between steps (for train_wave_3)')
 	parser.add_argument('--log_loss', default=True, type=str2bool, help='logarithmic loss to "normalize" gradients')
+	parser.add_argument('--plot_loss', default=False, type=str2bool, help='Plot loss-image alongside losses over time')
 	
 	# Network parameters
 	parser.add_argument('--net', default="ShallowWaterModel", type=str, help='network to train', choices=["Shortcut","Shortcut2","Shortcut2_residual","Shortcut4","Shortcut4_residual","Shortcut3","Fluid_model","Wave_model"])
 	parser.add_argument('--hidden_size', default=20, type=int, help='hidden size of network (default: 20)')
-	parser.add_argument('--orders_v', default=2, type=int, help='spline order for velocity potential field (default: 2)')
-	parser.add_argument('--orders_p', default=2, type=int, help='spline order for pressure field (default: 2)')
-	parser.add_argument('--orders_z', default=2, type=int, help='For wave equation: spline order for z positions and velocities of membrane (default: 2)')
+	parser.add_argument('--orders_h', default=1, type=int, help='spline order for water layer thickness [h]')
+	parser.add_argument('--orders_u', default=1, type=int, help='spline order for horizontal momentum [u]')
+	parser.add_argument('--orders_v', default=1, type=int, help='spline order for vertical momentum [v]')
 	
 	# Fluid parameters
 	parser.add_argument('--rho', default=1, type=float, help='fluid density rho')

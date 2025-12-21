@@ -9,7 +9,7 @@ from Logger import Logger,t_step
 import cv2
 import time
 from window import Window
-
+import matplotlib.pyplot as plt
 
 
 class SplinePINNSolver:
@@ -99,6 +99,50 @@ class SplinePINNSolver:
         # Enable training of the model
         self.net.train()
 
+        #
+        # Prepare Loss Plots
+        #
+        if self.params.plot_loss:
+            plt.ion()
+
+            plot_fig, plot_axs = plt.subplots(1, 3, figsize=(20, 10))
+
+            # Plots
+            plot_axs[0].set(title="Loss image", xlabel="x", ylabel="y")
+            plot_axs[1].set(title="Total loss", xlabel="x", ylabel="y")
+            plot_axs[2].set(title="Loss terms", xlabel="x", ylabel="y")
+
+            # plot_axs[0].grid()
+            # plot_axs[0].grid(which="minor", color="0.5")
+            # plot_axs[1].grid()
+            # plot_axs[1].grid(which="minor", color="0.5")
+            # plot_axs[2].grid()
+            # plot_axs[2].grid(which="minor", color="0.5")
+
+            # Leftmost plot shows loss image
+            plot_loss_image = plot_axs[0].imshow(np.zeros((self.params.height, self.params.width)), cmap="gray", vmin=0, vmax=1)
+
+            # Middle plot shows total loss over time
+            plot_loss_total_data = np.array([])
+
+            # Rightmost plot shows loss-terms over time (multiplied by scaling)
+            plot_loss_h_data = np.array([])
+            plot_loss_momentum_data = np.array([])
+            plot_loss_bound_data = np.array([])
+            # plot_loss_reg_data = np.array([])
+
+            plot_loss_total_graph = plot_axs[1].plot(range(plot_loss_total_data.shape[0]), plot_loss_total_data)[0]
+
+            plot_loss_h_graph = plot_axs[2].plot(range(plot_loss_h_data.shape[0]), plot_loss_h_data, label="h-loss")[0]
+            plot_loss_momentum_graph = plot_axs[2].plot(range(plot_loss_momentum_data.shape[0]), plot_loss_momentum_data, label="u,v-loss")[0]
+            plot_loss_bound_graph = plot_axs[2].plot(range(plot_loss_bound_data.shape[0]), plot_loss_bound_data, label="bound-loss")[0]
+            # plot_loss_reg_graph = plot_axs[2].plot(range(plot_loss_reg_data.shape[0]), plot_loss_reg_data, label="reg-loss")[0]
+
+            plot_axs[2].legend(handles=[plot_loss_h_graph, plot_loss_momentum_graph, plot_loss_bound_graph], loc="upper right")
+
+            plt.show()
+
+
         # Training loop:
         # Start from the most recently finished epoch and train until the configured number
         # of epochs has been reached.
@@ -113,8 +157,8 @@ class SplinePINNSolver:
                 new_hidden_state = self.net(old_hidden_state, u_cond, u_mask, v_cond, v_mask)
 
 
-                # Compute Physics Informed Loss
-                loss_total = 0
+                # Compute Physics Informed Loss image tensor
+                loss_tensor = 0
 
                 # Go over each sample
                 for j, sample in enumerate(grid_offsets):
@@ -144,6 +188,13 @@ class SplinePINNSolver:
                     # COMPUTE SAMPLE LOSS
                     #
 
+                    # Boundary loss
+                    loss_bound = torch.mean(
+                        sample_u_mask[:,:,1:-1,1:-1] * self.loss_function(u - sample_u_cond[:,:,1:-1,1:-1]) +
+                        sample_v_mask[:,:,1:-1,1:-1] * self.loss_function(v - sample_v_cond[:,:,1:-1,1:-1])
+                        ,dim=(1,2,3)
+                    )
+
                     # h-loss
                     loss_h = torch.mean(self.loss_function(
                         dh_dt + grad_uh[:,0:1] + grad_vh[:,1:2] # - self.params.Hin
@@ -157,68 +208,101 @@ class SplinePINNSolver:
                     loss_u = torch.mean(self.loss_function(loss_u), dim=1)
                     loss_v = torch.mean(self.loss_function(loss_v), dim=1)
 
+                    loss_tensor += self.params.loss_h * loss_h + self.params.loss_momentum * (loss_u + loss_v)
 
+                # Normalize towards the number of samples taken
+                loss_tensor /= self.params.n_samples
 
-                    loss_total += self.params.loss_h * loss_h + self.params.loss_momentum * (loss_u + loss_v)
+                # Aside from the loss image, also compute mean loss
+                loss_total = torch.mean(loss_tensor)
 
+                # If configured, compute log loss
                 if self.params.log_loss:
-                    loss_total = torch.mean(torch.log(loss_total))/self.params.n_samples
-                else:
-                    loss_total = torch.mean(loss_total)/self.params.n_samples
+                    loss_total = torch.log(loss_total)
 
+                # Reset old gradients to 0 and compute new gradients with backpropagation
+                self.net.zero_grad()
+                loss_total.backward()
+
+                # Clip gradients
+                if self.params.clip_grad_value is not None:
+                    torch.nn.utils.clip_grad_value_(self.net.parameters(),self.params.clip_grad_value)
+
+                if self.params.clip_grad_norm is not None:
+                    torch.nn.utils.clip_grad_norm_(self.net.parameters(),self.params.clip_grad_norm)
                 
-
-
-
-
-
-
-                
-
-
-
-
-                # Compute combined loss
-                loss = torch.mean(torch.log(
-                    self.params.loss_h * loss_h
-                    + self.params.loss_momentum * (loss_u + loss_v)
-                    # + self.params.loss_S * loss_S
-                    # + self.params.loss_B * loss_B
-                    + self.params.loss_bound * loss_bound
-                    + self.params.loss_reg * loss_reg
-                ))
-
-                # Compute gradients
-                self.optimizer.zero_grad()
-                loss.backward()
-
                 # Perform an optimization step
                 self.optimizer.step()
 
                 # Recycle the data
-                self.dataset.tell(h_new, u_new, v_new, random_reset=True)
+                self.dataset.tell(new_hidden_state)
 
-                # log training metrics
+                #
+                # Plotting and logging
+                #
+
                 if i % 10 == 0:
-                    loss = float(loss.detach().cpu().numpy())
+                    loss_tensor = torch.mean(loss_tensor, dim=0).detach().view(self.params.height, self.params.width).cpu().numpy()
+                    loss_total = float(loss_total.detach().cpu().numpy())
                     loss_h = float(torch.mean(loss_h).detach().cpu().numpy())
                     loss_u = float(torch.mean(loss_u).detach().cpu().numpy())
                     loss_v = float(torch.mean(loss_v).detach().cpu().numpy())
-                    # loss_S = float(torch.mean(loss_S).detach().cpu().numpy())
-                    # loss_B = float(torch.mean(loss_B).detach().cpu().numpy())
                     loss_bound = float(torch.mean(loss_bound).detach().cpu().numpy())
-                    loss_reg = float(torch.mean(loss_reg).detach().cpu().numpy())
-                    self.logger.log(f"loss_{self.params.loss}", loss, epoch * self.params.n_batches_per_epoch + i)
-                    self.logger.log(f"loss_h_{self.params.loss}", loss_h, epoch * self.params.n_batches_per_epoch + i)
-                    self.logger.log(f"loss_u_{self.params.loss}", loss_u, epoch * self.params.n_batches_per_epoch + i)
-                    self.logger.log(f"loss_v_{self.params.loss}", loss_v, epoch * self.params.n_batches_per_epoch + i)
-                    # self.logger.log(f"loss_S_{self.params.loss}", loss_S, epoch * self.params.n_batches_per_epoch + i)
-                    # self.logger.log(f"loss_B_{self.params.loss}", loss_B, epoch * self.params.n_batches_per_epoch + i)
-                    self.logger.log(f"loss_bound_{self.params.loss}", loss_bound, epoch * self.params.n_batches_per_epoch + i)
-                    self.logger.log(f"loss_reg_{self.params.loss}", loss_reg, epoch * self.params.n_batches_per_epoch + i)
 
-                    print(f"Epoch {epoch}, iter.{i}:\tloss: {round(loss,5)};\tloss_bound: {round(loss_bound,5)};\tloss_h: {round(loss_h,5)};\tloss_u: {round(loss_u,5)};\tloss_v: {round(loss_v,5)};\tloss_reg: {round(loss_reg,5)} \tvRAM allocated: {round(torch.mps.current_allocated_memory()/1000000000.0, 2)}GB")
-                    # if i % 100 == 0:
+                    self.logger.log(f"loss_total", loss_total, epoch * self.params.n_batches_per_epoch + i)
+                    self.logger.log(f"loss_h", loss_h, epoch * self.params.n_batches_per_epoch + i)
+                    self.logger.log(f"loss_u", loss_u, epoch * self.params.n_batches_per_epoch + i)
+                    self.logger.log(f"loss_v", loss_v, epoch * self.params.n_batches_per_epoch + i)
+                    self.logger.log(f"loss_bound", loss_bound, epoch * self.params.n_batches_per_epoch + i)
+
+                    # vRAM stats
+                    if torch.cuda.is_available():
+                        vram_allocated = torch.cuda.memory_allocated(0)
+                    elif torch.backends.mps.is_available():
+                        vram_allocated = torch.mps.current_allocated_memory()
+                    else: # CPU
+                        vram_allocated = 0
+
+                    print(f"Epoch {epoch}, iter.{i}:\tloss: {round(loss_total,5)};\tloss_bound: {round(loss_bound,5)};\tloss_h: {round(loss_h,5)};\tloss_u: {round(loss_u,5)};\tloss_v: {round(loss_v,5)};\tvRAM allocated: {round(vram_allocated/1000000000.0, 2)}GB")
+
+                    #
+                    # PLOT LOSS - IF ENABLED
+                    #
+                    if self.params.plot_loss:
+                        loss_tensor -= np.min(loss_tensor)
+                        loss_tensor /= np.max(loss_tensor)
+
+                        plot_loss_image.set_data(loss_tensor)
+
+                        plot_loss_total_data = np.append(plot_loss_total_data, np.array([loss_total]))
+                        plot_loss_h_data = np.append(plot_loss_h_data, np.array([self.params.loss_h * loss_h]))
+                        plot_loss_momentum_data = np.append(plot_loss_momentum_data, np.array([self.params.loss_momentum * (loss_u + loss_v)]))
+                        plot_loss_bound_data = np.append(plot_loss_bound_data, np.array([self.params.loss_bound * loss_bound]))
+
+                        plot_loss_total_graph.set_xdata(range(plot_loss_total_data.shape[0]))
+                        plot_loss_total_graph.set_ydata(plot_loss_total_data)
+                        plot_axs[1].set_xlim([0, plot_loss_total_data.shape[0]])
+                        plot_axs[1].set_ylim([np.min(plot_loss_total_data), np.max(plot_loss_total_data)])
+
+                        plot_loss_h_graph.set_xdata(range(plot_loss_h_data.shape[0]))
+                        plot_loss_h_graph.set_ydata(plot_loss_h_data)
+                        plot_loss_momentum_graph.set_xdata(range(plot_loss_momentum_data.shape[0]))
+                        plot_loss_momentum_graph.set_ydata(plot_loss_momentum_data)
+                        plot_loss_bound_graph.set_xdata(range(plot_loss_bound_data.shape[0]))
+                        plot_loss_bound_graph.set_ydata(plot_loss_bound_data)
+
+                        graph_limits = np.concatenate((plot_loss_h_data, plot_loss_momentum_data, plot_loss_bound_data))
+                        plot_axs[2].set_xlim([0, plot_loss_h_data.shape[0]])
+                        plot_axs[2].set_ylim([0, np.max(graph_limits)])
+
+                if self.params.plot_loss:
+                    # Always update the plot to allow interaction
+                    # Plot the domain (update existing plot)
+                    # Draw updated values
+                    plot_fig.canvas.draw()
+
+                    # UI Loop: process all pending UI events
+                    plot_fig.canvas.flush_events()
 
             # Save the training state after each epoch
             if self.params.log:
