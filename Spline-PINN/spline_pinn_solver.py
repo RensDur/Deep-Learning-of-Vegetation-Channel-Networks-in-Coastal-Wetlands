@@ -335,8 +335,7 @@ class SplinePINNSolver:
 
         # Open a visualization window
         win = Window("Water Layer Thickness", self.params.width, self.params.height)
-        win.set_data_range(self.params.H0 - 0.0005, self.params.H0+0.0005)
-        win.set_data_range(self.params.H0 - 1e-2, self.params.H0 + 1e-2)
+        win.set_data_range(0, 1)
 
         with torch.no_grad():
 
@@ -344,24 +343,25 @@ class SplinePINNSolver:
             while win.is_open():
 
                 # Ask for a batch from the dataset
-                h_old, u_old, v_old = self.dataset.ask()
+                old_hidden_state, u_cond, u_mask, v_cond, v_mask, _, _, _, _, _ = self.dataset.ask()
 
-                # TODO: MAC grid
+                # Predict the new domain state by performing a forward pass through the network
+                new_hidden_state = self.net(old_hidden_state, u_cond, u_mask, v_cond, v_mask)
+
+                # Interpolate spline coefficients to obtain the necessary quantities
+                h, grad_h, u, grad_u, laplace_u, v, grad_v, laplace_v = self.dataset.interpolate_superres(new_hidden_state[0:1], self.params.resolution_factor)
+
+                # Store the newly obtained result in the dataset
+                self.dataset.tell(new_hidden_state)
 
                 # Display water level thickness h
-                h = h_old[0, 0].clone()
-                # h = h - torch.min(h)
-                # h = h / torch.max(h)
+                h = h[0, 0].clone()
+                h = h - torch.min(h)
+                h = h / torch.max(h)
                 h = h.detach().cpu().numpy()
 
                 win.put_image(h)
                 win.update()
-
-                # Predict the new domain state by performing a forward pass through the network
-                h_new, u_new, v_new = self.net(h_old, u_old, v_old)
-
-                # Store the newly obtained result in the dataset
-                self.dataset.tell(h_new, u_new, v_new, random_reset=False)
 
 
     def visualize_numerical(self):

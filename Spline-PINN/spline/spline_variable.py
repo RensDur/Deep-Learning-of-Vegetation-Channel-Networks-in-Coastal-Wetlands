@@ -123,7 +123,7 @@ class SplineVariable:
                 output[:, 3:4] if self.requires_laplacian else None
     
 
-    def interpolate_superres_at(self, weights, offsets, resolution_factor):
+    def interpolate_superres_at(self, weights, resolution_factor):
 
         res_key = f"{resolution_factor}, orders: {self.orders}"
         
@@ -137,7 +137,7 @@ class SplineVariable:
                     offsets = torch.tensor([i/resolution_factor,j/resolution_factor], device=self.device).unsqueeze(0).unsqueeze(2).unsqueeze(3).repeat(1,1,2,2)-1 + self.offset_summary
                     offsets = offsets.unsqueeze(2).unsqueeze(3).repeat(1,1,(self.orders[0]+1),(self.orders[1]+1),1,1).detach().requires_grad_(True)
                     
-                    self.kernels = torch.zeros(1,self.kernel_size,(self.orders[0]+1),(self.orders[1]+1),2,2)
+                    self.kernels = torch.zeros(1,self.kernel_size,(self.orders[0]+1),(self.orders[1]+1),2,2).to(self.device)
                     for l in range(self.orders[0]+1):
                         for m in range(self.orders[1]+1):
                             # Function value (directy from linear combination of splines)
@@ -151,7 +151,7 @@ class SplineVariable:
                     if self.requires_laplacian:
                         self.kernels[0:1,3:4] = operators.div(self.kernels[0:1,1:3], offsets, retain_graph=True)
                     
-                    self.kernels = self.kernels.reshape(1,self.kernel_size,(self.orders[0]+1)*(self.orders[1]+1),2,2).detach().clone()
+                    self.kernels = self.kernels.reshape(1,self.kernel_size,(self.orders[0]+1)*(self.orders[1]+1),2,2).detach()
                     self.superres_kernels[:,:,:,i::resolution_factor,j::resolution_factor] = self.kernels
 
             # buffer kernels

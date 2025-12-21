@@ -2,8 +2,8 @@ import multiprocessing
 import torch
 import numpy as np
 import parameters
-from dataset import Dataset
-import matplotlib.pyplot as plt
+import dataset
+import spline_pinn_solver
 
 # Find the number of available CPUs, capped at 8
 NUM_CPUS = min(multiprocessing.cpu_count(), 8)
@@ -12,13 +12,13 @@ print(f"Using {NUM_CPUS} threads")
 
 # Find the GPU device for pytorch
 torch_device = torch.device('cpu')  # Default to CPU
-# # Switch to MPS (Apple Metal) if available
-# if torch.backends.mps.is_available():
-#     torch_device = torch.device('mps')
-# # Or CUDA if we're on an Nvidia machine
-# elif torch.cuda.is_available():
-#     torch_device = torch.device('cuda')
-# print(f"Using torch device '{torch_device}'")
+# Switch to MPS (Apple Metal) if available
+if torch.backends.mps.is_available():
+    torch_device = torch.device('mps')
+# Or CUDA if we're on an Nvidia machine
+elif torch.cuda.is_available():
+    torch_device = torch.device('cuda')
+print(f"Using torch device '{torch_device}'")
 
 # Initialize randomization seeds
 torch.manual_seed(0)
@@ -37,14 +37,13 @@ def main():
     print(f"Parameters: {vars(params)}")
 
     # Create dataset
-    dataset = Dataset(params, torch_device)
+    data = dataset.Dataset(params, torch_device)
 
-    # Ask for a batch
-    hidden_states, u_cond, u_mask, v_cond, v_mask, grid_offsets, sample_u_cond, sample_u_mask, sample_v_cond, sample_v_mask = dataset.ask()
+    # Create solver
+    solver = spline_pinn_solver.SplinePINNSolver(data, params, torch_device)
 
-
-
-
+    # Visualize the output
+    solver.visualize()
 
 
 if __name__ == "__main__":
