@@ -242,7 +242,7 @@ class SplinePINNSolver:
                 #
 
                 if i % 10 == 0:
-                    loss_tensor = torch.mean(loss_tensor, dim=0).detach().view(self.params.height, self.params.width).cpu().numpy()
+                    loss_tensor = torch.mean(loss_tensor, dim=0).detach().view(self.params.height-1, self.params.width-1).cpu().numpy()
                     loss_total = float(loss_total.detach().cpu().numpy())
                     loss_h = float(torch.mean(loss_h).detach().cpu().numpy())
                     loss_u = float(torch.mean(loss_u).detach().cpu().numpy())
