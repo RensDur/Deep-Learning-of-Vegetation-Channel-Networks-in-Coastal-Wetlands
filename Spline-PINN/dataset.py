@@ -65,7 +65,7 @@ class Dataset:
         self.h_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.u_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.v_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
-        self.h_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
+        self.h_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.u_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.v_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
 
@@ -140,11 +140,11 @@ class Dataset:
                 # obstabcles (oscillators)
                 for x in [0]:#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
                     for y in [0]:#[-45,-15,15,45]:
-                        self.z_mask_full_res[index,:,(self.w_full_res//2+(-5+x)*self.resolution_factor):(self.w_full_res//2+(5+x)*self.resolution_factor),(self.h_full_res//2+(-5+y)*self.resolution_factor):(self.h_full_res//2+(5+y)*self.resolution_factor)] = 1
+                        self.h_mask_fullres[index,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
 
                 # Set the masks and conditions
                 self.h_cond_fullres[index,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = np.sin(self.env_info[index]["seed"])
-                self.h_cond_full_res[index] *= self.h_mask_full_res[index]
+                self.h_cond_fullres[index] *= self.h_mask_fullres[index]
                 self.env_info[index]["time"] = 0
 
     
@@ -167,8 +167,8 @@ class Dataset:
             if self.env_info[index]["type"] == "oscillator":
                 time = self.env_info[index]["time"]
 
-                self.h_cond_full_res[index,0,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = np.sin(time*1+self.env_info[index]["seed"])
-                self.h_cond_full_res[index] *= self.h_mask_full_res[index]
+                self.h_cond_fullres[index,0,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = np.sin(time*1+self.env_info[index]["seed"])
+                self.h_cond_fullres[index] *= self.h_mask_fullres[index]
                 self.env_info[index]["time"] = time + 1
         
 
