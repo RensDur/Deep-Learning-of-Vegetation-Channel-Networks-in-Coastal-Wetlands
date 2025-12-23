@@ -137,8 +137,7 @@ class SplineVariable:
                     offsets = torch.tensor([i/resolution_factor,j/resolution_factor], device=self.device).unsqueeze(0).unsqueeze(2).unsqueeze(3).repeat(1,1,2,2)-1 + self.offset_summary
                     offsets = offsets.unsqueeze(2).unsqueeze(3).repeat(1,1,(self.orders[0]+1),(self.orders[1]+1),1,1).detach().requires_grad_(True)
                     
-                    sub_kernels = torch.zeros(1,self.kernel_size,(self.orders[0]+1),(self.orders[1]+1),2,2, requires_grad=True)
-                    print(f"Sub kernels grad: {sub_kernels}")
+                    sub_kernels = torch.zeros(1,self.kernel_size,(self.orders[0]+1),(self.orders[1]+1),2,2, device=self.device)
                     for l in range(self.orders[0]+1):
                         for m in range(self.orders[1]+1):
                             # Function value (directy from linear combination of splines)

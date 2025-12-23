@@ -337,31 +337,29 @@ class SplinePINNSolver:
         win = Window("Water Layer Thickness", self.params.width, self.params.height)
         win.set_data_range(0, 1)
 
-        with torch.no_grad():
+        # Simulation loop
+        while win.is_open():
 
-            # Simulation loop
-            while win.is_open():
+            # Ask for a batch from the dataset
+            old_hidden_state, u_cond, u_mask, v_cond, v_mask, _, _, _, _, _ = self.dataset.ask()
 
-                # Ask for a batch from the dataset
-                old_hidden_state, u_cond, u_mask, v_cond, v_mask, _, _, _, _, _ = self.dataset.ask()
+            # Predict the new domain state by performing a forward pass through the network
+            new_hidden_state = self.net(old_hidden_state, u_cond, u_mask, v_cond, v_mask)
 
-                # Predict the new domain state by performing a forward pass through the network
-                new_hidden_state = self.net(old_hidden_state, u_cond, u_mask, v_cond, v_mask)
+            # Interpolate spline coefficients to obtain the necessary quantities
+            h, grad_h, u, grad_u, laplace_u, v, grad_v, laplace_v = self.dataset.interpolate_superres(new_hidden_state, self.params.resolution_factor)
 
-                # Interpolate spline coefficients to obtain the necessary quantities
-                h, grad_h, u, grad_u, laplace_u, v, grad_v, laplace_v = self.dataset.interpolate_superres(new_hidden_state, self.params.resolution_factor)
+            # Store the newly obtained result in the dataset
+            self.dataset.tell(new_hidden_state)
 
-                # Store the newly obtained result in the dataset
-                self.dataset.tell(new_hidden_state)
+            # Display water level thickness h
+            h = h[0, 0].clone()
+            h = h - torch.min(h)
+            h = h / torch.max(h)
+            h = h.detach().cpu().numpy()
 
-                # Display water level thickness h
-                h = h[0, 0].clone()
-                h = h - torch.min(h)
-                h = h / torch.max(h)
-                h = h.detach().cpu().numpy()
-
-                win.put_image(h)
-                win.update()
+            win.put_image(h)
+            win.update()
 
 
     def visualize_numerical(self):
