@@ -39,6 +39,8 @@ def main():
     # Create dataset
     data = dataset.Dataset(params, torch_device)
 
+    print(data.env_info[0])
+
     # Create solver
     solver = spline_pinn_solver.SplinePINNSolver(data, params, torch_device)
 

@@ -71,7 +71,7 @@ class Dataset:
 
         # Environment information
         self.types = [
-            "rest-lake",
+            # "rest-lake",
             "oscillator",
             # "multiple-oscillators"
         ]
@@ -100,6 +100,9 @@ class Dataset:
 
         # Set all hidden coefficients to zero
         self.hidden_states[indices, :, :, :] = 0
+
+        # Initial water level
+        self.hidden_states[indices, 0, :, :] = 2
 
         # BC: h holds around the entire frame
         self.h_mask_fullres[indices] = 1 # BCs on u only apply on the left- and rightmost strip of padding
@@ -143,12 +146,14 @@ class Dataset:
                         self.h_mask_fullres[index,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
 
                 # Set the masks and conditions
-                self.h_cond_fullres[index,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = np.sin(self.env_info[index]["seed"])
+                self.h_cond_fullres[index,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 2 + np.sin(self.env_info[index]["seed"])
                 self.h_cond_fullres[index] *= self.h_mask_fullres[index]
                 self.env_info[index]["time"] = 0
 
     
             # Average pooling to create downsampled versions of the BCs
+            self.h_cond[index:(index+1)] = F.avg_pool2d(self.h_cond_fullres[index:(index+1)],self.resolution_factor)
+            self.h_mask[index:(index+1)] = F.avg_pool2d(self.h_mask_fullres[index:(index+1)],self.resolution_factor)
             self.u_cond[index:(index+1)] = F.avg_pool2d(self.u_cond_fullres[index:(index+1)],self.resolution_factor)
             self.u_mask[index:(index+1)] = F.avg_pool2d(self.u_mask_fullres[index:(index+1)],self.resolution_factor)
             self.v_cond[index:(index+1)] = F.avg_pool2d(self.v_cond_fullres[index:(index+1)],self.resolution_factor)
@@ -167,9 +172,17 @@ class Dataset:
             if self.env_info[index]["type"] == "oscillator":
                 time = self.env_info[index]["time"]
 
-                self.h_cond_fullres[index,0,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = np.sin(time*1+self.env_info[index]["seed"])
+                self.h_cond_fullres[index,0,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 2 + np.sin(time*0.1+self.env_info[index]["seed"])
                 self.h_cond_fullres[index] *= self.h_mask_fullres[index]
                 self.env_info[index]["time"] = time + 1
+
+            # Average pooling to create downsampled versions of the BCs
+            self.h_cond[index:(index+1)] = F.avg_pool2d(self.h_cond_fullres[index:(index+1)],self.resolution_factor)
+            self.h_mask[index:(index+1)] = F.avg_pool2d(self.h_mask_fullres[index:(index+1)],self.resolution_factor)
+            self.u_cond[index:(index+1)] = F.avg_pool2d(self.u_cond_fullres[index:(index+1)],self.resolution_factor)
+            self.u_mask[index:(index+1)] = F.avg_pool2d(self.u_mask_fullres[index:(index+1)],self.resolution_factor)
+            self.v_cond[index:(index+1)] = F.avg_pool2d(self.v_cond_fullres[index:(index+1)],self.resolution_factor)
+            self.v_mask[index:(index+1)] = F.avg_pool2d(self.v_mask_fullres[index:(index+1)],self.resolution_factor)
         
 
     def ask(self):
@@ -199,6 +212,8 @@ class Dataset:
 
         # Compute grid offsets and sample BCs
         grid_offsets = []
+        sample_h_cond = []
+        sample_h_mask = []
         sample_u_cond = []
         sample_u_mask = []
         sample_v_cond = []
@@ -213,6 +228,9 @@ class Dataset:
             x_offset = min(int(self.resolution_factor*offset[0]),self.resolution_factor-1) # TODO: Isn't this just the same as floor(self.resolution_factor*offset[0])?
             y_offset = min(int(self.resolution_factor*offset[1]),self.resolution_factor-1)
 
+
+            sample_h_cond.append(self.h_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
+            sample_h_mask.append(self.h_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
             sample_u_cond.append(self.u_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
             sample_u_mask.append(self.u_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
             sample_v_cond.append(self.v_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
@@ -221,6 +239,8 @@ class Dataset:
         # Move all data to the desired device
         for i in range(self.n_samples):
             grid_offsets[i] = grid_offsets[i].to(self.device)
+            sample_h_cond[i] = sample_h_cond[i].to(self.device)
+            sample_h_mask[i] = sample_h_mask[i].to(self.device)
             sample_u_cond[i] = sample_u_cond[i].to(self.device)
             sample_u_mask[i] = sample_u_mask[i].to(self.device)
             sample_v_cond[i] = sample_v_cond[i].to(self.device)
@@ -228,11 +248,15 @@ class Dataset:
 
         # Return the hidden states and boundary conditions after moving them to the desired device
         return self.hidden_states[self.asked_indices].to(self.device), \
+                self.h_cond[self.asked_indices].to(self.device), \
+                self.h_mask[self.asked_indices].to(self.device), \
                 self.u_cond[self.asked_indices].to(self.device), \
                 self.u_mask[self.asked_indices].to(self.device), \
                 self.v_cond[self.asked_indices].to(self.device), \
                 self.v_mask[self.asked_indices].to(self.device), \
                 grid_offsets, \
+                sample_h_cond, \
+                sample_h_mask, \
                 sample_u_cond, \
                 sample_u_mask, \
                 sample_v_cond, \

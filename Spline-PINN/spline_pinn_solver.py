@@ -151,10 +151,10 @@ class SplinePINNSolver:
             for i in range(self.params.n_batches_per_epoch):
 
                 # Ask for a batch from the dataset
-                old_hidden_state, u_cond, u_mask, v_cond, v_mask, grid_offsets, sample_u_conds, sample_u_masks, sample_v_conds, sample_v_masks = self.dataset.ask()
+                old_hidden_state, h_cond, h_mask, u_cond, u_mask, v_cond, v_mask, grid_offsets, sample_h_conds, sample_h_masks, sample_u_conds, sample_u_masks, sample_v_conds, sample_v_masks = self.dataset.ask()
 
                 # Predict the new domain state by performing a forward pass through the network
-                new_hidden_state = self.net(old_hidden_state, u_cond, u_mask, v_cond, v_mask)
+                new_hidden_state = self.net(old_hidden_state, h_cond, h_mask, u_cond, u_mask, v_cond, v_mask)
 
 
                 # Compute Physics Informed Loss image tensor
@@ -165,16 +165,20 @@ class SplinePINNSolver:
                     offset = torch.floor(sample*self.params.resolution_factor)/self.params.resolution_factor
 
                     # For added clarity: The masks define where the BCs act, they're 1 everywhere on the boundary, 0 everywhere else
+                    sample_h_cond = sample_h_conds[j]
+                    sample_h_mask = sample_h_masks[j]
                     sample_u_cond = sample_u_conds[j]
                     sample_u_mask = sample_u_masks[j]
                     sample_v_cond = sample_v_conds[j]
                     sample_v_mask = sample_v_masks[j]
 
+                    sample_h_domain_mask = 1-sample_h_mask
                     sample_u_domain_mask = 1-sample_u_mask
                     sample_v_domain_mask = 1-sample_v_mask
 
                     # Put additional border_weight on domain boundaries:
                     # Important: weighed by parameter 'border_weight'
+                    sample_h_mask = (sample_h_mask + sample_h_mask*self.diffuse(sample_h_domain_mask)*self.params.border_weight).detach()
                     sample_u_mask = (sample_u_mask + sample_u_mask*self.diffuse(sample_u_domain_mask)*self.params.border_weight).detach()
                     sample_v_mask = (sample_v_mask + sample_v_mask*self.diffuse(sample_v_domain_mask)*self.params.border_weight).detach()
 
@@ -190,9 +194,10 @@ class SplinePINNSolver:
 
                     # Boundary loss
                     loss_bound = torch.mean(
+                        sample_h_mask[:,:,1:-1,1:-1] * self.loss_function(h - sample_h_cond[:,:,1:-1,1:-1]) +
                         sample_u_mask[:,:,1:-1,1:-1] * self.loss_function(u - sample_u_cond[:,:,1:-1,1:-1]) +
                         sample_v_mask[:,:,1:-1,1:-1] * self.loss_function(v - sample_v_cond[:,:,1:-1,1:-1])
-                        ,dim=(1,2,3)
+                        ,dim=1
                     )
 
                     # h-loss
@@ -208,7 +213,7 @@ class SplinePINNSolver:
                     loss_u = torch.mean(self.loss_function(loss_u), dim=1)
                     loss_v = torch.mean(self.loss_function(loss_v), dim=1)
 
-                    loss_tensor += self.params.loss_h * loss_h + self.params.loss_momentum * (loss_u + loss_v)
+                    loss_tensor += self.params.loss_bound * loss_bound + self.params.loss_h * loss_h + self.params.loss_momentum * (loss_u + loss_v)
 
                 # Normalize towards the number of samples taken
                 loss_tensor /= self.params.n_samples
@@ -242,28 +247,30 @@ class SplinePINNSolver:
                 #
 
                 if i % 10 == 0:
-                    loss_tensor = torch.mean(loss_tensor, dim=0).detach().view(self.params.height-2, self.params.width-2).cpu().numpy()
-                    loss_total = float(loss_total.detach().cpu().numpy())
-                    loss_h = float(torch.mean(loss_h).detach().cpu().numpy())
-                    loss_u = float(torch.mean(loss_u).detach().cpu().numpy())
-                    loss_v = float(torch.mean(loss_v).detach().cpu().numpy())
-                    loss_bound = float(torch.mean(loss_bound).detach().cpu().numpy())
+                    # loss_tensor = torch.mean(loss_tensor, dim=0).detach().view(self.params.height-2, self.params.width-2).cpu().numpy()
+                    # loss_total = float(loss_total.detach().cpu().numpy())
+                    # loss_h = float(torch.mean(loss_h).detach().cpu().numpy())
+                    # loss_u = float(torch.mean(loss_u).detach().cpu().numpy())
+                    # loss_v = float(torch.mean(loss_v).detach().cpu().numpy())
+                    # loss_bound = float(torch.mean(loss_bound).detach().cpu().numpy())
 
-                    self.logger.log(f"loss_total", loss_total, epoch * self.params.n_batches_per_epoch + i)
-                    self.logger.log(f"loss_h", loss_h, epoch * self.params.n_batches_per_epoch + i)
-                    self.logger.log(f"loss_u", loss_u, epoch * self.params.n_batches_per_epoch + i)
-                    self.logger.log(f"loss_v", loss_v, epoch * self.params.n_batches_per_epoch + i)
-                    self.logger.log(f"loss_bound", loss_bound, epoch * self.params.n_batches_per_epoch + i)
+                    # self.logger.log(f"loss_total", loss_total, epoch * self.params.n_batches_per_epoch + i)
+                    # self.logger.log(f"loss_h", loss_h, epoch * self.params.n_batches_per_epoch + i)
+                    # self.logger.log(f"loss_u", loss_u, epoch * self.params.n_batches_per_epoch + i)
+                    # self.logger.log(f"loss_v", loss_v, epoch * self.params.n_batches_per_epoch + i)
+                    # self.logger.log(f"loss_bound", loss_bound, epoch * self.params.n_batches_per_epoch + i)
 
-                    # vRAM stats
-                    if torch.cuda.is_available():
-                        vram_allocated = torch.cuda.memory_allocated(0)
-                    elif torch.backends.mps.is_available():
-                        vram_allocated = torch.mps.current_allocated_memory()
-                    else: # CPU
-                        vram_allocated = 0
+                    # # vRAM stats
+                    # if torch.cuda.is_available():
+                    #     vram_allocated = torch.cuda.memory_allocated(0)
+                    # elif torch.backends.mps.is_available():
+                    #     vram_allocated = torch.mps.current_allocated_memory()
+                    # else: # CPU
+                    #     vram_allocated = 0
 
-                    print(f"Epoch {epoch}, iter.{i}:\tloss: {round(loss_total,5)};\tloss_bound: {round(loss_bound,5)};\tloss_h: {round(loss_h,5)};\tloss_u: {round(loss_u,5)};\tloss_v: {round(loss_v,5)};\tvRAM allocated: {round(vram_allocated/1000000000.0, 2)}GB")
+                    # print(f"Epoch {epoch}, iter.{i}:\tloss: {round(loss_total,5)};\tloss_bound: {round(loss_bound,5)};\tloss_h: {round(loss_h,5)};\tloss_u: {round(loss_u,5)};\tloss_v: {round(loss_v,5)};\tvRAM allocated: {round(vram_allocated/1000000000.0, 2)}GB")
+
+                    print(f"Epoch {epoch}/{self.params.n_epochs}, iteration {i}")
 
                     #
                     # PLOT LOSS - IF ENABLED
@@ -335,16 +342,16 @@ class SplinePINNSolver:
 
         # Open a visualization window
         win = Window("Water Layer Thickness", self.params.width * self.params.resolution_factor, self.params.height * self.params.resolution_factor)
-        win.set_data_range(0, 1)
+        win.set_data_range(1, 3)
 
         # Simulation loop
         while win.is_open():
 
             # Ask for a batch from the dataset
-            old_hidden_state, u_cond, u_mask, v_cond, v_mask, _, _, _, _, _ = self.dataset.ask()
+            old_hidden_state, h_cond, h_mask, u_cond, u_mask, v_cond, v_mask, _, _, _, _, _, _, _ = self.dataset.ask()
 
             # Predict the new domain state by performing a forward pass through the network
-            new_hidden_state = self.net(old_hidden_state, u_cond, u_mask, v_cond, v_mask)
+            new_hidden_state = self.net(old_hidden_state, h_cond, h_mask, u_cond, u_mask, v_cond, v_mask)
 
             # Interpolate spline coefficients to obtain the necessary quantities
             h, grad_h, u, grad_u, laplace_u, v, grad_v, laplace_v = self.dataset.interpolate_superres(new_hidden_state, self.params.resolution_factor)
@@ -352,10 +359,12 @@ class SplinePINNSolver:
             # Store the newly obtained result in the dataset
             self.dataset.tell(new_hidden_state)
 
+            print(h_cond.shape)
+
             # Display water level thickness h
             h = h[0, 0].clone()
-            h = h - torch.min(h)
-            h = h / torch.max(h)
+            # h = h - torch.min(h)
+            # h = h / torch.max(h)
             h = h.detach().cpu().numpy()
 
             win.put_image(h)

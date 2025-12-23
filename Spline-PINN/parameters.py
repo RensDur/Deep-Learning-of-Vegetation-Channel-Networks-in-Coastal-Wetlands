@@ -24,8 +24,8 @@ def params():
 	parser.add_argument('--batch_size', default=50, type=int, help='batch size (default: 30)')
 	parser.add_argument('--n_samples', default=10, type=int, help='number of samples (different offsets) per batch (default: 10)')
 	parser.add_argument('--dataset_size', default=1000, type=int, help='size of dataset (default: 1000)')
-	parser.add_argument('--average_sequence_length', default=5000, type=int, help='average sequence length in dataset (default: 5000)')
-	parser.add_argument('--resolution_factor', default=8, type=int, help='resolution factor for superres / kernels (default: 8)')
+	parser.add_argument('--average_sequence_length', default=2500, type=int, help='average sequence length in dataset (default: 5000)')
+	parser.add_argument('--resolution_factor', default=1, type=int, help='resolution factor for superres / kernels (default: 8)')
 
 	parser.add_argument('--loss_bound', default=20, type=float, help='loss factor for boundary conditions')
 	parser.add_argument('--loss_h', default=1, type=float, help='loss factor for wave equation')
