@@ -137,11 +137,13 @@ class SplineVariable:
                     offsets = torch.tensor([i/resolution_factor,j/resolution_factor], device=self.device).unsqueeze(0).unsqueeze(2).unsqueeze(3).repeat(1,1,2,2)-1 + self.offset_summary
                     offsets = offsets.unsqueeze(2).unsqueeze(3).repeat(1,1,(self.orders[0]+1),(self.orders[1]+1),1,1).detach().requires_grad_(True)
                     
-                    sub_kernels = torch.zeros(1,self.kernel_size,(self.orders[0]+1),(self.orders[1]+1),2,2).to(self.device)
+                    sub_kernels = torch.zeros(1,self.kernel_size,(self.orders[0]+1),(self.orders[1]+1),2,2, requires_grad=True)
+                    print(f"Sub kernels grad: {sub_kernels}")
                     for l in range(self.orders[0]+1):
                         for m in range(self.orders[1]+1):
                             # Function value (directy from linear combination of splines)
                             sub_kernels[0:1,0:1,l,m,:,:] = kernels.p_multidim(offsets[:,:,l,m],[self.orders[0],self.orders[1]],[l,m])
+
                     
                     # First derivative (d/dx and d/dy)
                     if self.requires_derivative:
@@ -149,7 +151,7 @@ class SplineVariable:
 
                     # Laplace -- Note: laplacian without first derivative is not supported (quicker computation)
                     if self.requires_laplacian:
-                        sub_kernels[0:1,3:4] = operators.div(sub_kernels[0:1,1:3], offsets, retain_graph=True)
+                        sub_kernels[0:1,3:4] = operators.div(sub_kernels[0:1,1:3], offsets, retain_graph=False)
                     
                     sub_kernels = sub_kernels.reshape(1,self.kernel_size,(self.orders[0]+1)*(self.orders[1]+1),2,2).detach()
                     self.superres_kernels[:,:,:,i::resolution_factor,j::resolution_factor] = sub_kernels

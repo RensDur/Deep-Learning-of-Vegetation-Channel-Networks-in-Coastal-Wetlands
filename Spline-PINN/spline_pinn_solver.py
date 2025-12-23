@@ -349,7 +349,7 @@ class SplinePINNSolver:
                 new_hidden_state = self.net(old_hidden_state, u_cond, u_mask, v_cond, v_mask)
 
                 # Interpolate spline coefficients to obtain the necessary quantities
-                h, grad_h, u, grad_u, laplace_u, v, grad_v, laplace_v = self.dataset.interpolate_superres(new_hidden_state[0:1], self.params.resolution_factor)
+                h, grad_h, u, grad_u, laplace_u, v, grad_v, laplace_v = self.dataset.interpolate_superres(new_hidden_state, self.params.resolution_factor)
 
                 # Store the newly obtained result in the dataset
                 self.dataset.tell(new_hidden_state)
