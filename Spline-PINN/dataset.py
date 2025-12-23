@@ -55,20 +55,24 @@ class Dataset:
         )
 
         # Boundary conditions and masking
+        self.h_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
         self.u_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
         self.v_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.h_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
         self.u_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
         self.v_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
 
+        self.h_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.u_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.v_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
+        self.h_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.u_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.v_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
 
         # Environment information
         self.types = [
             "rest-lake",
-            # "single-oscillator",
+            "oscillator",
             # "multiple-oscillators"
         ]
         self.env_info = [{} for _ in range(self.dataset_size)]
@@ -97,6 +101,10 @@ class Dataset:
         # Set all hidden coefficients to zero
         self.hidden_states[indices, :, :, :] = 0
 
+        # BC: h holds around the entire frame
+        self.h_mask_fullres[indices] = 1 # BCs on u only apply on the left- and rightmost strip of padding
+        self.h_mask_fullres[indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
+
         # BC: Standard frame in terms of u and v
         self.u_mask_fullres[indices] = 0 # BCs on u only apply on the left- and rightmost strip of padding
         self.u_mask_fullres[indices,:,:,:self.padding_fullres] = 1
@@ -122,6 +130,23 @@ class Dataset:
                 self.u_cond_fullres[index] *= self.u_mask_fullres[index]
                 self.v_cond_fullres[index] *= self.v_mask_fullres[index]
 
+            #
+            # OSCILLATOR
+            #
+            if self.env_info[index]["type"] == "oscillator":
+
+                self.env_info[index]["seed"] = 1000*torch.rand(1)
+
+                # obstabcles (oscillators)
+                for x in [0]:#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
+                    for y in [0]:#[-45,-15,15,45]:
+                        self.z_mask_full_res[index,:,(self.w_full_res//2+(-5+x)*self.resolution_factor):(self.w_full_res//2+(5+x)*self.resolution_factor),(self.h_full_res//2+(-5+y)*self.resolution_factor):(self.h_full_res//2+(5+y)*self.resolution_factor)] = 1
+
+                # Set the masks and conditions
+                self.h_cond_fullres[index,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = np.sin(self.env_info[index]["seed"])
+                self.h_cond_full_res[index] *= self.h_mask_full_res[index]
+                self.env_info[index]["time"] = 0
+
     
             # Average pooling to create downsampled versions of the BCs
             self.u_cond[index:(index+1)] = F.avg_pool2d(self.u_cond_fullres[index:(index+1)],self.resolution_factor)
@@ -135,7 +160,16 @@ class Dataset:
         """
         Update given environments
         """
-        pass
+        
+        # For each selected environment, update the conditions
+        for index in indices:
+
+            if self.env_info[index]["type"] == "oscillator":
+                time = self.env_info[index]["time"]
+
+                self.h_cond_full_res[index,0,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = np.sin(time*1+self.env_info[index]["seed"])
+                self.h_cond_full_res[index] *= self.h_mask_full_res[index]
+                self.env_info[index]["time"] = time + 1
         
 
     def ask(self):
