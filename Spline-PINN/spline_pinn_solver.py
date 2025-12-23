@@ -334,7 +334,7 @@ class SplinePINNSolver:
         print(f"Loaded {self.params.net}: {date_time}, index: {index}")
 
         # Open a visualization window
-        win = Window("Water Layer Thickness", self.params.width, self.params.height)
+        win = Window("Water Layer Thickness", self.params.width * self.params.resolution_factor, self.params.height * self.params.resolution_factor)
         win.set_data_range(0, 1)
 
         # Simulation loop
