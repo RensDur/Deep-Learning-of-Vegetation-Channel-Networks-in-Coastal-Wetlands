@@ -177,7 +177,7 @@ class Dataset:
                         self.h_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
 
                 # Set the masks and conditions
-                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 2 + np.sin(self.env_seed[group_indices])
+                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 2 + torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
                 self.h_cond_fullres[group_indices] *= self.h_mask_fullres[group_indices]
 
         for typename in grouping.keys():
@@ -216,7 +216,7 @@ class Dataset:
             #
             if typename == "oscillator":
 
-                self.h_cond_fullres[group_indices,0,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 2 + np.sin(self.env_seed[group_indices] + self.env_time[group_indices])
+                self.h_cond_fullres[group_indices,0,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 2 + torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
                 self.h_cond_fullres[group_indices] *= self.h_mask_fullres[group_indices]
 
         for typename in grouping.keys():
