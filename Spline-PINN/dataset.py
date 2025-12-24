@@ -118,9 +118,10 @@ class Dataset:
         Reset given environments
         """
 
+
         # This function accepts both arrays and a single integer as input,
         # make sure we can process everything as an np array
-        indices = np.array(indices)
+        indices = np.array([indices]).flatten()
 
         # Set all hidden coefficients to zero
         self.hidden_states[indices, :, :, :] = 0
@@ -200,7 +201,7 @@ class Dataset:
 
         # This function accepts both arrays and a single integer as input,
         # make sure we can process everything as an np array
-        indices = np.array(indices)
+        indices = np.array([indices]).flatten()
 
         # Group environments by their type [Groups are guaranteed to be non-empty]
         grouping = self.group_by_type(indices)
