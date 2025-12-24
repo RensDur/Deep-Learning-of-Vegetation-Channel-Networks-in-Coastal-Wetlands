@@ -75,7 +75,10 @@ class Dataset:
             "oscillator",
             # "multiple-oscillators"
         ]
-        self.env_info = [{} for _ in range(self.dataset_size)]
+
+        self.env_type = np.random.choice(self.types, self.dataset_size)
+        self.env_seed = 1000 * torch.rand(self.dataset_size)
+        self.env_time = torch.zeros(self.dataset_size)
 
         # Environment resetting
         self.t = 0
@@ -87,6 +90,28 @@ class Dataset:
 
     def hidden_size(self):
         return self.variables.hidden_size()
+    
+    def group_by_type(self, indices):
+        """
+        This function outputs a dictionary grouping environments with the same type together
+        """
+
+        grouping = {}
+
+        # Initialize groups with empty lists
+        for t in self.types:
+            grouping[t] = []
+
+        # Group environments
+        for i in indices:
+            grouping[self.env_type[i]].append(i)
+
+        # Remove any empty groups
+        for g in grouping.keys():
+            if len(grouping[g]) == 0:
+                del grouping[g]
+
+        return grouping
 
     def reset(self, indices):
         """
@@ -94,9 +119,8 @@ class Dataset:
         """
 
         # This function accepts both arrays and a single integer as input,
-        # make sure we can process everything as an array
-        if type(indices) == int:
-            indices = np.array([indices])
+        # make sure we can process everything as an np array
+        indices = np.array(indices)
 
         # Set all hidden coefficients to zero
         self.hidden_states[indices, :, :, :] = 0
@@ -117,47 +141,55 @@ class Dataset:
         self.v_mask_fullres[indices,:,:self.padding_fullres,:] = 1
         self.v_mask_fullres[indices,:,-self.padding_fullres:,:] = 1
 
-        # For each environment, randomly choose one of the types
-        for index in indices:
-            self.env_info[index]["type"] = np.random.choice(self.types)
+        # Randomly choose a new type for each environment
+        self.env_type[indices] = np.random.choice(self.types, indices.shape)
+        self.env_seed[indices] = 1000 * torch.rand(indices.shape)
+        self.env_time[indices] = torch.zeros(indices.shape)
+
+        # Group environments by their type [Groups are guaranteed to be non-empty]
+        grouping = self.group_by_type(indices)
+
+        # Helper function
+        def reset_all_of_type(typename, group_indices):
+            """
+            group_indices is guaranteed to be non-empty
+            """
 
             #
             # LAKE AT REST
             #
-            if self.env_info[index]["type"] == "rest-lake":
-
+            if typename == "rest-lake":
                 # In a lake at rest, with closed boundaries, no flow velocities at the boundaries they apply to
-                self.u_cond_fullres[index] = 0
-                self.v_cond_fullres[index] = 0
+                self.u_cond_fullres[group_indices] = 0
+                self.v_cond_fullres[group_indices] = 0
 
-                self.u_cond_fullres[index] *= self.u_mask_fullres[index]
-                self.v_cond_fullres[index] *= self.v_mask_fullres[index]
+                self.u_cond_fullres[group_indices] *= self.u_mask_fullres[group_indices]
+                self.v_cond_fullres[group_indices] *= self.v_mask_fullres[group_indices]
 
             #
             # OSCILLATOR
             #
-            if self.env_info[index]["type"] == "oscillator":
-
-                self.env_info[index]["seed"] = 1000*torch.rand(1)
+            if typename == "oscillator":
 
                 # obstabcles (oscillators)
                 for x in [0]:#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
                     for y in [0]:#[-45,-15,15,45]:
-                        self.h_mask_fullres[index,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
+                        self.h_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
 
                 # Set the masks and conditions
-                self.h_cond_fullres[index,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 2 + np.sin(self.env_info[index]["seed"])
-                self.h_cond_fullres[index] *= self.h_mask_fullres[index]
-                self.env_info[index]["time"] = 0
+                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 2 + np.sin(self.env_seed[group_indices])
+                self.h_cond_fullres[group_indices] *= self.h_mask_fullres[group_indices]
 
+        for typename in grouping.keys():
+            reset_all_of_type(typename, grouping[typename])
     
-            # Average pooling to create downsampled versions of the BCs
-            self.h_cond[index:(index+1)] = F.avg_pool2d(self.h_cond_fullres[index:(index+1)],self.resolution_factor)
-            self.h_mask[index:(index+1)] = F.avg_pool2d(self.h_mask_fullres[index:(index+1)],self.resolution_factor)
-            self.u_cond[index:(index+1)] = F.avg_pool2d(self.u_cond_fullres[index:(index+1)],self.resolution_factor)
-            self.u_mask[index:(index+1)] = F.avg_pool2d(self.u_mask_fullres[index:(index+1)],self.resolution_factor)
-            self.v_cond[index:(index+1)] = F.avg_pool2d(self.v_cond_fullres[index:(index+1)],self.resolution_factor)
-            self.v_mask[index:(index+1)] = F.avg_pool2d(self.v_mask_fullres[index:(index+1)],self.resolution_factor)
+        # Average pooling to create downsampled versions of the BCs
+        self.h_cond[indices] = F.avg_pool2d(self.h_cond_fullres[indices],self.resolution_factor)
+        self.h_mask[indices] = F.avg_pool2d(self.h_mask_fullres[indices],self.resolution_factor)
+        self.u_cond[indices] = F.avg_pool2d(self.u_cond_fullres[indices],self.resolution_factor)
+        self.u_mask[indices] = F.avg_pool2d(self.u_mask_fullres[indices],self.resolution_factor)
+        self.v_cond[indices] = F.avg_pool2d(self.v_cond_fullres[indices],self.resolution_factor)
+        self.v_mask[indices] = F.avg_pool2d(self.v_mask_fullres[indices],self.resolution_factor)
 
 
 
@@ -165,24 +197,41 @@ class Dataset:
         """
         Update given environments
         """
+
+        # This function accepts both arrays and a single integer as input,
+        # make sure we can process everything as an np array
+        indices = np.array(indices)
+
+        # Group environments by their type [Groups are guaranteed to be non-empty]
+        grouping = self.group_by_type(indices)
+
+        # Helper function
+        def reset_all_of_type(typename, group_indices):
+            """
+            group_indices is guaranteed to be non-empty
+            """
+
+            #
+            # OSCILLATOR
+            #
+            if typename == "oscillator":
+
+                self.h_cond_fullres[group_indices,0,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 2 + np.sin(self.env_seed[group_indices] + self.env_time[group_indices])
+                self.h_cond_fullres[group_indices] *= self.h_mask_fullres[group_indices]
+
+        for typename in grouping.keys():
+            reset_all_of_type(typename, grouping[typename])
+    
+        # Average pooling to create downsampled versions of the BCs
+        self.h_cond[indices] = F.avg_pool2d(self.h_cond_fullres[indices],self.resolution_factor)
+        self.h_mask[indices] = F.avg_pool2d(self.h_mask_fullres[indices],self.resolution_factor)
+        self.u_cond[indices] = F.avg_pool2d(self.u_cond_fullres[indices],self.resolution_factor)
+        self.u_mask[indices] = F.avg_pool2d(self.u_mask_fullres[indices],self.resolution_factor)
+        self.v_cond[indices] = F.avg_pool2d(self.v_cond_fullres[indices],self.resolution_factor)
+        self.v_mask[indices] = F.avg_pool2d(self.v_mask_fullres[indices],self.resolution_factor)
         
-        # For each selected environment, update the conditions
-        for index in indices:
-
-            if self.env_info[index]["type"] == "oscillator":
-                time = self.env_info[index]["time"]
-
-                self.h_cond_fullres[index,0,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 2 + np.sin(time*0.1+self.env_info[index]["seed"])
-                self.h_cond_fullres[index] *= self.h_mask_fullres[index]
-                self.env_info[index]["time"] = time + 1
-
-            # Average pooling to create downsampled versions of the BCs
-            self.h_cond[index:(index+1)] = F.avg_pool2d(self.h_cond_fullres[index:(index+1)],self.resolution_factor)
-            self.h_mask[index:(index+1)] = F.avg_pool2d(self.h_mask_fullres[index:(index+1)],self.resolution_factor)
-            self.u_cond[index:(index+1)] = F.avg_pool2d(self.u_cond_fullres[index:(index+1)],self.resolution_factor)
-            self.u_mask[index:(index+1)] = F.avg_pool2d(self.u_mask_fullres[index:(index+1)],self.resolution_factor)
-            self.v_cond[index:(index+1)] = F.avg_pool2d(self.v_cond_fullres[index:(index+1)],self.resolution_factor)
-            self.v_mask[index:(index+1)] = F.avg_pool2d(self.v_mask_fullres[index:(index+1)],self.resolution_factor)
+        # Update the time for each environment
+        self.env_time[indices] += 0.1
         
 
     def ask(self):
