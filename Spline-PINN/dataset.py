@@ -56,18 +56,10 @@ class Dataset:
 
         # Boundary conditions and masking
         self.h_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
-        self.u_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
-        self.v_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
         self.h_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
-        self.u_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
-        self.v_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
 
         self.h_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
-        self.u_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
-        self.v_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.h_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
-        self.u_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
-        self.v_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
 
         # Environment information
         self.types = [
@@ -132,15 +124,6 @@ class Dataset:
         self.h_mask_fullres[indices] = 1 # BCs on u only apply on the left- and rightmost strip of padding
         self.h_mask_fullres[indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
 
-        # BC: Standard frame in terms of u and v
-        self.u_mask_fullres[indices] = 0 # BCs on u only apply on the left- and rightmost strip of padding
-        self.u_mask_fullres[indices,:,:,:self.padding_fullres] = 1
-        self.u_mask_fullres[indices,:,:,-self.padding_fullres:] = 1
-
-        self.v_mask_fullres[indices] = 0 # BCs on v only apply on the top- and bottom-most strip of padding
-        self.v_mask_fullres[indices,:,:self.padding_fullres,:] = 1
-        self.v_mask_fullres[indices,:,-self.padding_fullres:,:] = 1
-
         # Randomly choose a new type for each environment
         self.env_type[indices] = np.random.choice(self.types, indices.shape)
         self.env_seed[indices] = 1000 * torch.rand(indices.shape)
@@ -159,12 +142,7 @@ class Dataset:
             # LAKE AT REST
             #
             if typename == "rest-lake":
-                # In a lake at rest, with closed boundaries, no flow velocities at the boundaries they apply to
-                self.u_cond_fullres[group_indices] = 0
-                self.v_cond_fullres[group_indices] = 0
-
-                self.u_cond_fullres[group_indices] *= self.u_mask_fullres[group_indices]
-                self.v_cond_fullres[group_indices] *= self.v_mask_fullres[group_indices]
+                pass
 
             #
             # OSCILLATOR
@@ -186,10 +164,6 @@ class Dataset:
         # Average pooling to create downsampled versions of the BCs
         self.h_cond[indices] = F.avg_pool2d(self.h_cond_fullres[indices],self.resolution_factor)
         self.h_mask[indices] = F.avg_pool2d(self.h_mask_fullres[indices],self.resolution_factor)
-        self.u_cond[indices] = F.avg_pool2d(self.u_cond_fullres[indices],self.resolution_factor)
-        self.u_mask[indices] = F.avg_pool2d(self.u_mask_fullres[indices],self.resolution_factor)
-        self.v_cond[indices] = F.avg_pool2d(self.v_cond_fullres[indices],self.resolution_factor)
-        self.v_mask[indices] = F.avg_pool2d(self.v_mask_fullres[indices],self.resolution_factor)
 
 
 
@@ -215,7 +189,6 @@ class Dataset:
             # OSCILLATOR
             #
             if typename == "oscillator":
-
                 self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 2 + torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
                 self.h_cond_fullres[group_indices] *= self.h_mask_fullres[group_indices]
 
@@ -225,10 +198,6 @@ class Dataset:
         # Average pooling to create downsampled versions of the BCs
         self.h_cond[indices] = F.avg_pool2d(self.h_cond_fullres[indices],self.resolution_factor)
         self.h_mask[indices] = F.avg_pool2d(self.h_mask_fullres[indices],self.resolution_factor)
-        self.u_cond[indices] = F.avg_pool2d(self.u_cond_fullres[indices],self.resolution_factor)
-        self.u_mask[indices] = F.avg_pool2d(self.u_mask_fullres[indices],self.resolution_factor)
-        self.v_cond[indices] = F.avg_pool2d(self.v_cond_fullres[indices],self.resolution_factor)
-        self.v_mask[indices] = F.avg_pool2d(self.v_mask_fullres[indices],self.resolution_factor)
         
         # Update the time for each environment
         self.env_time[indices] += 0.1
@@ -263,10 +232,6 @@ class Dataset:
         grid_offsets = []
         sample_h_cond = []
         sample_h_mask = []
-        sample_u_cond = []
-        sample_u_mask = []
-        sample_v_cond = []
-        sample_v_mask = []
 
         for _ in range(self.n_samples):
 
@@ -277,39 +242,22 @@ class Dataset:
             x_offset = min(int(self.resolution_factor*offset[0]),self.resolution_factor-1) # TODO: Isn't this just the same as floor(self.resolution_factor*offset[0])?
             y_offset = min(int(self.resolution_factor*offset[1]),self.resolution_factor-1)
 
-
             sample_h_cond.append(self.h_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
             sample_h_mask.append(self.h_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
-            sample_u_cond.append(self.u_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
-            sample_u_mask.append(self.u_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
-            sample_v_cond.append(self.v_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
-            sample_v_mask.append(self.v_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
 
         # Move all data to the desired device
         for i in range(self.n_samples):
             grid_offsets[i] = grid_offsets[i].to(self.device)
             sample_h_cond[i] = sample_h_cond[i].to(self.device)
             sample_h_mask[i] = sample_h_mask[i].to(self.device)
-            sample_u_cond[i] = sample_u_cond[i].to(self.device)
-            sample_u_mask[i] = sample_u_mask[i].to(self.device)
-            sample_v_cond[i] = sample_v_cond[i].to(self.device)
-            sample_v_mask[i] = sample_v_mask[i].to(self.device)
 
         # Return the hidden states and boundary conditions after moving them to the desired device
         return self.hidden_states[self.asked_indices].to(self.device), \
                 self.h_cond[self.asked_indices].to(self.device), \
                 self.h_mask[self.asked_indices].to(self.device), \
-                self.u_cond[self.asked_indices].to(self.device), \
-                self.u_mask[self.asked_indices].to(self.device), \
-                self.v_cond[self.asked_indices].to(self.device), \
-                self.v_mask[self.asked_indices].to(self.device), \
                 grid_offsets, \
                 sample_h_cond, \
                 sample_h_mask, \
-                sample_u_cond, \
-                sample_u_mask, \
-                sample_v_cond, \
-                sample_v_mask,
     
     def tell(self, hidden_states):
 

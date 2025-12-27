@@ -16,7 +16,7 @@ def get_Net(params, hidden_state_size):
 
 class ShallowWaterModel(nn.Module):
 	
-	def __init__(self, hidden_state_size=2, hidden_size=64, interpolation_size=12, bilinear=True, input_size=6, residuals=False):
+	def __init__(self, hidden_state_size=2, hidden_size=64, interpolation_size=5, bilinear=True, input_size=2, residuals=False):
 		"""
 		:orders_v: order of spline for velocity potential (should be at least 2)
 		:orders_p: order of spline for pressure field
@@ -49,14 +49,14 @@ class ShallowWaterModel(nn.Module):
 		self.output_scalar = self.output_scalar.to(torch_device)
 		return self
 	
-	def forward(self, hidden_state, h_cond, h_mask, u_cond, u_mask, v_cond, v_mask):
+	def forward(self, hidden_state, h_cond, h_mask):
 		"""
 		:hidden_state: old hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
 		:v_cond: velocity (dirichlet) conditions on boundaries (average value within cell): bs x 2 x w x h
 		:v_mask: mask for boundary conditions (average value within cell): bs x 1 x w x h
 		:return: new hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
 		"""
-		x = torch.cat([h_cond, h_mask, u_cond, u_mask, v_cond, v_mask],dim=1)
+		x = torch.cat([h_cond, h_mask],dim=1)
 		
 		x = self.interpol(x)
 		

@@ -151,11 +151,10 @@ class SplinePINNSolver:
             for i in range(self.params.n_batches_per_epoch):
 
                 # Ask for a batch from the dataset
-                old_hidden_state, h_cond, h_mask, u_cond, u_mask, v_cond, v_mask, grid_offsets, sample_h_conds, sample_h_masks, sample_u_conds, sample_u_masks, sample_v_conds, sample_v_masks = self.dataset.ask()
+                old_hidden_state, h_cond, h_mask, grid_offsets, sample_h_conds, sample_h_masks = self.dataset.ask()
 
                 # Predict the new domain state by performing a forward pass through the network
-                new_hidden_state = self.net(old_hidden_state, h_cond, h_mask, u_cond, u_mask, v_cond, v_mask)
-
+                new_hidden_state = self.net(old_hidden_state, h_cond, h_mask)
 
                 # Compute Physics Informed Loss image tensor
                 loss_tensor = 0
@@ -167,20 +166,12 @@ class SplinePINNSolver:
                     # For added clarity: The masks define where the BCs act, they're 1 everywhere on the boundary, 0 everywhere else
                     sample_h_cond = sample_h_conds[j]
                     sample_h_mask = sample_h_masks[j]
-                    sample_u_cond = sample_u_conds[j]
-                    sample_u_mask = sample_u_masks[j]
-                    sample_v_cond = sample_v_conds[j]
-                    sample_v_mask = sample_v_masks[j]
 
                     sample_h_domain_mask = 1-sample_h_mask
-                    sample_u_domain_mask = 1-sample_u_mask
-                    sample_v_domain_mask = 1-sample_v_mask
 
                     # Put additional border_weight on domain boundaries:
                     # Important: weighed by parameter 'border_weight'
                     sample_h_mask = (sample_h_mask + sample_h_mask*self.diffuse(sample_h_domain_mask)*self.params.border_weight).detach()
-                    sample_u_mask = (sample_u_mask + sample_u_mask*self.diffuse(sample_u_domain_mask)*self.params.border_weight).detach()
-                    sample_v_mask = (sample_v_mask + sample_v_mask*self.diffuse(sample_v_domain_mask)*self.params.border_weight).detach()
 
                     # Interpolate spline coefficients to obtain the necessary quantities
                     h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt = self.dataset.interpolate_states(old_hidden_state, new_hidden_state, offset)
@@ -194,11 +185,21 @@ class SplinePINNSolver:
 
                     # Boundary loss
                     loss_bound = torch.mean(
-                        sample_h_mask[:,:,1:-1,1:-1] * self.loss_function(h - sample_h_cond[:,:,1:-1,1:-1]) +
-                        sample_u_mask[:,:,1:-1,1:-1] * self.loss_function(u - sample_u_cond[:,:,1:-1,1:-1]) +
-                        sample_v_mask[:,:,1:-1,1:-1] * self.loss_function(v - sample_v_cond[:,:,1:-1,1:-1])
+                        sample_h_mask[:,:,1:-1,1:-1] * self.loss_function(h - sample_h_cond[:,:,1:-1,1:-1])
                         ,dim=1
                     )
+
+                    loss_bound_u = torch.zeros_like(u)
+                    loss_bound_u[:, :, :, :self.dataset.padding] = u[:, :, :, :self.dataset.padding].clamp(max=0) # Left bound: water may not flow out leftwards (penalize u < 0)
+                    loss_bound_u[:, :, :, -self.dataset.padding:] = u[:, :, :, -self.dataset.padding:].clamp(min=0) # Right bound: water may not flow out rightwards (penalize u > 0)
+                    loss_bound_u = torch.mean(self.loss_function(loss_bound_u), dim=1) # Square loss
+
+                    loss_bound_v = torch.zeros_like(v)
+                    loss_bound_v[:, :, :self.dataset.padding, :] = v[:, :, :self.dataset.padding, :].clamp(max=0) # Top bound: water may not flow out upwards (penalize v < 0)
+                    loss_bound_v[:, :, -self.dataset.padding:, :] = v[:, :, -self.dataset.padding:, :].clamp(min=0) # Bottom bound: water may not flow out downwards (penalize v > 0)
+                    loss_bound_v = torch.mean(self.loss_function(loss_bound_v), dim=1) # Square loss
+
+                    loss_bound_uv = loss_bound_u + loss_bound_v
 
                     # h-loss
                     loss_h = torch.mean(self.loss_function(
@@ -209,11 +210,10 @@ class SplinePINNSolver:
                     loss_u = du_dt + self.params.grav * grad_h[:,0:1] + u * grad_u[:,0:1] + v * grad_u[:,1:2]
                     loss_v = dv_dt + self.params.grav * grad_h[:,1:2] + u * grad_v[:,0:1] + v * grad_v[:,1:2]
 
-
                     loss_u = torch.mean(self.loss_function(loss_u), dim=1)
                     loss_v = torch.mean(self.loss_function(loss_v), dim=1)
 
-                    loss_tensor += self.params.loss_bound * loss_bound + self.params.loss_h * loss_h + self.params.loss_momentum * (loss_u + loss_v)
+                    loss_tensor += self.params.loss_bound * loss_bound + self.params.loss_bound_uv * loss_bound_uv + self.params.loss_h * loss_h + self.params.loss_momentum * (loss_u + loss_v)
 
                 # Normalize towards the number of samples taken
                 loss_tensor /= self.params.n_samples
