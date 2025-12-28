@@ -348,18 +348,16 @@ class SplinePINNSolver:
         while win.is_open():
 
             # Ask for a batch from the dataset
-            old_hidden_state, h_cond, h_mask, u_cond, u_mask, v_cond, v_mask, _, _, _, _, _, _, _ = self.dataset.ask()
+            old_hidden_state, h_cond, h_mask, _, _, _ = self.dataset.ask()
 
             # Predict the new domain state by performing a forward pass through the network
-            new_hidden_state = self.net(old_hidden_state, h_cond, h_mask, u_cond, u_mask, v_cond, v_mask)
+            new_hidden_state = self.net(old_hidden_state, h_cond, h_mask)
 
             # Interpolate spline coefficients to obtain the necessary quantities
             h, grad_h, u, grad_u, laplace_u, v, grad_v, laplace_v = self.dataset.interpolate_superres(new_hidden_state, self.params.resolution_factor)
 
             # Store the newly obtained result in the dataset
             self.dataset.tell(new_hidden_state)
-
-            print(h_cond.shape)
 
             # Display water level thickness h
             h = h[0, 0].clone()

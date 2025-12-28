@@ -122,8 +122,7 @@ class Dataset:
         self.hidden_states[indices, 0, :, :] = 2
 
         # BC: h holds around the entire frame
-        self.h_mask_fullres[indices] = 1 # BCs on u only apply on the left- and rightmost strip of padding
-        self.h_mask_fullres[indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
+        self.h_mask_fullres[indices] = 0 # Initially we don't impose BCs on h anywhere in the domain
 
         # Randomly choose a new type for each environment
         self.env_type[indices] = np.random.choice(self.types, indices.shape)
