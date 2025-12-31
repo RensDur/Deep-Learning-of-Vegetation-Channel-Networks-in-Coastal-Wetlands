@@ -256,12 +256,7 @@ class SplinePINNSolver:
                 #
 
                 if i % 10 == 0:
-                    # loss_tensor = torch.mean(loss_tensor, dim=0).detach().view(self.params.height-2, self.params.width-2).cpu().numpy()
-                    # loss_total = float(loss_total.detach().cpu().numpy())
-                    # loss_h = float(torch.mean(loss_h).detach().cpu().numpy())
-                    # loss_u = float(torch.mean(loss_u).detach().cpu().numpy())
-                    # loss_v = float(torch.mean(loss_v).detach().cpu().numpy())
-                    # loss_bound = float(torch.mean(loss_bound).detach().cpu().numpy())
+                    
 
                     # self.logger.log(f"loss_total", loss_total, epoch * self.params.n_batches_per_epoch + i)
                     # self.logger.log(f"loss_h", loss_h, epoch * self.params.n_batches_per_epoch + i)
@@ -285,6 +280,13 @@ class SplinePINNSolver:
                     # PLOT LOSS - IF ENABLED
                     #
                     if self.params.plot_loss:
+                        loss_tensor = torch.mean(loss_tensor, dim=0).detach().view(self.params.height-2, self.params.width-2).cpu().numpy()
+                        loss_total = float(loss_total.detach().cpu().numpy())
+                        loss_h = float(torch.mean(loss_h).detach().cpu().numpy())
+                        loss_u = float(torch.mean(loss_u).detach().cpu().numpy())
+                        loss_v = float(torch.mean(loss_v).detach().cpu().numpy())
+                        loss_bound = float(torch.mean(loss_bound).detach().cpu().numpy())
+
                         loss_tensor -= np.min(loss_tensor)
                         loss_tensor /= np.max(loss_tensor)
 
@@ -309,7 +311,7 @@ class SplinePINNSolver:
 
                         graph_limits = np.concatenate((plot_loss_h_data, plot_loss_momentum_data, plot_loss_bound_data))
                         plot_axs[2].set_xlim([0, plot_loss_h_data.shape[0]])
-                        plot_axs[2].set_ylim([0, np.max(graph_limits)])
+                        plot_axs[2].set_ylim([0, 500])
 
                 if self.params.plot_loss:
                     # Always update the plot to allow interaction

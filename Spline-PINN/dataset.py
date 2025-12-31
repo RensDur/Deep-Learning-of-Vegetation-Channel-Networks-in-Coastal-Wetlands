@@ -103,9 +103,9 @@ class Dataset:
             grouping[self.env_type[i]].append(i)
 
         # Remove any empty groups
-        for g in grouping.keys():
-            if len(grouping[g]) == 0:
-                del grouping[g]
+        for g in list(grouping):
+            if not grouping[g]:
+                grouping.pop(g)
 
         return grouping
 
@@ -212,7 +212,7 @@ class Dataset:
         self.uv_mask[indices] = F.avg_pool2d(self.uv_mask_fullres[indices],self.resolution_factor)
         
         # Update the time for each environment
-        self.env_time[indices] += 0.1
+        self.env_time[indices] += 0.01
         
 
     def ask(self):
