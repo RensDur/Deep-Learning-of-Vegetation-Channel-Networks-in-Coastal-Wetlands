@@ -57,13 +57,17 @@ class Dataset:
         # Boundary conditions and masking
         self.h_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
         self.h_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.uv_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.uv_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
 
         self.h_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.h_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
+        self.uv_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
+        self.uv_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
 
         # Environment information
         self.types = [
-            # "rest-lake",
+            "rest-lake",
             "oscillator",
             # "multiple-oscillators"
         ]
@@ -124,6 +128,10 @@ class Dataset:
         # BC: h holds around the entire frame
         self.h_mask_fullres[indices] = 0 # Initially we don't impose BCs on h anywhere in the domain
 
+        self.uv_mask_fullres[indices] = 1
+        self.uv_mask_fullres[indices, :, self.padding:-self.padding, self.padding:-self.padding] = 0 # Zero normal flow (no passthrough) + zero slip condition on both u and v
+        self.uv_cond_fullres[indices] = 0
+
         # Randomly choose a new type for each environment
         self.env_type[indices] = np.random.choice(self.types, indices.shape)
         self.env_seed[indices] = 1000 * torch.rand(indices.shape)
@@ -164,6 +172,8 @@ class Dataset:
         # Average pooling to create downsampled versions of the BCs
         self.h_cond[indices] = F.avg_pool2d(self.h_cond_fullres[indices],self.resolution_factor)
         self.h_mask[indices] = F.avg_pool2d(self.h_mask_fullres[indices],self.resolution_factor)
+        self.uv_cond[indices] = F.avg_pool2d(self.uv_cond_fullres[indices],self.resolution_factor)
+        self.uv_mask[indices] = F.avg_pool2d(self.uv_mask_fullres[indices],self.resolution_factor)
 
 
 
@@ -198,6 +208,8 @@ class Dataset:
         # Average pooling to create downsampled versions of the BCs
         self.h_cond[indices] = F.avg_pool2d(self.h_cond_fullres[indices],self.resolution_factor)
         self.h_mask[indices] = F.avg_pool2d(self.h_mask_fullres[indices],self.resolution_factor)
+        self.uv_cond[indices] = F.avg_pool2d(self.uv_cond_fullres[indices],self.resolution_factor)
+        self.uv_mask[indices] = F.avg_pool2d(self.uv_mask_fullres[indices],self.resolution_factor)
         
         # Update the time for each environment
         self.env_time[indices] += 0.1
@@ -232,6 +244,8 @@ class Dataset:
         grid_offsets = []
         sample_h_cond = []
         sample_h_mask = []
+        sample_uv_cond = []
+        sample_uv_mask = []
 
         for _ in range(self.n_samples):
 
@@ -244,20 +258,28 @@ class Dataset:
 
             sample_h_cond.append(self.h_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
             sample_h_mask.append(self.h_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
+            sample_uv_cond.append(self.uv_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
+            sample_uv_mask.append(self.uv_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
 
         # Move all data to the desired device
         for i in range(self.n_samples):
             grid_offsets[i] = grid_offsets[i].to(self.device)
             sample_h_cond[i] = sample_h_cond[i].to(self.device)
             sample_h_mask[i] = sample_h_mask[i].to(self.device)
+            sample_uv_cond[i] = sample_uv_cond[i].to(self.device)
+            sample_uv_mask[i] = sample_uv_mask[i].to(self.device)
 
         # Return the hidden states and boundary conditions after moving them to the desired device
         return self.hidden_states[self.asked_indices].to(self.device), \
                 self.h_cond[self.asked_indices].to(self.device), \
                 self.h_mask[self.asked_indices].to(self.device), \
+                self.uv_cond[self.asked_indices].to(self.device), \
+                self.uv_mask[self.asked_indices].to(self.device), \
                 grid_offsets, \
                 sample_h_cond, \
                 sample_h_mask, \
+                sample_uv_cond, \
+                sample_uv_mask
     
     def tell(self, hidden_states):
 

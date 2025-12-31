@@ -501,6 +501,7 @@ class PCNNSolver:
 
                 # Display water level thickness h
                 h = u_old[0, 0].clone()
+                print(f"u min max = ({torch.min(u_old)}, {torch.max(u_old)})")
                 h = h.detach().cpu().numpy()
                 win.put_image(h)
                 win.update()
