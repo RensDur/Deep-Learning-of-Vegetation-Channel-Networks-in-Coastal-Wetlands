@@ -10,7 +10,7 @@ import cv2
 import time
 from window import Window
 import matplotlib.pyplot as plt
-
+from pcgrad.pcgrad import PCGrad
 
 class SplinePINNSolver:
     def __init__(self, dataset: Dataset, params, device):
@@ -68,6 +68,7 @@ class SplinePINNSolver:
         # Optimizer
         #
         self.optimizer = Adam(self.net.parameters(), lr=self.params.lr)
+        self.optimizer = PCGrad(self.optimizer)
 
         #
         # Logger
@@ -157,7 +158,10 @@ class SplinePINNSolver:
                 new_hidden_state = self.net(old_hidden_state, z_cond, z_mask, uv_cond, uv_mask)
 
                 # Compute Physics Informed Loss image tensor
-                loss_tensor = 0
+                loss_bound = 0
+                loss_h = 0
+                loss_u = 0
+                loss_v = 0
 
                 # Go over each sample
                 for j, sample in enumerate(grid_offsets):
@@ -212,42 +216,67 @@ class SplinePINNSolver:
                         ,dim=1
                     )
 
-                    loss_bound = loss_bound_h + loss_bound_grad_h + loss_bound_u + loss_bound_v
+                    loss_bound += loss_bound_h + loss_bound_grad_h + loss_bound_u + loss_bound_v
 
                     # h-loss
-                    loss_h = torch.mean(self.loss_function(
+                    loss_h += torch.mean(self.loss_function(
                         dh_dt + grad_uh[:,0:1] + grad_vh[:,1:2] # - self.params.Hin
                     ), dim=1)
 
                     # Momentum loss
-                    loss_u = du_dt + self.params.grav * grad_h[:,0:1] + u * grad_u[:,0:1] + v * grad_u[:,1:2]
-                    loss_v = dv_dt + self.params.grav * grad_h[:,1:2] + u * grad_v[:,0:1] + v * grad_v[:,1:2]
+                    loss_u += torch.mean(
+                        self.loss_function(du_dt + self.params.grav * grad_h[:,0:1] + u * grad_u[:,0:1] + v * grad_u[:,1:2])
+                        , dim=1
+                    )
 
-                    loss_u = torch.mean(self.loss_function(loss_u), dim=1)
-                    loss_v = torch.mean(self.loss_function(loss_v), dim=1)
+                    loss_v += torch.mean(
+                        self.loss_function(dv_dt + self.params.grav * grad_h[:,1:2] + u * grad_v[:,0:1] + v * grad_v[:,1:2])
+                        , dim=1
+                    )
 
-                    loss_tensor += self.params.loss_bound * loss_bound + self.params.loss_h * loss_h + self.params.loss_momentum * (loss_u + loss_v)
+                # Multiply by the loss weights
+                loss_bound *= self.params.loss_bound
+                loss_h *= self.params.loss_h
+                loss_u *= self.params.loss_momentum
+                loss_v *= self.params.loss_momentum
 
                 # Normalize towards the number of samples taken
-                loss_tensor /= self.params.n_samples
+                loss_bound /= self.params.n_samples
+                loss_h /= self.params.n_samples
+                loss_u /= self.params.n_samples
+                loss_v /= self.params.n_samples
 
-                # Aside from the loss image, also compute mean loss
-                loss_total = torch.mean(loss_tensor)
 
                 # If configured, compute log loss
-                if self.params.log_loss:
-                    loss_total = torch.log(loss_total)
+                # if self.params.log_loss:
+                #     loss_bound = torch.log(loss_bound)
+                #     loss_h = torch.log(loss_h)
+                #     loss_u = torch.log(loss_u)
+                #     loss_v = torch.log(loss_v)
+
+                # print(f"loss_bound = {loss_bound}")
+                # print(f"loss_h = {loss_h}")
+                # print(f"loss_u = {loss_u}")
+                # print(f"loss_v = {loss_bound}")
+
+                # Combine the losses to create a loss_tensor image
+                loss_tensor = loss_bound + loss_h + loss_u + loss_v
+
+                # Compute total loss value
+                loss_total = torch.mean(loss_tensor)
+
+                # For backprop using PCGrad, construct each loss term
+                pcgrad_losses = [
+                    torch.mean(loss_bound),
+                    torch.mean(loss_h),
+                    torch.mean(loss_u + loss_v) # Combine momentum loss terms
+                ]
 
                 # Reset old gradients to 0 and compute new gradients with backpropagation
                 self.net.zero_grad()
-                loss_total.backward()
-
-                # Clip gradients
-                if self.params.clip_grad_value is not None:
-                    torch.nn.utils.clip_grad_value_(self.net.parameters(),self.params.clip_grad_value)
-
-                if self.params.clip_grad_norm is not None:
-                    torch.nn.utils.clip_grad_norm_(self.net.parameters(),self.params.clip_grad_norm)
+                
+                # PCGrad backprop pass
+                self.optimizer.pc_backward(pcgrad_losses)
                 
                 # Perform an optimization step
                 self.optimizer.step()
@@ -284,8 +313,8 @@ class SplinePINNSolver:
                     # PLOT LOSS - IF ENABLED
                     #
                     if self.params.plot_loss:
-                        loss_tensor = torch.mean(loss_tensor, dim=0).detach().view(self.params.height-2, self.params.width-2).cpu().numpy()
                         loss_total = float(loss_total.detach().cpu().numpy())
+                        loss_tensor = torch.mean(loss_tensor, dim=0).detach().view(self.params.height-2, self.params.width-2).cpu().numpy()
                         loss_h = float(torch.mean(loss_h).detach().cpu().numpy())
                         loss_u = float(torch.mean(loss_u).detach().cpu().numpy())
                         loss_v = float(torch.mean(loss_v).detach().cpu().numpy())
@@ -315,7 +344,7 @@ class SplinePINNSolver:
 
                         graph_limits = np.concatenate((plot_loss_h_data, plot_loss_momentum_data, plot_loss_bound_data))
                         plot_axs[2].set_xlim([0, plot_loss_h_data.shape[0]])
-                        plot_axs[2].set_ylim([0, 500])
+                        plot_axs[2].set_ylim([0, np.max(graph_limits)])
 
                 if self.params.plot_loss:
                     # Always update the plot to allow interaction
@@ -363,10 +392,10 @@ class SplinePINNSolver:
         while win.is_open():
 
             # Ask for a batch from the dataset
-            old_hidden_state, h_cond, h_mask, _, _, _ = self.dataset.ask()
+            old_hidden_state, h_cond, h_mask, uv_cond, uv_mask, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks = self.dataset.ask()
 
             # Predict the new domain state by performing a forward pass through the network
-            new_hidden_state = self.net(old_hidden_state, h_cond, h_mask)
+            new_hidden_state = self.net(old_hidden_state, h_cond, h_mask, uv_cond, uv_mask)
 
             # Interpolate spline coefficients to obtain the necessary quantities
             h, grad_h, u, grad_u, laplace_u, v, grad_v, laplace_v = self.dataset.interpolate_superres(new_hidden_state, self.params.resolution_factor)
