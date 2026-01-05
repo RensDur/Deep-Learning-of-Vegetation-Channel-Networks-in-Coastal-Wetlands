@@ -29,7 +29,6 @@ def main():
     torch.manual_seed(0)
     np.random.seed(0)
 
-
     # Because we're visualizing, create only one domain
     params.dataset_size = 1
     params.batch_size = 1
