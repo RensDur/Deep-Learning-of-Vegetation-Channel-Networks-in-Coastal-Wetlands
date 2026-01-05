@@ -5,7 +5,6 @@ import parameters
 import dataset
 import spline_pinn_solver
 
-
 def main():
 
     # Extract parameters
