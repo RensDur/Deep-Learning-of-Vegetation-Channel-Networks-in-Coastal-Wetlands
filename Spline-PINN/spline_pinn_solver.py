@@ -151,10 +151,10 @@ class SplinePINNSolver:
             for i in range(self.params.n_batches_per_epoch):
 
                 # Ask for a batch from the dataset
-                old_hidden_state, h_cond, h_mask, uv_cond, uv_mask, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks = self.dataset.ask()
+                old_hidden_state, z_cond, z_mask, uv_cond, uv_mask, grid_offsets, sample_z_conds, sample_z_masks, sample_uv_conds, sample_uv_masks = self.dataset.ask()
 
                 # Predict the new domain state by performing a forward pass through the network
-                new_hidden_state = self.net(old_hidden_state, h_cond, h_mask, uv_cond, uv_mask)
+                new_hidden_state = self.net(old_hidden_state, z_cond, z_mask, uv_cond, uv_mask)
 
                 # Compute Physics Informed Loss image tensor
                 loss_tensor = 0
@@ -164,21 +164,25 @@ class SplinePINNSolver:
                     offset = torch.floor(sample*self.params.resolution_factor)/self.params.resolution_factor
 
                     # For added clarity: The masks define where the BCs act, they're 1 everywhere on the boundary, 0 everywhere else
-                    sample_h_cond = sample_h_conds[j]
-                    sample_h_mask = sample_h_masks[j]
+                    sample_z_cond = sample_z_conds[j]
+                    sample_z_mask = sample_z_masks[j]
                     sample_uv_cond = sample_uv_conds[j]
                     sample_uv_mask = sample_uv_masks[j]
 
-                    sample_h_domain_mask = 1-sample_h_mask
+                    sample_z_domain_mask = 1-sample_z_mask
                     sample_uv_domain_mask = 1-sample_uv_mask
 
                     # Put additional border_weight on domain boundaries:
                     # Important: weighed by parameter 'border_weight'
-                    sample_h_mask = (sample_h_mask + sample_h_mask*self.diffuse(sample_h_domain_mask)*self.params.border_weight).detach()
+                    sample_z_mask = (sample_z_mask + sample_z_mask*self.diffuse(sample_z_domain_mask)*self.params.border_weight).detach()
                     sample_uv_mask = (sample_uv_mask + sample_uv_mask*self.diffuse(sample_uv_domain_mask)*self.params.border_weight).detach()
 
                     # Interpolate spline coefficients to obtain the necessary quantities
-                    h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt = self.dataset.interpolate_states(old_hidden_state, new_hidden_state, offset)
+                    z, grad_z, dz_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt = self.dataset.interpolate_states(old_hidden_state, new_hidden_state, offset)
+
+                    h = self.dataset.h0 + z
+                    grad_h = grad_z
+                    dh_dt = dz_dt
 
                     grad_uh = h * grad_u + u * grad_h
                     grad_vh = h * grad_v + v * grad_h
@@ -189,7 +193,7 @@ class SplinePINNSolver:
 
                     # Boundary loss
                     loss_bound_h = torch.mean(
-                        self.loss_function(sample_h_mask[:,:,1:-1,1:-1] * (h - sample_h_cond[:,:,1:-1,1:-1]))
+                        self.loss_function(sample_z_mask[:,:,1:-1,1:-1] * (h - sample_z_cond[:,:,1:-1,1:-1]))
                         ,dim=1
                     )
 
