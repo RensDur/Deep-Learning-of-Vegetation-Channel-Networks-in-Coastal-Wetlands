@@ -137,6 +137,9 @@ class PCGrad():
                 grad.append(p.grad.clone())
                 has_grad.append(torch.ones_like(p).to(p.device))
         return grad, shape, has_grad
+    
+    def state_dict(self):
+        return self._optim.state_dict()
 
 
 class TestNet(nn.Module):
