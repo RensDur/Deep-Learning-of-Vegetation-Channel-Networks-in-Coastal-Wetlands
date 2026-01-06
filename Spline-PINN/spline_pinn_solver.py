@@ -5,10 +5,7 @@ import numpy as np
 from dataset import Dataset
 from spline_models import get_Net
 import parameters
-from Logger import Logger,t_step
-import cv2
-import time
-from window import Window
+from Logger import Logger
 import matplotlib.pyplot as plt
 from pcgrad.pcgrad import PCGrad
 
@@ -362,7 +359,7 @@ class SplinePINNSolver:
 
 
 
-    def visualize(self):
+    def visualize(self, window):
         """
         VISUALIZING RESULTS
         """
@@ -385,11 +382,10 @@ class SplinePINNSolver:
         print(f"Loaded {self.params.net}: {date_time}, index: {index}")
 
         # Open a visualization window
-        win = Window("Water Layer Thickness", self.params.width * self.params.resolution_factor, self.params.height * self.params.resolution_factor)
-        win.set_data_range(1, 3)
+        window.set_data_range(1, 3)
 
         # Simulation loop
-        while win.is_open():
+        while window.is_open():
 
             # Ask for a batch from the dataset
             old_hidden_state, h_cond, h_mask, uv_cond, uv_mask, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks = self.dataset.ask()
@@ -409,11 +405,11 @@ class SplinePINNSolver:
             # h = h / torch.max(h)
             h = h.detach().cpu().numpy()
 
-            win.put_image(h)
-            win.update()
+            window.put_image(h)
+            window.update()
 
 
-    def visualize_numerical(self):
+    def visualize_numerical(self, window):
         """
         VISUALIZING NUMERICAL REFERENCE SIMULATION
         """
@@ -423,13 +419,12 @@ class SplinePINNSolver:
         np.random.seed(6)
 
         # Open a visualization window
-        win = Window("Water Layer Thickness", self.params.width, self.params.height)
-        win.set_data_range(self.params.H0 - 0.0005, self.params.H0+0.0005)
+        window.set_data_range(self.params.H0 - 0.0005, self.params.H0+0.0005)
 
         with torch.no_grad():
 
             # Simulation loop
-            while win.is_open():
+            while window.is_open():
 
                 # Ask for a batch from the dataset
                 h_old, u_old, v_old = self.dataset.ask()
@@ -439,8 +434,8 @@ class SplinePINNSolver:
                 # Display water level thickness h
                 h = h_old[0, 0].clone()
                 h = h.detach().cpu().numpy()
-                win.put_image(h)
-                win.update()
+                window.put_image(h)
+                window.update()
 
                 # Predict the new domain state by numerical simulation
                 h = h_old

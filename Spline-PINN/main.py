@@ -4,7 +4,7 @@ import numpy as np
 import parameters
 import dataset
 import spline_pinn_solver
-
+from window import Window
 
 def main():
 
@@ -44,8 +44,11 @@ def main():
     # Create solver
     solver = spline_pinn_solver.SplinePINNSolver(data, params, torch_device)
 
+    # Create window
+    win = Window("Water Layer Thickness", params.width * params.resolution_factor, params.height * params.resolution_factor)
+
     # Visualize the output
-    solver.visualize()
+    solver.visualize(win)
 
 
 if __name__ == "__main__":
