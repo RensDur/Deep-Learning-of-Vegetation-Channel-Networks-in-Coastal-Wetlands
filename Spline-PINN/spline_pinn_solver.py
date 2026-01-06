@@ -196,13 +196,13 @@ class SplinePINNSolver:
                     #
 
                     # Boundary loss
-                    loss_bound_h = torch.mean(
-                        self.loss_function(sample_z_mask[:,:,1:-1,1:-1] * (h - sample_z_cond[:,:,1:-1,1:-1]))
+                    loss_bound_z = torch.mean(
+                        self.loss_function(sample_z_mask[:,:,1:-1,1:-1] * (z - sample_z_cond[:,:,1:-1,1:-1]))
                         ,dim=1
                     )
 
-                    loss_bound_grad_h = torch.mean(
-                        self.loss_function(sample_uv_mask[:,:,1:-1,1:-1] * grad_h)
+                    loss_bound_grad_z = torch.mean(
+                        self.loss_function(sample_uv_mask[:,:,1:-1,1:-1] * grad_z)
                         ,dim=1
                     )
 
@@ -216,7 +216,7 @@ class SplinePINNSolver:
                         ,dim=1
                     )
 
-                    loss_bound += loss_bound_h + loss_bound_grad_h + loss_bound_u + loss_bound_v
+                    loss_bound += loss_bound_z + loss_bound_grad_z + loss_bound_u + loss_bound_v
 
                     # h-loss
                     loss_h += torch.mean(self.loss_function(
