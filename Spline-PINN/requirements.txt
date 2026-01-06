@@ -3,7 +3,6 @@
 matplotlib
 natsort
 numpy<2
-opencv-python
 statsmodels
 tensorboard
 torch
