@@ -376,7 +376,7 @@ class SplinePINNSolver:
         print(f"Loaded {self.params.net}: {date_time}, index: {index}")
 
         # Open a visualization window
-        window.set_data_range(1, 3)
+        window.set_data_range(-1, 1)
 
         # Simulation loop
         while window.is_open():
