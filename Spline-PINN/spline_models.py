@@ -49,14 +49,14 @@ class ShallowWaterModel(nn.Module):
 		self.output_scalar = self.output_scalar.to(torch_device)
 		return self
 	
-	def forward(self, hidden_state, z_cond, z_mask, uv_cond, uv_mask):
+	def forward(self, hidden_state, h_cond, h_mask, uv_cond, uv_mask):
 		"""
 		:hidden_state: old hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
 		:v_cond: velocity (dirichlet) conditions on boundaries (average value within cell): bs x 2 x w x h
 		:v_mask: mask for boundary conditions (average value within cell): bs x 1 x w x h
 		:return: new hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
 		"""
-		x = torch.cat([z_cond, z_mask, uv_cond, uv_mask],dim=1)
+		x = torch.cat([h_cond, h_mask, uv_cond, uv_mask],dim=1)
 		
 		x = self.interpol(x)
 		

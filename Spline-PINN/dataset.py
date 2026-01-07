@@ -40,7 +40,7 @@ class Dataset:
 
         # Variables in this dataset
         self.variables = SplineArray(
-            SplineVariable("z", 1, requires_derivative=True),
+            SplineVariable("h", 1, requires_derivative=True),                           # h describes the zero-meaned surface height, on top of H0
             SplineVariable("u", 1, requires_derivative=True, requires_laplacian=True),
             SplineVariable("v", 1, requires_derivative=True, requires_laplacian=True),
             device=self.device
@@ -55,14 +55,13 @@ class Dataset:
         )
 
         # Boundary conditions and masking
-        self.h0 = 2 # TODO: Could this function as the H0 in saltmarsh?
-        self.z_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
-        self.z_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.h_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.h_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
         self.uv_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
         self.uv_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
 
-        self.z_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
-        self.z_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
+        self.h_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
+        self.h_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.uv_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.uv_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
 
@@ -124,7 +123,7 @@ class Dataset:
         self.hidden_states[indices, :, :, :] = 0
 
         # BC: h holds around the entire frame
-        self.z_mask_fullres[indices] = 0 # Initially we don't impose BCs on z anywhere in the domain
+        self.h_mask_fullres[indices] = 0 # Initially we don't impose conditions on h anywhere in the domain
 
         self.uv_mask_fullres[indices] = 1
         self.uv_mask_fullres[indices, :, self.padding:-self.padding, self.padding:-self.padding] = 0 # Zero normal flow (no passthrough) + zero slip condition on both u and v
@@ -158,18 +157,18 @@ class Dataset:
                 # obstabcles (oscillators)
                 for x in [0]:#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
                     for y in [0]:#[-45,-15,15,45]:
-                        self.z_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
+                        self.h_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
 
                 # Set the masks and conditions
-                self.z_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
-                self.z_cond_fullres[group_indices] *= self.z_mask_fullres[group_indices]
+                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
+                self.h_cond_fullres[group_indices] *= self.h_mask_fullres[group_indices]
 
         for typename in grouping.keys():
             reset_all_of_type(typename, grouping[typename])
     
         # Average pooling to create downsampled versions of the BCs
-        self.z_cond[indices] = F.avg_pool2d(self.z_cond_fullres[indices],self.resolution_factor)
-        self.z_mask[indices] = F.avg_pool2d(self.z_mask_fullres[indices],self.resolution_factor)
+        self.h_cond[indices] = F.avg_pool2d(self.h_cond_fullres[indices],self.resolution_factor)
+        self.h_mask[indices] = F.avg_pool2d(self.h_mask_fullres[indices],self.resolution_factor)
         self.uv_cond[indices] = F.avg_pool2d(self.uv_cond_fullres[indices],self.resolution_factor)
         self.uv_mask[indices] = F.avg_pool2d(self.uv_mask_fullres[indices],self.resolution_factor)
 
@@ -197,15 +196,15 @@ class Dataset:
             # OSCILLATOR
             #
             if typename == "oscillator":
-                self.z_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
-                self.z_cond_fullres[group_indices] *= self.z_mask_fullres[group_indices]
+                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
+                self.h_cond_fullres[group_indices] *= self.h_mask_fullres[group_indices]
 
         for typename in grouping.keys():
             reset_all_of_type(typename, grouping[typename])
     
         # Average pooling to create downsampled versions of the BCs
-        self.z_cond[indices] = F.avg_pool2d(self.z_cond_fullres[indices],self.resolution_factor)
-        self.z_mask[indices] = F.avg_pool2d(self.z_mask_fullres[indices],self.resolution_factor)
+        self.h_cond[indices] = F.avg_pool2d(self.h_cond_fullres[indices],self.resolution_factor)
+        self.h_mask[indices] = F.avg_pool2d(self.h_mask_fullres[indices],self.resolution_factor)
         self.uv_cond[indices] = F.avg_pool2d(self.uv_cond_fullres[indices],self.resolution_factor)
         self.uv_mask[indices] = F.avg_pool2d(self.uv_mask_fullres[indices],self.resolution_factor)
         
@@ -240,8 +239,8 @@ class Dataset:
 
         # Compute grid offsets and sample BCs
         grid_offsets = []
-        sample_z_cond = []
-        sample_z_mask = []
+        sample_h_cond = []
+        sample_h_mask = []
         sample_uv_cond = []
         sample_uv_mask = []
 
@@ -254,28 +253,28 @@ class Dataset:
             x_offset = min(int(self.resolution_factor*offset[0]),self.resolution_factor-1) # TODO: Isn't this just the same as floor(self.resolution_factor*offset[0])?
             y_offset = min(int(self.resolution_factor*offset[1]),self.resolution_factor-1)
 
-            sample_z_cond.append(self.z_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
-            sample_z_mask.append(self.z_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
+            sample_h_cond.append(self.h_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
+            sample_h_mask.append(self.h_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
             sample_uv_cond.append(self.uv_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
             sample_uv_mask.append(self.uv_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
 
         # Move all data to the desired device
         for i in range(self.n_samples):
             grid_offsets[i] = grid_offsets[i].to(self.device)
-            sample_z_cond[i] = sample_z_cond[i].to(self.device)
-            sample_z_mask[i] = sample_z_mask[i].to(self.device)
+            sample_h_cond[i] = sample_h_cond[i].to(self.device)
+            sample_h_mask[i] = sample_h_mask[i].to(self.device)
             sample_uv_cond[i] = sample_uv_cond[i].to(self.device)
             sample_uv_mask[i] = sample_uv_mask[i].to(self.device)
 
         # Return the hidden states and boundary conditions after moving them to the desired device
         return self.hidden_states[self.asked_indices].to(self.device), \
-                self.z_cond[self.asked_indices].to(self.device), \
-                self.z_mask[self.asked_indices].to(self.device), \
+                self.h_cond[self.asked_indices].to(self.device), \
+                self.h_mask[self.asked_indices].to(self.device), \
                 self.uv_cond[self.asked_indices].to(self.device), \
                 self.uv_mask[self.asked_indices].to(self.device), \
                 grid_offsets, \
-                sample_z_cond, \
-                sample_z_mask, \
+                sample_h_cond, \
+                sample_h_mask, \
                 sample_uv_cond, \
                 sample_uv_mask
     
@@ -313,8 +312,8 @@ class Dataset:
         """
 
         # z field: requires first derivative
-        old_z, old_grad_z, _ = self.variables["z"].interpolate_at(self.variables.extract_from(old_hidden_states, "z"), offset[:2])
-        new_z, new_grad_z, _ = self.variables["z"].interpolate_at(self.variables.extract_from(new_hidden_states, "z"), offset[:2])
+        old_h, old_grad_h, _ = self.variables["h"].interpolate_at(self.variables.extract_from(old_hidden_states, "h"), offset[:2])
+        new_h, new_grad_h, _ = self.variables["h"].interpolate_at(self.variables.extract_from(new_hidden_states, "h"), offset[:2])
 
         # u field: requires first derivative + laplace
         old_u, old_grad_u, old_laplace_u = self.variables["u"].interpolate_at(self.variables.extract_from(old_hidden_states, "u"), offset[:2])
@@ -325,9 +324,9 @@ class Dataset:
         new_v, new_grad_v, new_laplace_v = self.variables["v"].interpolate_at(self.variables.extract_from(new_hidden_states, "v"), offset[:2])
 
         # First order interpolation in time
-        z = (1-offset[2])*old_z + offset[2]*new_z
-        grad_z = (1-offset[2])*old_grad_z + offset[2]*new_grad_z
-        dz_dt = (new_z - old_z) / self.params.dt
+        h = (1-offset[2])*old_h + offset[2]*new_h
+        grad_h = (1-offset[2])*old_grad_h + offset[2]*new_grad_h
+        dh_dt = (new_h - old_h) / self.params.dt
 
         u = (1-offset[2])*old_u + offset[2]*new_u
         grad_u = (1-offset[2])*old_grad_u + offset[2]*new_grad_u
@@ -339,7 +338,7 @@ class Dataset:
         laplace_v = (1-offset[2])*old_laplace_v + offset[2]*new_laplace_v
         dv_dt = (new_v - old_v) / self.params.dt
         
-        return z, grad_z, dz_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt
+        return h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt
     
 
     def interpolate_superres(self, hidden_states, resolution_factor):
@@ -355,7 +354,7 @@ class Dataset:
         """
 
         # h field: requires first derivative
-        z, grad_z, _ = self.variables["z"].interpolate_superres_at(self.variables.extract_from(hidden_states, "z"), resolution_factor)
+        h, grad_h, _ = self.variables["h"].interpolate_superres_at(self.variables.extract_from(hidden_states, "h"), resolution_factor)
 
         # u field: requires first derivative + laplace
         u, grad_u, laplace_u = self.variables["u"].interpolate_superres_at(self.variables.extract_from(hidden_states, "u"), resolution_factor)
@@ -363,4 +362,4 @@ class Dataset:
         # v field: requires first derivative + laplace
         v, grad_v, laplace_v = self.variables["v"].interpolate_superres_at(self.variables.extract_from(hidden_states, "v"), resolution_factor)
 
-        return z, grad_z, u, grad_u, laplace_u, v, grad_v, laplace_v
+        return h, grad_h, u, grad_u, laplace_u, v, grad_v, laplace_v
