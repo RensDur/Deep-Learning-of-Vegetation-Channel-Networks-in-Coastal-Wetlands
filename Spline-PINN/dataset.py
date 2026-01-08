@@ -175,7 +175,7 @@ class Dataset:
         # Create sponge BCs by applying a gradient in the boundary
         conv_kernel = torch.tensor([[0, 0.25, 0],
                                     [0.25, 0, 0.25],
-                                    [0, 0.25, 0]], device=self.device).view(1, 1, 3, 3)
+                                    [0, 0.25, 0]]).view(1, 1, 3, 3)
         
         for _ in range(2):
             self.h_mask_fullres[indices] = 1-F.conv2d(1-self.h_mask_fullres[indices], conv_kernel, padding=1)
