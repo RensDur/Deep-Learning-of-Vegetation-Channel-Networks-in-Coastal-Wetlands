@@ -19,7 +19,7 @@ class Dataset:
         self.width_fullres = self.resolution_factor * self.width
         self.height_fullres = self.resolution_factor * self.height
 
-        self.padding = 4
+        self.padding = 5
         self.padding_fullres = self.padding * self.resolution_factor
 
         self.dx = params.separation
@@ -177,7 +177,7 @@ class Dataset:
                                     [0.25, 0, 0.25],
                                     [0, 0.25, 0]]).view(1, 1, 3, 3)
         
-        for _ in range(2):
+        for _ in range(1):
             self.h_mask_fullres[indices] = 1-F.conv2d(1-self.h_mask_fullres[indices], conv_kernel, padding=1)
             self.uv_mask_fullres[indices] = 1-F.conv2d(1-self.uv_mask_fullres[indices], conv_kernel, padding=1)
     
@@ -310,6 +310,7 @@ class Dataset:
         
         if self.warmup_t == self.warmup_reset_at:
             self.reset(self.asked_indices)
+            self.warmup_t = 0
             self.warmup_reset_at *= 2 # We reset the entire batch every 1, 2, 4, 8, 16, 32, ..., 128, ..., 1024 iterations
 
 
