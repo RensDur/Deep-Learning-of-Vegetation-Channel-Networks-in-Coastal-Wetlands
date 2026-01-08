@@ -141,6 +141,9 @@ class SplinePINNSolver:
             plt.show()
 
 
+        damp_loss_factor = 100
+
+
         # Training loop:
         # Start from the most recently finished epoch and train until the configured number
         # of epochs has been reached.
@@ -159,6 +162,7 @@ class SplinePINNSolver:
                 loss_h = 0
                 loss_u = 0
                 loss_v = 0
+                loss_damp = 0
 
                 # Go over each sample
                 for j, sample in enumerate(grid_offsets):
@@ -188,42 +192,55 @@ class SplinePINNSolver:
                     #
 
                     # h condition loss
-                    loss_bound_h = torch.mean(
-                        self.loss_function(sample_h_mask[:,:,1:-1,1:-1] * (h - sample_h_cond[:,:,1:-1,1:-1]))
-                        ,dim=1
-                    )
+                    loss_bound_h = torch.mean(sample_h_mask[:,:,1:-1,1:-1] * self.loss_function(
+                        h - sample_h_cond[:,:,1:-1,1:-1]
+                    ), dim=1)
 
                     # Boundary condition loss
-                    loss_bound_grad_h = torch.mean(
-                        self.loss_function(sample_uv_mask[:,:,1:-1,1:-1] * grad_h)
-                        ,dim=1
-                    )
+                    loss_bound_grad_h = torch.mean(sample_uv_mask[:,:,1:-1,1:-1] * self.loss_function(
+                        grad_h
+                    ), dim=1)
 
-                    loss_bound_u = torch.mean(
-                        self.loss_function(sample_uv_mask[:,:,1:-1,1:-1] * (u - sample_uv_cond[:,:,1:-1,1:-1]))
-                        ,dim=1
-                    )
+                    loss_bound_grad_u = torch.mean(sample_uv_mask[:,:,1:-1,1:-1] * self.loss_function(
+                        grad_u
+                    ), dim=1)
 
-                    loss_bound_v = torch.mean(
-                        self.loss_function(sample_uv_mask[:,:,1:-1,1:-1] * (v - sample_uv_cond[:,:,1:-1,1:-1]))
-                        ,dim=1
-                    )
+                    loss_bound_grad_v = torch.mean(sample_uv_mask[:,:,1:-1,1:-1] * self.loss_function(
+                        grad_v
+                    ), dim=1)
 
-                    loss_bound += loss_bound_h + loss_bound_grad_h + loss_bound_u + loss_bound_v
+                    loss_bound_u = torch.mean(sample_uv_mask[:,:,1:-1,1:-1] * self.loss_function(
+                        u - sample_uv_cond[:,:,1:-1,1:-1]
+                    ), dim=1)
+
+                    loss_bound_v = torch.mean(sample_uv_mask[:,:,1:-1,1:-1] * self.loss_function(
+                        v - sample_uv_cond[:,:,1:-1,1:-1]
+                    ), dim=1)
+
+                    loss_bound += loss_bound_h + loss_bound_grad_h + loss_bound_grad_u + loss_bound_grad_v + loss_bound_u + loss_bound_v
 
                     # h-loss
-                    loss_h += torch.mean(self.loss_function(
+                    loss_h += torch.mean(sample_h_domain_mask[:,:,1:-1,1:-1] * self.loss_function(
                         dh_dt + (grad_u[:,0:1] + grad_v[:,1:2]) * (h + self.params.H0) + (grad_h[:,0:1]*u + grad_h[:,1:2]*v) + self.params.epsilon * h
                     ), dim=1)
 
                     # Momentum loss
-                    loss_u += torch.mean(self.loss_function(
+                    loss_u += torch.mean(sample_uv_domain_mask[:,:,1:-1,1:-1] * self.loss_function(
                         du_dt - self.params.nu * laplace_u + self.params.grav * grad_h[:,0:1] + self.params.k_epsilon*u + u * grad_u[:,0:1] + v * grad_u[:,1:2]
                     ), dim=1)
 
-                    loss_v += torch.mean(self.loss_function(
+                    loss_v += torch.mean(sample_uv_domain_mask[:,:,1:-1,1:-1] * self.loss_function(
                         dv_dt - self.params.nu * laplace_v + self.params.grav * grad_h[:,1:2] + self.params.k_epsilon*v + u * grad_v[:,0:1] + v * grad_v[:,1:2]
                     ), dim=1)
+
+                    # Damping loss
+                    loss_damp_h = torch.mean(self.loss_function(grad_h), dim=1)
+                    loss_damp_u = torch.mean(self.loss_function(u), dim=1)
+                    loss_damp_v = torch.mean(self.loss_function(v), dim=1)
+
+                    loss_damp += damp_loss_factor * (loss_damp_h + loss_damp_u + loss_damp_v)
+
+                    damp_loss_factor /= 2
 
                 # Multiply by the loss weights
                 loss_bound *= self.params.loss_bound
@@ -236,6 +253,7 @@ class SplinePINNSolver:
                 loss_h /= self.params.n_samples
                 loss_u /= self.params.n_samples
                 loss_v /= self.params.n_samples
+                loss_damp /= self.params.n_samples
 
 
                 # If configured, compute log loss
@@ -251,7 +269,7 @@ class SplinePINNSolver:
                 # print(f"loss_v = {loss_bound}")
 
                 # Combine the losses to create a loss_tensor image
-                loss_tensor = loss_bound + loss_h + loss_u + loss_v
+                loss_tensor = loss_bound + loss_h + loss_u + loss_v + loss_damp
 
                 # Compute total loss value
                 loss_total = torch.mean(loss_tensor)
@@ -260,7 +278,8 @@ class SplinePINNSolver:
                 pcgrad_losses = [
                     torch.mean(loss_bound),
                     torch.mean(loss_h),
-                    torch.mean(loss_u + loss_v) # Combine momentum loss terms
+                    torch.mean(loss_u + loss_v), # Combine momentum loss terms
+                    torch.mean(loss_damp)
                 ]
 
                 # Reset old gradients to 0 and compute new gradients with backpropagation

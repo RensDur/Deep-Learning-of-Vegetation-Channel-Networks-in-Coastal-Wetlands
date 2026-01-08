@@ -79,6 +79,8 @@ class Dataset:
         # Environment resetting
         self.t = 0
         self.i = 0
+        self.warmup_t = 0
+        self.warmup_reset_at = 1
 
         # Reset all environments
         print("Resetting all environments")
@@ -158,6 +160,7 @@ class Dataset:
                 for x in [0]:#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
                     for y in [0]:#[-45,-15,15,45]:
                         self.h_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
+                        self.uv_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
 
                 # Set the masks and conditions
                 self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
@@ -289,6 +292,14 @@ class Dataset:
         if self.t % int(self.average_sequence_length/self.batch_size) == 0:#ca x*batch_size steps until env gets reset
             self.reset(int(self.i))
             self.i = (self.i+1)%self.dataset_size
+
+        # Warming up: We reset the entire batch with increasing interval at the start of training
+        self.warmup_t += 1
+        
+        if self.warmup_t == self.warmup_reset_at:
+            self.reset(self.asked_indices)
+            self.warmup_reset_at *= 2 # We reset the entire batch every 1, 2, 4, 8, 16, 32, ..., 128, ..., 1024 iterations
+
 
 
 
