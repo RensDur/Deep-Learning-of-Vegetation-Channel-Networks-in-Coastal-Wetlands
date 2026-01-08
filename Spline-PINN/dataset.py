@@ -126,9 +126,11 @@ class Dataset:
 
         # BC: h holds around the entire frame
         self.h_mask_fullres[indices] = 0 # Initially we don't impose conditions on h anywhere in the domain
-
+        
         self.uv_mask_fullres[indices] = 1
-        self.uv_mask_fullres[indices, :, self.padding:-self.padding, self.padding:-self.padding] = 0 # Zero normal flow (no passthrough) + zero slip condition on both u and v
+        self.uv_mask_fullres[indices, :, self.padding:-self.padding, self.padding:-self.padding] = 0
+
+        # Velocity condition zero
         self.uv_cond_fullres[indices] = 0
 
         # Randomly choose a new type for each environment
@@ -168,6 +170,16 @@ class Dataset:
 
         for typename in grouping.keys():
             reset_all_of_type(typename, grouping[typename])
+
+        # Soften the transition planes
+        # Create sponge BCs by applying a gradient in the boundary
+        conv_kernel = torch.tensor([[0, 0.25, 0],
+                                    [0.25, 0, 0.25],
+                                    [0, 0.25, 0]], device=self.device).view(1, 1, 3, 3)
+        
+        for _ in range(2):
+            self.h_mask_fullres[indices] = 1-F.conv2d(1-self.h_mask_fullres[indices], conv_kernel, padding=1)
+            self.uv_mask_fullres[indices] = 1-F.conv2d(1-self.uv_mask_fullres[indices], conv_kernel, padding=1)
     
         # Average pooling to create downsampled versions of the BCs
         self.h_cond[indices] = F.avg_pool2d(self.h_cond_fullres[indices],self.resolution_factor)
