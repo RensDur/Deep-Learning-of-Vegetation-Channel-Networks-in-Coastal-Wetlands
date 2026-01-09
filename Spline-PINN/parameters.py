@@ -20,12 +20,12 @@ def params():
 	
 	# Training parameters
 	parser.add_argument('--n_epochs', default=100000, type=int, help='number of epochs (after each epoch, the model gets saved)')
-	parser.add_argument('--n_batches_per_epoch', default=10000, type=int, help='number of batches per epoch (default: 10000)')
-	parser.add_argument('--batch_size', default=50, type=int, help='batch size (default: 30)')
+	parser.add_argument('--n_batches_per_epoch', default=1000, type=int, help='number of batches per epoch (default: 10000)')
+	parser.add_argument('--batch_size', default=75, type=int, help='batch size (default: 30)')
 	parser.add_argument('--n_samples', default=10, type=int, help='number of samples (different offsets) per batch (default: 10)')
 	parser.add_argument('--dataset_size', default=1000, type=int, help='size of dataset (default: 1000)')
 	parser.add_argument('--average_sequence_length', default=5000, type=int, help='average sequence length in dataset (default: 5000)')
-	parser.add_argument('--resolution_factor', default=1, type=int, help='resolution factor for superres / kernels (default: 8)')
+	parser.add_argument('--resolution_factor', default=2, type=int, help='resolution factor for superres / kernels (default: 8)')
 
 	parser.add_argument('--loss_bound', default=1e2, type=float, help='loss factor for boundary conditions')
 	parser.add_argument('--loss_bound_uv', default=1, type=float, help='loss factor for boundary conditions flowvelocity')
