@@ -35,13 +35,14 @@ class ShallowWaterModel(nn.Module):
 		self.interpol = nn.Conv2d(input_size,interpolation_size,kernel_size=2) # interpolate v_cond (2) and v_mask (1) from 4 surrounding fields
 		self.conv1 = nn.Conv2d(self.hidden_state_size+interpolation_size, self.hidden_size,kernel_size=3,padding=1) # input: hidden_state + interpolation of v_cond and v_mask
 		self.conv2 = nn.Conv2d(self.hidden_size, self.hidden_size,kernel_size=3,padding=1) # input: hidden_state + interpolation of v_cond and v_mask
+		self.conv25 = nn.Conv2d(self.hidden_size, self.hidden_size,kernel_size=3,padding=1) # input: hidden_state + interpolation of v_cond and v_mask
 		self.conv3 = nn.Conv2d(self.hidden_size, self.hidden_state_size,kernel_size=3,padding=1) # input: hidden_state + interpolation of v_cond and v_mask
 
 		# The hidden size is 3*9=27
 		self.output_scalar = torch.Tensor([
-			5, 0.5, 0.5, 0.5,
-			5, 0.5, 0.5, 0.5,
-			5, 0.5, 0.5, 0.5,
+			5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5,
+			5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5,
+			5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5,
 		]).unsqueeze(0).unsqueeze(2).unsqueeze(3)
 
 	def to(self, torch_device):
@@ -62,6 +63,7 @@ class ShallowWaterModel(nn.Module):
 		
 		x = torch.cat([hidden_state,x],dim=1)
 		x = torch.relu(self.conv1(x))
+		# x = torch.relu(self.conv25(x))
 		x = torch.relu(self.conv2(x))
 		out = self.conv3(x)
 		
