@@ -141,7 +141,7 @@ class SplinePINNSolver:
             plt.show()
 
 
-        damp_loss_factor = 100
+        damp_loss_factor = 1000
 
 
         # Training loop:
@@ -240,7 +240,7 @@ class SplinePINNSolver:
 
                     loss_damp += damp_loss_factor * (loss_damp_h + loss_damp_u + loss_damp_v)
 
-                    damp_loss_factor /= 2
+                damp_loss_factor *= 0.9
 
                 # Multiply by the loss weights
                 loss_bound *= self.params.loss_bound
@@ -269,16 +269,17 @@ class SplinePINNSolver:
                 # print(f"loss_v = {loss_bound}")
 
                 # Combine the losses to create a loss_tensor image
-                loss_tensor = loss_bound + loss_h + loss_u + loss_v + loss_damp
+                loss_tensor = loss_h + loss_u + loss_v + loss_bound + loss_damp
 
                 # Compute total loss value
                 loss_total = torch.mean(loss_tensor)
 
                 # For backprop using PCGrad, construct each loss term
                 pcgrad_losses = [
-                    torch.mean(loss_bound),
                     torch.mean(loss_h),
-                    torch.mean(loss_u + loss_v), # Combine momentum loss terms
+                    torch.mean(loss_u),
+                    torch.mean(loss_v),
+                    torch.mean(loss_bound),
                     torch.mean(loss_damp)
                 ]
 
