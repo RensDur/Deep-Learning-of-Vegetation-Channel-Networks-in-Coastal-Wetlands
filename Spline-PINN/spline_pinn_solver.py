@@ -41,6 +41,8 @@ class SplinePINNSolver:
         self.kernel_x = self.kernel.unsqueeze(0).unsqueeze(1).unsqueeze(3).to(self.device)
         self.kernel_y = self.kernel.unsqueeze(0).unsqueeze(1).unsqueeze(2).to(self.device)
 
+        self.damp_loss_factor = 1000
+
     def diffuse(self, T):
         """
         Needed to put extra weight on domain borders
@@ -395,14 +397,19 @@ class SplinePINNSolver:
             # Predict the new domain state by performing a forward pass through the network
             new_hidden_state = self.net(old_hidden_state, h_cond, h_mask, uv_cond, uv_mask)
 
+            loss_h, loss_u, loss_v, loss_bound, loss_damp = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks)
+
             # Interpolate spline coefficients to obtain the necessary quantities
             h, grad_h, u, grad_u, laplace_u, v, grad_v, laplace_v = self.dataset.interpolate_superres(new_hidden_state, self.params.resolution_factor)
 
             # Store the newly obtained result in the dataset
             self.dataset.tell(new_hidden_state)
 
+            h = torch.zeros_like(h[0, 0])
+            h[1:-1, 1:-1] = loss_h[0]
+
             # Display water level thickness h
-            h = h[0, 0].clone()
+            # h = loss_h[0].clone()
             # h = h - torch.min(h)
             # h = h / torch.max(h)
             h = h.detach().cpu().numpy()
