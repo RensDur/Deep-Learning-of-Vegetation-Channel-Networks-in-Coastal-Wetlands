@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 import numpy as np
+import math
 from spline.spline_variable import SplineVariable
 from spline.spline_array import SplineArray
 
@@ -67,13 +68,13 @@ class Dataset:
 
         # Environment information
         self.types = [
-            "rest-lake",
+            # "rest-lake",
             "oscillator",
             # "multiple-oscillators"
         ]
 
         self.env_type = np.random.choice(self.types, self.dataset_size)
-        self.env_seed = 1000 * torch.rand(self.dataset_size)
+        self.env_seed = 2.0 * math.pi * torch.floor(1000 * torch.rand(self.dataset_size))
         self.env_time = torch.zeros(self.dataset_size)
 
         # Environment resetting
@@ -125,7 +126,8 @@ class Dataset:
         self.hidden_states[indices, :, :, :] = 0
 
         # BC: h holds around the entire frame
-        self.h_mask_fullres[indices] = 0 # Initially we don't impose conditions on h anywhere in the domain
+        self.h_mask_fullres[indices] = 1
+        self.h_mask_fullres[indices, :, self.padding:-self.padding, self.padding:-self.padding] = 0
         
         self.uv_mask_fullres[indices] = 1
         self.uv_mask_fullres[indices, :, self.padding:-self.padding, self.padding:-self.padding] = 0
@@ -135,7 +137,7 @@ class Dataset:
 
         # Randomly choose a new type for each environment
         self.env_type[indices] = np.random.choice(self.types, indices.shape)
-        self.env_seed[indices] = 1000 * torch.rand(indices.shape)
+        self.env_seed[indices] = 2.0 * math.pi * torch.floor(1000 * torch.rand(indices.shape))
         self.env_time[indices] = torch.zeros(indices.shape)
 
         # Group environments by their type [Groups are guaranteed to be non-empty]
@@ -173,13 +175,13 @@ class Dataset:
 
         # Soften the transition planes
         # Create sponge BCs by applying a gradient in the boundary
-        conv_kernel = torch.tensor([[0, 0.25, 0],
-                                    [0.25, 0, 0.25],
-                                    [0, 0.25, 0]]).view(1, 1, 3, 3)
+        # conv_kernel = torch.tensor([[0, 0.25, 0],
+        #                             [0.25, 0, 0.25],
+        #                             [0, 0.25, 0]]).view(1, 1, 3, 3)
         
-        for _ in range(1):
-            self.h_mask_fullres[indices] = 1-F.conv2d(1-self.h_mask_fullres[indices], conv_kernel, padding=1)
-            self.uv_mask_fullres[indices] = 1-F.conv2d(1-self.uv_mask_fullres[indices], conv_kernel, padding=1)
+        # for _ in range(1):
+        #     self.h_mask_fullres[indices] = 1-F.conv2d(1-self.h_mask_fullres[indices], conv_kernel, padding=1)
+        #     self.uv_mask_fullres[indices] = 1-F.conv2d(1-self.uv_mask_fullres[indices], conv_kernel, padding=1)
     
         # Average pooling to create downsampled versions of the BCs
         self.h_cond[indices] = F.avg_pool2d(self.h_cond_fullres[indices],self.resolution_factor)
@@ -224,7 +226,7 @@ class Dataset:
         self.uv_mask[indices] = F.avg_pool2d(self.uv_mask_fullres[indices],self.resolution_factor)
         
         # Update the time for each environment
-        self.env_time[indices] += 0.01
+        self.env_time[indices] += math.pi / 1000.0
         
 
     def ask(self):
