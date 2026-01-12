@@ -30,6 +30,17 @@ class SplineArray:
 
 		return None
 	
+	def get_singular_slice_for(self, varname, offset=0):
+		start = 0
+
+		for v in self.variables:
+			if varname == v.get_name():
+				return slice(start + offset, start + offset + 1)
+			
+			start += v.hidden_size()
+
+		return None
+	
 	def extract_from(self, hidden_states, varname):
 		return hidden_states[:, self.get_slice_for(varname)]
 

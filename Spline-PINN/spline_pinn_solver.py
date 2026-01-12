@@ -30,7 +30,7 @@ class SplinePINNSolver:
         #
         # Torch model
         #
-        self.net = get_Net(params, self.dataset.hidden_size()).to(self.device)
+        self.net = get_Net(params, self.dataset.variables).to(self.device)
 
         #
         # Diffusion operation (needed, if we want to put more loss-weight to regions close to the domain boundaries)
