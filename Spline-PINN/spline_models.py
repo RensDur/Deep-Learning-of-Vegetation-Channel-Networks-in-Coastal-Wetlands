@@ -104,9 +104,9 @@ class ShallowWaterUNet(nn.Module):
 
 		self.output_scalar = torch.ones(1, self.hidden_state_size, 1, 1)*2
 
-		self.output_scalar[:,spline_variables.get_singular_slice_for("h"),:,:] = 400
-		self.output_scalar[:,spline_variables.get_singular_slice_for("u"),:,:] = 400
-		self.output_scalar[:,spline_variables.get_singular_slice_for("v"),:,:] = 400
+		self.output_scalar[:,spline_variables.get_singular_slice_for("h"),:,:] = 50
+		self.output_scalar[:,spline_variables.get_singular_slice_for("u"),:,:] = 50
+		self.output_scalar[:,spline_variables.get_singular_slice_for("v"),:,:] = 50
 
 	def to(self, torch_device):
 		super(ShallowWaterUNet, self).to(torch_device)
