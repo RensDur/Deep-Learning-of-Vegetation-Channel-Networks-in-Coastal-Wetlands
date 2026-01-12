@@ -304,7 +304,7 @@ class SplinePINNSolver:
                 # Plotting and logging
                 #
 
-                if i % 10 == 0 or True:
+                if i % 10 == 0:
 
                     print(f"Epoch {epoch}/{self.params.n_epochs}, iteration {i}")
 
@@ -319,8 +319,8 @@ class SplinePINNSolver:
                         loss_v = float(torch.mean(loss_v).detach().cpu().numpy())
                         loss_bound = float(torch.mean(loss_bound).detach().cpu().numpy())
 
-                        # loss_tensor -= np.min(loss_tensor)
-                        # loss_tensor /= np.max(loss_tensor)
+                        loss_tensor -= np.min(loss_tensor)
+                        loss_tensor /= np.max(loss_tensor)
 
                         plot_loss_image.set_data(loss_tensor)
 
