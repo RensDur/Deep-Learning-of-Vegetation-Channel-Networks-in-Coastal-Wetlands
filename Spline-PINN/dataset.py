@@ -68,7 +68,7 @@ class Dataset:
 
         # Environment information
         self.types = [
-            # "rest-lake",
+            "rest-lake",
             "oscillator",
             # "multiple-oscillators"
         ]
