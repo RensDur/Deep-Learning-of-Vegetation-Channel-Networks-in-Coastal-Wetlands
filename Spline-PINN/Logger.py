@@ -15,7 +15,7 @@ import pickle
 
 class Logger():
 	
-	def __init__(self,name,datetime=None,use_csv=True,use_tensorboard=False):
+	def __init__(self,name,datetime=None,use_csv=True,use_tensorboard=False, device=torch.device("cpu")):
 		"""
 		Logger logs metrics to CSV files / tensorboard
 		:name: logging name (e.g. model name / dataset name / ...)
@@ -24,6 +24,8 @@ class Logger():
 		:use_tensorboard: log output to tensorboard
 		"""
 		self.name = name
+		self.device = device
+
 		if datetime:
 			self.datetime=datetime
 		else:
@@ -191,7 +193,7 @@ class Logger():
 				break
 		
 		path = 'Logger/{}/{}/states/{}.state'.format(self.name,datetime,index)
-		state = torch.load(path)
+		state = torch.load(path, map_location=self.device)
 		
 		if type(model) is not list:
 			model = [model]
