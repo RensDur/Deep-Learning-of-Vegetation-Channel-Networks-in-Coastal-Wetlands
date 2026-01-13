@@ -168,7 +168,7 @@ class Dataset:
 
                 # Set the masks and conditions
                 self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
-                self.h_cond_fullres[group_indices] *= self.h_mask_fullres[group_indices]
+                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
             #
             # RANDOMLY PLACED OSCILLATOR
@@ -182,7 +182,7 @@ class Dataset:
 
                 # Set the masks and conditions
                 self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
-                self.h_cond_fullres[group_indices] *= self.h_mask_fullres[group_indices]
+                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
             #
             # RANDOMLY PLACED OSCILLATOR
@@ -196,7 +196,7 @@ class Dataset:
 
                 # Set the masks and conditions
                 self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
-                self.h_cond_fullres[group_indices] *= self.h_mask_fullres[group_indices]
+                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
             #
             # REFLECTION
@@ -211,7 +211,7 @@ class Dataset:
 
                 # Set the masks and conditions
                 self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
-                self.h_cond_fullres[group_indices] *= self.h_mask_fullres[group_indices]
+                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
                 # We install a barrier starting in the top-center going towards the middle of the domain of thickness 10
                 barrier_thickness = 10
@@ -219,7 +219,7 @@ class Dataset:
 
                 # Set the masks and conditions
                 self.uv_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
-                self.uv_cond_fullres[group_indices] *= self.h_mask_fullres[group_indices]
+                self.uv_cond_fullres[group_indices] = self.uv_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
         for typename in grouping.keys():
             reset_all_of_type(typename, grouping[typename])
@@ -265,7 +265,7 @@ class Dataset:
             #
             if typename == "oscillator" or typename == "random-oscillator" or typename == "multiple-random-oscillator" or typename == "reflection":
                 self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
-                self.h_cond_fullres[group_indices] *= self.h_mask_fullres[group_indices]
+                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
         for typename in grouping.keys():
             reset_all_of_type(typename, grouping[typename])
@@ -277,7 +277,7 @@ class Dataset:
         self.uv_mask[indices] = F.avg_pool2d(self.uv_mask_fullres[indices],self.resolution_factor)
         
         # Update the time for each environment
-        self.env_time[indices] += math.pi / 1000.0
+        self.env_time[indices] = self.env_time[indices] + math.pi / 1000.0
         
 
     def ask(self):

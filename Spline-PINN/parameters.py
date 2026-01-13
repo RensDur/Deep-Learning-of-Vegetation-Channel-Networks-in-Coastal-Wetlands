@@ -25,7 +25,7 @@ def params():
 	parser.add_argument('--n_samples', default=10, type=int, help='number of samples (different offsets) per batch (default: 10)')
 	parser.add_argument('--dataset_size', default=1000, type=int, help='size of dataset (default: 1000)')
 	parser.add_argument('--average_sequence_length', default=5000, type=int, help='average sequence length in dataset (default: 5000)')
-	parser.add_argument('--resolution_factor', default=1, type=int, help='resolution factor for superres / kernels (default: 8)')
+	parser.add_argument('--resolution_factor', default=8, type=int, help='resolution factor for superres / kernels (default: 8)')
 
 	parser.add_argument('--loss_bound', default=20, type=float, help='loss factor for boundary conditions')
 	parser.add_argument('--loss_bound_uv', default=1, type=float, help='loss factor for boundary conditions flowvelocity')
@@ -60,6 +60,7 @@ def params():
 	parser.add_argument("--wave_size", default=0.1, type=float, help="Wave height for SWE")
 	parser.add_argument("--epsilon", default=0.0001, type=float, help="Wave damping factor epsilon")
 	parser.add_argument("--k_epsilon", default=0.01, type=float, help="Wave damping factor k")
+	parser.add_argument("--f_epsilon", default=0.01, type=float, help="Wave damping factor f")
 	parser.add_argument("--nu", default=5, type=float, help="")
 	parser.add_argument('--grav', default=9.81, type=float, help="")
 	parser.add_argument('--rho', default=1000, type=float, help="Water density")

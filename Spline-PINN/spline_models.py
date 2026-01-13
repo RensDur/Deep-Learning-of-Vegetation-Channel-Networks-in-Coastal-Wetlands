@@ -10,7 +10,7 @@ def get_Net(params, spline_variables):
 		params.orders_p = params.orders_v = params.orders_z
 		net = wave_model(orders_v=[params.orders_v,params.orders_v],orders_p=[params.orders_p,params.orders_p],hidden_size=params.hidden_size,input_size=2,residuals=True)
 	elif params.net == "ShallowWaterModel":
-		net = ShallowWaterUNet(spline_variables, hidden_size=params.hidden_size)
+		net = ShallowWaterModel(spline_variables, hidden_size=params.hidden_size)
 	return net
 
 
@@ -40,8 +40,8 @@ class ShallowWaterModel(nn.Module):
 		# The hidden size is 3*9=27
 		self.output_scalar = torch.Tensor([
 			5, 0.5, 0.5, 0.5,
-			5, 0.5, 0.5, 0.5,
-			5, 0.5, 0.5, 0.5,
+			5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5,
+			5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5,
 		]).unsqueeze(0).unsqueeze(2).unsqueeze(3)
 
 	def to(self, torch_device):
