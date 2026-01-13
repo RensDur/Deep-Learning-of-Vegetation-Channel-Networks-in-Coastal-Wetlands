@@ -153,6 +153,14 @@ class SplinePINNSolver:
         loss_bound /= self.params.n_samples
         loss_damp /= self.params.n_samples
 
+        # Log loss (per term)
+        if self.params.log_loss:
+            loss_h = torch.log(loss_h + 0.0001) # Add small epsilon to prevent -inf loss due to log
+            loss_u = torch.log(loss_u + 0.0001)
+            loss_v = torch.log(loss_v + 0.0001)
+            loss_bound = torch.log(loss_bound + 0.0001)
+            loss_damp = torch.log(loss_damp + 0.0001)
+
         return loss_h, loss_u, loss_v, loss_bound, loss_damp
 
     def train(self):
