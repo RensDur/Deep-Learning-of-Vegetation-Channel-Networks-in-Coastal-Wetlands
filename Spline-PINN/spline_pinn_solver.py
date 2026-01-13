@@ -331,6 +331,12 @@ class SplinePINNSolver:
                         max_vram_reserved = round(max_vram_reserved, 2)
 
                     print(f"Epoch {epoch}/{self.params.n_epochs}, iteration {i}, loss {loss_total.detach().cpu().numpy()} \t RAM: {ram_usage}MB \t vRAM: {max_vram_allocated}/{max_vram_reserved} (MAX. allocated/reserved, MB)")
+                    print(f"Loss total: {loss_total.detach().cpu().numpy()}")
+                    print(f"Loss h: {torch.mean(loss_h).detach().cpu().numpy()}")
+                    print(f"Loss u: {torch.mean(loss_u).detach().cpu().numpy()}")
+                    print(f"Loss v: {torch.mean(loss_v).detach().cpu().numpy()}")
+                    print(f"Loss bound: {torch.mean(loss_bound).detach().cpu().numpy()}")
+                    print(f"Loss damp: {torch.mean(loss_damp).detach().cpu().numpy()}")
 
 
                     #
