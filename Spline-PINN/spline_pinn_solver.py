@@ -316,10 +316,10 @@ class SplinePINNSolver:
                     max_vram_allocated = None
                     max_vram_reserved = None
 
-                    if self.device == "cuda":
-                        max_vram_allocated = torch.cuda.memory.max_memory_allocated()
-                        max_vram_reserved = torch.cuda.memory.max_memory_reserved()
-                    print(f"Epoch {epoch}/{self.params.n_epochs}, iteration {i} \t RAM: {ram_usage}MB \t vRAM: {max_vram_allocated}/{max_vram_reserved} (MAX. allocated/reserved, MB)")
+                    if torch.cuda.is_available():
+                        max_vram_allocated = torch.cuda.memory.max_memory_allocated() / (1024 * 1024)
+                        max_vram_reserved = torch.cuda.memory.max_memory_reserved() / (1024 * 1024)
+                    print(f"Epoch {epoch}/{self.params.n_epochs}, iteration {i}, loss {loss_total.detach().cpu().numpy()} \t RAM: {ram_usage}MB \t vRAM: {max_vram_allocated}/{max_vram_reserved} (MAX. allocated/reserved, MB)")
 
 
                     #
