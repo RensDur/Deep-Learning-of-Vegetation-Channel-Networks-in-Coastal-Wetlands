@@ -313,6 +313,13 @@ class SplinePINNSolver:
                 
                 # PCGrad backprop pass
                 self.optimizer.pc_backward(pcgrad_losses)
+
+                # Clip gradients
+                if self.params.clip_grad_value is not None:
+                    torch.nn.utils.clip_grad_value_(self.net.parameters(),self.params.clip_grad_value)
+
+                if self.params.clip_grad_norm is not None:
+                    torch.nn.utils.clip_grad_norm_(self.net.parameters(),self.params.clip_grad_norm)
                 
                 # Perform an optimization step
                 self.optimizer.step()
