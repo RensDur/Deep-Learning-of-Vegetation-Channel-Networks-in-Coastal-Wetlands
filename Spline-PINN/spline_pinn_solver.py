@@ -8,8 +8,8 @@ import parameters
 from Logger import Logger
 import matplotlib.pyplot as plt
 from pcgrad.pcgrad import PCGrad
-import os
-import psutil
+# import os
+# import psutil
 
 class SplinePINNSolver:
     def __init__(self, dataset: Dataset, params, device):
@@ -310,17 +310,19 @@ class SplinePINNSolver:
 
                 if i % 10 == 0:
 
-                    ram_usage = psutil.Process(os.getpid()).memory_info().rss / (1024 * 1024) # MB
-                    ram_usage = round(ram_usage, 2)
+                    # ram_usage = psutil.Process(os.getpid()).memory_info().rss / (1024 * 1024) # MB
+                    # ram_usage = round(ram_usage, 2)
 
-                    max_vram_allocated = None
-                    max_vram_reserved = None
+                    # max_vram_allocated = None
+                    # max_vram_reserved = None
 
-                    if self.device == "cuda":
-                        max_vram_allocated = torch.cuda.memory.max_memory_allocated()
-                        max_vram_reserved = torch.cuda.memory.max_memory_reserved()
-                    print(f"Epoch {epoch}/{self.params.n_epochs}, iteration {i} \t RAM: {ram_usage}MB \t vRAM: {max_vram_allocated}/{max_vram_reserved} (MAX. allocated/reserved, MB)")
+                    # if self.device == "cuda":
+                    #     max_vram_allocated = torch.cuda.memory.max_memory_allocated()
+                    #     max_vram_reserved = torch.cuda.memory.max_memory_reserved()
+                    # print(f"Epoch {epoch}/{self.params.n_epochs}, iteration {i} \t RAM: {ram_usage}MB \t vRAM: {max_vram_allocated}/{max_vram_reserved} (MAX. allocated/reserved, MB)")
+                    print(f"Epoch {epoch}/{self.params.n_epochs}, iteration {i}")
 
+                    
                     #
                     # PLOT LOSS - IF ENABLED
                     #
