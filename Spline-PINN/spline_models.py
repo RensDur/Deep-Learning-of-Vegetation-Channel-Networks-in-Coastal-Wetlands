@@ -11,6 +11,8 @@ def get_Net(params, spline_variables):
 		net = wave_model(orders_v=[params.orders_v,params.orders_v],orders_p=[params.orders_p,params.orders_p],hidden_size=params.hidden_size,input_size=2,residuals=True)
 	elif params.net == "ShallowWaterModelCNN":
 		net = ShallowWaterModel(spline_variables, hidden_size=params.hidden_size)
+	elif params.net == "ShallowWaterModelUNet":
+		net = ShallowWaterUNet(spline_variables, hidden_size=params.hidden_size)
 	return net
 
 
