@@ -42,8 +42,8 @@ class Dataset:
         # Variables in this dataset
         self.variables = SplineArray(
             SplineVariable("h", 1, requires_derivative=True),                           # h describes the zero-meaned surface height, on top of H0
-            SplineVariable("u", 1, requires_derivative=True, requires_laplacian=True),
-            SplineVariable("v", 1, requires_derivative=True, requires_laplacian=True),
+            SplineVariable("u", 2, requires_derivative=True, requires_laplacian=True),
+            SplineVariable("v", 2, requires_derivative=True, requires_laplacian=True),
             device=self.device
         )
 
@@ -175,13 +175,13 @@ class Dataset:
 
         # Soften the transition planes
         # Create sponge BCs by applying a gradient in the boundary
-        conv_kernel = torch.tensor([[0, 0.25, 0],
-                                    [0.25, 0, 0.25],
-                                    [0, 0.25, 0]]).view(1, 1, 3, 3)
+        # conv_kernel = torch.tensor([[0, 0.25, 0],
+        #                             [0.25, 0, 0.25],
+        #                             [0, 0.25, 0]]).view(1, 1, 3, 3)
         
-        for _ in range(2):
-            self.h_mask_fullres[indices] = 1-F.conv2d(1-self.h_mask_fullres[indices], conv_kernel, padding=1)
-            self.uv_mask_fullres[indices] = 1-F.conv2d(1-self.uv_mask_fullres[indices], conv_kernel, padding=1)
+        # for _ in range(2):
+        #     self.h_mask_fullres[indices] = 1-F.conv2d(1-self.h_mask_fullres[indices], conv_kernel, padding=1)
+        #     self.uv_mask_fullres[indices] = 1-F.conv2d(1-self.uv_mask_fullres[indices], conv_kernel, padding=1)
     
         # Average pooling to create downsampled versions of the BCs
         self.h_cond[indices] = F.avg_pool2d(self.h_cond_fullres[indices],self.resolution_factor)

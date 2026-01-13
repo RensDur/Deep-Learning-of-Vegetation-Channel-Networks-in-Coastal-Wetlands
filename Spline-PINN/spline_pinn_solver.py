@@ -8,8 +8,8 @@ import parameters
 from Logger import Logger
 import matplotlib.pyplot as plt
 from pcgrad.pcgrad import PCGrad
-# import os
-# import psutil
+import os
+import psutil
 
 class SplinePINNSolver:
     def __init__(self, dataset: Dataset, params, device):
@@ -310,19 +310,18 @@ class SplinePINNSolver:
 
                 if i % 10 == 0:
 
-                    # ram_usage = psutil.Process(os.getpid()).memory_info().rss / (1024 * 1024) # MB
-                    # ram_usage = round(ram_usage, 2)
+                    ram_usage = psutil.Process(os.getpid()).memory_info().rss / (1024 * 1024) # MB
+                    ram_usage = round(ram_usage, 2)
 
-                    # max_vram_allocated = None
-                    # max_vram_reserved = None
+                    max_vram_allocated = None
+                    max_vram_reserved = None
 
-                    # if self.device == "cuda":
-                    #     max_vram_allocated = torch.cuda.memory.max_memory_allocated()
-                    #     max_vram_reserved = torch.cuda.memory.max_memory_reserved()
-                    # print(f"Epoch {epoch}/{self.params.n_epochs}, iteration {i} \t RAM: {ram_usage}MB \t vRAM: {max_vram_allocated}/{max_vram_reserved} (MAX. allocated/reserved, MB)")
-                    print(f"Epoch {epoch}/{self.params.n_epochs}, iteration {i}")
+                    if self.device == "cuda":
+                        max_vram_allocated = torch.cuda.memory.max_memory_allocated()
+                        max_vram_reserved = torch.cuda.memory.max_memory_reserved()
+                    print(f"Epoch {epoch}/{self.params.n_epochs}, iteration {i} \t RAM: {ram_usage}MB \t vRAM: {max_vram_allocated}/{max_vram_reserved} (MAX. allocated/reserved, MB)")
 
-                    
+
                     #
                     # PLOT LOSS - IF ENABLED
                     #
@@ -410,7 +409,7 @@ class SplinePINNSolver:
             # Predict the new domain state by performing a forward pass through the network
             new_hidden_state = self.net(old_hidden_state, h_cond, h_mask, uv_cond, uv_mask)
 
-            loss_h, loss_u, loss_v, loss_bound, loss_damp = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks)
+            # loss_h, loss_u, loss_v, loss_bound, loss_damp = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks)
 
             # Interpolate spline coefficients to obtain the necessary quantities
             h, grad_h, u, grad_u, laplace_u, v, grad_v, laplace_v = self.dataset.interpolate_superres(new_hidden_state, self.params.resolution_factor)
@@ -418,11 +417,8 @@ class SplinePINNSolver:
             # Store the newly obtained result in the dataset
             self.dataset.tell(new_hidden_state)
 
-            h = torch.zeros_like(h[0, 0])
-            h[1:-1, 1:-1] = loss_h[0]
-
             # Display water level thickness h
-            # h = loss_h[0].clone()
+            h = h[0, 0].clone()
             # h = h - torch.min(h)
             # h = h / torch.max(h)
             h = h.detach().cpu().numpy()
