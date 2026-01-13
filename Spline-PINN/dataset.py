@@ -130,7 +130,7 @@ class Dataset:
 
         # BC: h holds around the entire frame
         self.uv_mask_fullres[indices] = 1
-        self.uv_mask_fullres[indices, :, self.padding:-self.padding, self.padding:-self.padding] = 0
+        self.uv_mask_fullres[indices, :, self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
 
         # Velocity condition zero
         self.uv_cond_fullres[indices] = 0
@@ -214,7 +214,7 @@ class Dataset:
                 self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
                 # We install a barrier starting in the top-center going towards the middle of the domain of thickness 10
-                barrier_thickness = 10
+                barrier_thickness = 10 * self.resolution_factor
                 self.uv_mask_fullres[group_indices,:, 0:(self.height_fullres//2), (self.width_fullres//2-barrier_thickness//2):(self.width_fullres//2+barrier_thickness//2)+1] = 1
 
                 # Set the masks and conditions
