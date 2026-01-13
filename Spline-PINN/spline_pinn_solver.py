@@ -302,10 +302,8 @@ class SplinePINNSolver:
                 # For backprop using PCGrad, construct each loss term
                 pcgrad_losses = [
                     torch.mean(loss_h),
-                    torch.mean(loss_u),
-                    torch.mean(loss_v),
-                    torch.mean(loss_bound),
-                    torch.mean(loss_damp)
+                    torch.mean(loss_u + loss_v),
+                    torch.mean(loss_bound + loss_damp)
                 ]
 
                 # Reset old gradients to 0 and compute new gradients with backpropagation
