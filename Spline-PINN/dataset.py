@@ -70,6 +70,9 @@ class Dataset:
         self.types = [
             "rest-lake",
             "oscillator",
+            "random-oscillator",
+            "multiple-random-oscillator",
+            "reflection",
             # "multiple-oscillators"
         ]
 
@@ -126,9 +129,6 @@ class Dataset:
         self.hidden_states[indices, :, :, :] = 0
 
         # BC: h holds around the entire frame
-        self.h_mask_fullres[indices] = 1
-        self.h_mask_fullres[indices, :, self.padding:-self.padding, self.padding:-self.padding] = 0
-        
         self.uv_mask_fullres[indices] = 1
         self.uv_mask_fullres[indices, :, self.padding:-self.padding, self.padding:-self.padding] = 0
 
@@ -169,6 +169,57 @@ class Dataset:
                 # Set the masks and conditions
                 self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
                 self.h_cond_fullres[group_indices] *= self.h_mask_fullres[group_indices]
+
+            #
+            # RANDOMLY PLACED OSCILLATOR
+            #
+            if typename == "random-oscillator":
+                # obstabcles (oscillators)
+                for x in np.random.choice(range(-45, 46), 1):#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
+                    for y in np.random.choice(range(-45, 46), 1):#[-45,-15,15,45]:
+                        self.h_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
+                        self.uv_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
+
+                # Set the masks and conditions
+                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
+                self.h_cond_fullres[group_indices] *= self.h_mask_fullres[group_indices]
+
+            #
+            # RANDOMLY PLACED OSCILLATOR
+            #
+            if typename == "multiple-random-oscillator":
+                # obstabcles (oscillators)
+                for x in np.random.choice(range(-45, 46, 5), 2):#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
+                    for y in np.random.choice(range(-45, 46, 5), 2):#[-45,-15,15,45]:
+                        self.h_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
+                        self.uv_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
+
+                # Set the masks and conditions
+                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
+                self.h_cond_fullres[group_indices] *= self.h_mask_fullres[group_indices]
+
+            #
+            # REFLECTION
+            #
+            if typename == "reflection":
+
+                # obstabcles (oscillators)
+                for x in [-10]:#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
+                    for y in [60]:#[-45,-15,15,45]:
+                        self.h_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
+                        self.uv_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
+
+                # Set the masks and conditions
+                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
+                self.h_cond_fullres[group_indices] *= self.h_mask_fullres[group_indices]
+
+                # We install a barrier starting in the top-center going towards the middle of the domain of thickness 10
+                barrier_thickness = 10
+                self.uv_mask_fullres[group_indices,:, 0:(self.height_fullres//2), (self.width_fullres//2-barrier_thickness//2):(self.width_fullres//2+barrier_thickness//2)+1] = 1
+
+                # Set the masks and conditions
+                self.uv_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
+                self.uv_cond_fullres[group_indices] *= self.h_mask_fullres[group_indices]
 
         for typename in grouping.keys():
             reset_all_of_type(typename, grouping[typename])
@@ -212,7 +263,7 @@ class Dataset:
             #
             # OSCILLATOR
             #
-            if typename == "oscillator":
+            if typename == "oscillator" or typename == "random-oscillator" or typename == "multiple-random-oscillator" or typename == "reflection":
                 self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
                 self.h_cond_fullres[group_indices] *= self.h_mask_fullres[group_indices]
 
