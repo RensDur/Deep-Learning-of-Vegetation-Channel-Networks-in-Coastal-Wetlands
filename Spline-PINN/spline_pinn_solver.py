@@ -11,6 +11,15 @@ from pcgrad.pcgrad import PCGrad
 import os
 import psutil
 
+def _dbg(_desc='',_expr=None):
+    print(f"DBG! >> {_desc}: {_expr}")
+    return _expr
+
+def _dbg_nan(_desc='',_tensor=torch.zeros(1)):
+    _expr = torch.mean(_tensor).detach().cpu()
+    _dbg(_desc, _expr)
+    return _tensor
+
 class SplinePINNSolver:
     def __init__(self, dataset: Dataset, params, device):
 
@@ -59,11 +68,11 @@ class SplinePINNSolver:
     def compute_batch_loss(self, old_hidden_state, new_hidden_state, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks):
 
         # Compute Physics Informed Loss image tensor
-        loss_h = torch.zeros((self.params.width-2, self.params.height-2))
-        loss_u = torch.zeros((self.params.width-2, self.params.height-2))
-        loss_v = torch.zeros((self.params.width-2, self.params.height-2))
-        loss_bound = torch.zeros((self.params.width-2, self.params.height-2))
-        loss_damp = torch.zeros((self.params.width-2, self.params.height-2))
+        loss_h = torch.zeros((self.params.width-2, self.params.height-2), device=self.device)
+        loss_u = torch.zeros((self.params.width-2, self.params.height-2), device=self.device)
+        loss_v = torch.zeros((self.params.width-2, self.params.height-2), device=self.device)
+        loss_bound = torch.zeros((self.params.width-2, self.params.height-2), device=self.device)
+        loss_damp = torch.zeros((self.params.width-2, self.params.height-2), device=self.device)
 
         # Go over each sample
         for j, sample in enumerate(grid_offsets):
