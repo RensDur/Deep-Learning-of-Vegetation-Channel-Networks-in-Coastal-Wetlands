@@ -128,6 +128,10 @@ class Dataset:
         # Set all hidden coefficients to zero
         self.hidden_states[indices, :, :, :] = 0
 
+        # Reset all masks and conditions
+        self.h_mask_fullres[indices] = 0
+        self.h_cond_fullres[indices] = 0
+
         # BC: h holds around the entire frame
         self.uv_mask_fullres[indices] = 1
         self.uv_mask_fullres[indices, :, self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
@@ -277,7 +281,7 @@ class Dataset:
         self.uv_mask[indices] = F.avg_pool2d(self.uv_mask_fullres[indices],self.resolution_factor)
         
         # Update the time for each environment
-        self.env_time[indices] = self.env_time[indices] + math.pi / 1000.0
+        self.env_time[indices] = self.env_time[indices] + math.pi / 10.0
         
 
     def ask(self):
