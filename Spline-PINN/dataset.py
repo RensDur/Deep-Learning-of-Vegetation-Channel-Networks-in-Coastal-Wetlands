@@ -363,12 +363,12 @@ class Dataset:
             self.i = (self.i+1)%self.dataset_size
 
         # Warming up: We reset the entire batch with increasing interval at the start of training
-        self.warmup_t += 1
+        # self.warmup_t += 1
         
-        if self.warmup_t == self.warmup_reset_at:
-            self.reset(self.asked_indices)
-            self.warmup_t = 0
-            self.warmup_reset_at *= 2 # We reset the entire batch every 1, 2, 4, 8, 16, 32, ..., 128, ..., 1024 iterations
+        # if self.warmup_t == self.warmup_reset_at:
+        #     self.reset(self.asked_indices)
+        #     self.warmup_t = 0
+        #     self.warmup_reset_at *= 2 # We reset the entire batch every 1, 2, 4, 8, 16, 32, ..., 128, ..., 1024 iterations
 
 
 
