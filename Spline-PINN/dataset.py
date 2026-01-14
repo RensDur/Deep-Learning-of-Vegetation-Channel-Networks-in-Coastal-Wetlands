@@ -20,7 +20,7 @@ class Dataset:
         self.width_fullres = self.resolution_factor * self.width
         self.height_fullres = self.resolution_factor * self.height
 
-        self.padding = 10
+        self.padding = 5
         self.padding_fullres = self.padding * self.resolution_factor
 
         self.dx = params.separation
