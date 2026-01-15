@@ -153,14 +153,6 @@ class SplinePINNSolver:
         loss_bound = loss_bound / self.params.n_samples
         # loss_damp = loss_damp / self.params.n_samples
 
-        # Log loss (per term)
-        if self.params.log_loss:
-            loss_h = torch.log(loss_h + 0.0001) # Add small epsilon to prevent -inf loss due to log
-            loss_u = torch.log(loss_u + 0.0001)
-            loss_v = torch.log(loss_v + 0.0001)
-            loss_bound = torch.log(loss_bound + 0.0001)
-            # loss_damp = torch.log(loss_damp + 0.0001)
-
         return loss_h, loss_u, loss_v, loss_bound, loss_damp
 
     def train(self):
@@ -293,7 +285,7 @@ class SplinePINNSolver:
                     loss_tensor = torch.mean(loss_h + loss_u + loss_v + loss_bound, dim=0)
 
                     # Compute total loss value
-                    loss_total = torch.mean(loss_tensor)
+                    loss_total = torch.log(torch.mean(loss_tensor))
 
                     # Restore correct averaging of individual loss components
                     loss_h = torch.mean(loss_h, dim=[1,2])
@@ -301,6 +293,14 @@ class SplinePINNSolver:
                     loss_v = torch.mean(loss_v, dim=[1,2])
                     loss_bound = torch.mean(loss_bound, dim=[1,2])
                     # loss_damp = torch.mean(loss_damp, dim=[1,2])
+
+                # Log loss (per term)
+                if self.params.log_loss:
+                    loss_h = torch.log(loss_h + 0.0001) # Add small epsilon to prevent -inf loss due to log
+                    loss_u = torch.log(loss_u + 0.0001)
+                    loss_v = torch.log(loss_v + 0.0001)
+                    loss_bound = torch.log(loss_bound + 0.0001)
+                    # loss_damp = torch.log(loss_damp + 0.0001)
 
                 # For backprop using PCGrad, construct each loss term
                 pcgrad_losses = [
@@ -385,7 +385,7 @@ class SplinePINNSolver:
 
                         graph_limits = np.concatenate((plot_loss_h_data, plot_loss_momentum_data, plot_loss_bound_data))
                         plot_axs[2].set_xlim([0, plot_loss_h_data.shape[0]])
-                        plot_axs[2].set_ylim([0, np.max(graph_limits)])
+                        plot_axs[2].set_ylim([np.min(graph_limits), np.max(graph_limits)])
 
                 if self.params.plot_loss:
                     # Always update the plot to allow interaction

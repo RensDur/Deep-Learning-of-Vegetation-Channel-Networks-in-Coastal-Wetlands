@@ -80,7 +80,7 @@ def params():
 	parser.add_argument('--DB', default=6e-9, type=float, help="Vegetation diffusivity")
 	parser.add_argument('--morphological_acc_factor', default=44712, type=float, help="Morphological acceleration factor, required for S and B")
 	parser.add_argument('--pEst', default=0.002, type=float, help="Probability of vegetation seedling establishment")
-	parser.add_argument('--dt', default=0.1, type=float, help='timestep of fluid integrator')
+	parser.add_argument('--dt', default=1, type=float, help='timestep of fluid integrator')
 	
 	# Logger / Load parameters
 	parser.add_argument('--plot', default=False, type=str2bool, help='plot during training')
