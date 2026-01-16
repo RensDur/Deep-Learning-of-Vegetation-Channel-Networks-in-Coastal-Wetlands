@@ -35,7 +35,7 @@ def params():
 	parser.add_argument('--huber_delta', default=100, type=float, help='Huber Loss: Square loss when |residual| <= threshold, linear outside the threshold')
 	
 	parser.add_argument('--lr', default=0.0001, type=float, help='learning rate of ADAM-optimizer (default: 0.0001)')
-	parser.add_argument('--clip_grad_norm', default=1.0, type=float, help='gradient norm clipping (default: None)')
+	parser.add_argument('--clip_grad_norm', default=None, type=float, help='gradient norm clipping (default: None)')
 	parser.add_argument('--clip_grad_value', default=None, type=float, help='gradient value clipping (default: None)')
 	parser.add_argument('--cuda', default=True, type=str2bool, help='use GPU')
 	parser.add_argument('--detach', default=False, type=str2bool, help='detach gradients in between steps (for train_wave_3)')
