@@ -63,7 +63,8 @@ class SplinePINNSolver:
         return T
 
     def loss_function(self, x):
-        return F.huber_loss(x, torch.zeros_like(x), reduction="none", delta=self.params.huber_delta)
+        # return F.huber_loss(x, torch.zeros_like(x), reduction="none", delta=self.params.huber_delta)
+        return x**2
     
     def compute_batch_loss(self, old_hidden_state, new_hidden_state, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks, dim=[1,2,3]):
 
