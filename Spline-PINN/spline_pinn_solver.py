@@ -63,7 +63,7 @@ class SplinePINNSolver:
         return T
 
     def loss_function(self, x):
-        return x**2
+        return F.huber_loss(x, torch.zeros_like(x), reduction="none", delta=self.params.huber_delta)
     
     def compute_batch_loss(self, old_hidden_state, new_hidden_state, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks, dim=[1,2,3]):
 
@@ -173,9 +173,9 @@ class SplinePINNSolver:
         #
         # Logger
         #
-        self.logger = Logger(parameters.get_description(self.params), use_csv=False, use_tensorboard=self.params.log)
+        self.logger = Logger(parameters.get_description(self.params), use_csv=self.params.log_csv, use_tensorboard=self.params.log_tensorboard)
         if self.params.load_latest or self.params.load_date_time is not None or self.params.load_index is not None:
-            self.load_logger = Logger(parameters.get_description(self.params), use_csv=False, use_tensorboard=False)
+            self.load_logger = Logger(parameters.get_description(self.params), use_csv=self.params.log_csv, use_tensorboard=self.params.log_tensorboard)
             if self.params.load_optimizer:
                 self.params.load_date_time, self.params.load_index = self.logger.load_state(self.net, self.optimizer,
                                                                                   self.params.load_date_time,
@@ -302,11 +302,16 @@ class SplinePINNSolver:
                     loss_bound = torch.log(loss_bound + 0.0001)
                     # loss_damp = torch.log(loss_damp + 0.0001)
 
+                # Compute the loss terms we would like to consider separate learning tasks for PCGrad
+                loss_h = torch.mean(loss_h)
+                loss_momentum = torch.mean(loss_u + loss_v)
+                loss_bound = torch.mean(loss_bound)
+
                 # For backprop using PCGrad, construct each loss term
                 pcgrad_losses = [
-                    torch.mean(loss_h),
-                    torch.mean(loss_u + loss_v),
-                    torch.mean(loss_bound)
+                    loss_h,
+                    loss_momentum,
+                    loss_bound
                 ]
 
                 # Reset old gradients to 0 and compute new gradients with backpropagation
@@ -349,6 +354,10 @@ class SplinePINNSolver:
 
                     print(f"Epoch {epoch}/{self.params.n_epochs}, iteration {i} \t RAM: {ram_usage}MB \t vRAM: {max_vram_allocated}/{max_vram_reserved} (MAX. allocated/reserved, MB)")
 
+                    # Log the loss to csv and tensorboard
+                    self.logger.log("loss_h", loss_h.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
+                    self.logger.log("loss_momentum", loss_momentum.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
+                    self.logger.log("loss_bound", loss_bound.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
 
                     #
                     # PLOT LOSS - IF ENABLED
