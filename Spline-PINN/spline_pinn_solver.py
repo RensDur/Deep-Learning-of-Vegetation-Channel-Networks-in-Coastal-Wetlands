@@ -101,20 +101,20 @@ class SplinePINNSolver:
             #
 
             # h-loss
-            loss_h = loss_h + torch.mean(sample_h_domain_mask[:,:,1:-1,1:-1] * self.loss_function(
+            loss_h = loss_h + torch.mean(self.loss_function(
                 dh_dt + (grad_u[:,0:1] + grad_v[:,1:2]) * (h + self.params.H0) + (grad_h[:,0:1]*u + grad_h[:,1:2]*v) + self.params.epsilon * h
             ), dim)
 
             # Momentum loss
-            loss_u = loss_u + torch.mean(sample_uv_domain_mask[:,:,1:-1,1:-1] * self.loss_function(
+            loss_u = loss_u + torch.mean(self.loss_function(
                 du_dt - self.params.nu * laplace_u + self.params.grav * grad_h[:,0:1] + self.params.k_epsilon*u + u * grad_u[:,0:1] + v * grad_u[:,1:2] - self.params.f_epsilon * v
             ), dim)
 
-            loss_v = loss_v + torch.mean(sample_uv_domain_mask[:,:,1:-1,1:-1] * self.loss_function(
+            loss_v = loss_v + torch.mean(self.loss_function(
                 dv_dt - self.params.nu * laplace_v + self.params.grav * grad_h[:,1:2] + self.params.k_epsilon*v + u * grad_v[:,0:1] + v * grad_v[:,1:2] - self.params.f_epsilon * u
             ), dim)
 
-            # h condition loss
+            # h boundary condition loss
             loss_bound_h = torch.mean(sample_h_mask[:,:,1:-1,1:-1] * self.loss_function(
                 h - sample_h_cond[:,:,1:-1,1:-1]
             ), dim)
