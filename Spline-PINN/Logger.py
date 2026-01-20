@@ -64,6 +64,38 @@ class Logger():
 		
 		if self.use_tensorboard:
 			self.writer.add_scalar(item,value,index)
+
+	def log_all(self,items,values,index):
+		"""
+		log index value couple for specific item into csv file / tensorboard
+		:item: string describing item (e.g. "training_loss","test_loss")
+		:value: value to log
+		:index: index (e.g. batchindex / epoch)
+		"""
+		
+		if self.use_csv:
+			filename = 'Logger/{}/{}/logs/{}.log'.format(self.name,self.datetime,'-'.join(items))
+			
+			if os.path.exists(filename):
+				append_write = 'a'
+			else:
+				append_write = 'w'
+			
+			with open(filename, append_write) as log_file:
+				# If this is the first line in the file, write the column names
+				if append_write == 'w':
+					log_file.write("index;" + ";".join(items) + "\n")
+
+				output = f"{index};"
+
+				for v in values:
+					output += f"{v};"
+
+				log_file.write(output + "\n")
+		
+		if self.use_tensorboard:
+			for i in range(len(items)):
+				self.writer.add_scalar(items[i],values[i],index)
 	
 	def log_histogram(self,item,values,index):
 		"""
