@@ -8,7 +8,7 @@ from spline.spline_array import SplineArray
 
 class Dataset:
     
-    def __init__(self, params, device=torch.device("cpu")):
+    def __init__(self, params, device=torch.device("cpu"), types=None):
 
         # Local copy of the parameters
         self.params = params
@@ -74,7 +74,9 @@ class Dataset:
             "multiple-random-oscillator",
             "reflection",
             # "multiple-oscillators"
-        ]
+        ] if types is None else types
+
+        print(f"Running with types: {self.types}")
 
         self.env_type = np.random.choice(self.types, self.dataset_size)
         self.env_seed = 2.0 * math.pi * torch.floor(1000 * torch.rand(self.dataset_size))
