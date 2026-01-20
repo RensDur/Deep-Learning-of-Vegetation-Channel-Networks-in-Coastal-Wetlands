@@ -58,7 +58,7 @@ def params():
 	parser.add_argument('--Hin', default=1e-5, type=float, help="")
 	parser.add_argument('--Hc', default=1e-3, type=float, help="")
 	parser.add_argument('--H0', default=1, type=float, help="Initial water thickness")
-	parser.add_argument("--wave_size", default=0.1, type=float, help="Wave height for SWE")
+	parser.add_argument("--wave_size", default=0.5, type=float, help="Wave height for SWE")
 	parser.add_argument("--epsilon", default=0.0001, type=float, help="Wave damping factor epsilon")
 	parser.add_argument("--k_epsilon", default=0.001, type=float, help="Wave damping factor k")
 	parser.add_argument("--f_epsilon", default=0.01, type=float, help="Wave damping factor f")
