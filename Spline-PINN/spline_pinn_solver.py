@@ -165,6 +165,13 @@ class SplinePINNSolver:
         torch.manual_seed(0)
         np.random.seed(0)
 
+        # Enable Automatic Mixed Precision (AMP)
+        # This enables use of Tensor cores on modern GPUs
+        if torch.cuda.is_available():
+            torch.backends.cuda.matmul.allow_tf32 = True
+            torch.backends.cudnn.allow_tf32 = True
+            amp_scalar = torch.cuda.amp.GradScaler()
+
         #
         # Optimizer
         #
@@ -261,17 +268,21 @@ class SplinePINNSolver:
             # Each epoch consists of a configurable number of batches.
             for i in range(self.params.n_batches_per_epoch):
 
+                # Reset old gradients to 0 and compute new gradients with backpropagation
+                self.net.zero_grad(set_to_none=True)
+
                 # Ask for a batch from the dataset
                 old_hidden_state, h_cond, h_mask, uv_cond, uv_mask, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks = self.dataset.ask()
 
-                # Predict the new domain state by performing a forward pass through the network
-                new_hidden_state = self.net(old_hidden_state, h_cond, h_mask, uv_cond, uv_mask)
+                with torch.cuda.amp.autocast(enabled=torch.cuda.is_available()):
+                    # Predict the new domain state by performing a forward pass through the network
+                    new_hidden_state = self.net(old_hidden_state, h_cond, h_mask, uv_cond, uv_mask)
 
-                dim = [1,2,3]
-                if self.params.plot_loss:
-                    dim = [1]
+                    dim = [1,2,3]
+                    if self.params.plot_loss:
+                        dim = [1]
 
-                loss_h, loss_u, loss_v, loss_bound, loss_damp = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks, dim)
+                    loss_h, loss_u, loss_v, loss_bound, loss_damp = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks, dim)
 
                 self.damp_loss_factor = self.damp_loss_factor * 0.9
 
@@ -316,16 +327,16 @@ class SplinePINNSolver:
 
                 # For backprop using PCGrad, construct each loss term
                 pcgrad_losses = [
-                    loss_h,
-                    loss_momentum,
-                    loss_bound
+                    amp_scalar.scale(loss_h),
+                    amp_scalar.scale(loss_momentum),
+                    amp_scalar.scale(loss_bound)
                 ]
-
-                # Reset old gradients to 0 and compute new gradients with backpropagation
-                self.net.zero_grad()
                 
                 # PCGrad backprop pass
                 self.optimizer.pc_backward(pcgrad_losses)
+
+                # Unscale before clipping
+                amp_scalar.unscale_(self.optimizer._optim)
 
                 # Clip gradients
                 if self.params.clip_grad_value is not None:
@@ -335,7 +346,8 @@ class SplinePINNSolver:
                     torch.nn.utils.clip_grad_norm_(self.net.parameters(),self.params.clip_grad_norm)
                 
                 # Perform an optimization step
-                self.optimizer.step()
+                amp_scalar.step(self.optimizer)
+                amp_scalar.update()
 
                 # Recycle the data
                 self.dataset.tell(new_hidden_state)
