@@ -198,6 +198,12 @@ class SplinePINNSolver:
                         print(f"warmup {i/(self.params.n_warmup_steps//100)} %")
         self.params.load_index = 0 if self.params.load_index is None else self.params.load_index
 
+        # Write experiment info to info.txt
+        info_text = "Parameters:\n\n"
+        for key, value in vars(self.params).items():
+            info_text += f"{key}: {value}\n"
+        self.logger.log_info(info_text)
+
         # Enable training of the model
         self.net.train()
 

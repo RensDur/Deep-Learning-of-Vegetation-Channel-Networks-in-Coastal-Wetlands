@@ -96,6 +96,20 @@ class Logger():
 		if self.use_tensorboard:
 			for i in range(len(items)):
 				self.writer.add_scalar(items[i],values[i],index)
+
+	def log_info(self, info):
+
+		os.makedirs('Logger/{}/{}/info'.format(self.name,self.datetime),exist_ok=True)
+
+		filename = 'Logger/{}/{}/info/info.txt'.format(self.name,self.datetime)
+
+		if os.path.exists(filename):
+			append_write = 'a'
+		else:
+			append_write = 'w'
+
+		with open(filename, append_write) as info_file:
+			info_file.write(info + "\n")
 	
 	def log_histogram(self,item,values,index):
 		"""
