@@ -102,7 +102,7 @@ def params():
 	return params
 
 def get_description(params):
-    return f"net {params.net}; hs {params.hidden_size}; dt {params.dt};"
+    return f"net {params.net}; hs {params.hidden_size}; ws {params.wave_size}; dt {params.dt};"
 
 def get_hyperparam_fluid(params):
 	return f"fluid net {params.net}; hs {params.hidden_size}; ov {params.orders_v}; op {params.orders_p}; mu {params.mu}; rho {params.rho}; dt {params.dt};"
