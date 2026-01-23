@@ -134,6 +134,12 @@ class Dataset:
         # Set all hidden coefficients to zero
         self.hidden_states[indices, :, :, :] = 0
 
+        # Random vegetation tussocks
+        vegetation_random = torch.rand_like(self.hidden_states[indices, self.variables.get_singular_slice_for("B"), :, :])
+        vegetation_spread = torch.zeros_like(vegetation_random)
+        vegetation_spread[torch.where(vegetation_random < self.params.pEst)] = self.params.k
+        self.hidden_states[indices, self.variables.get_singular_slice_for("B"), :, :] = vegetation_spread
+
         # Reset all masks and conditions
         self.h_mask_fullres[indices] = 0
         self.h_cond_fullres[indices] = 0
@@ -400,6 +406,14 @@ class Dataset:
         old_v, old_grad_v, old_laplace_v = self.variables["v"].interpolate_at(self.variables.extract_from(old_hidden_states, "v"), offset[:2])
         new_v, new_grad_v, new_laplace_v = self.variables["v"].interpolate_at(self.variables.extract_from(new_hidden_states, "v"), offset[:2])
 
+        # S field: requires first derivative + laplace
+        old_S, old_grad_S, old_laplace_S = self.variables["S"].interpolate_at(self.variables.extract_from(old_hidden_states, "S"), offset[:2])
+        new_S, new_grad_S, new_laplace_S = self.variables["S"].interpolate_at(self.variables.extract_from(new_hidden_states, "S"), offset[:2])
+
+        # B field: requires first derivative + laplace
+        old_B, old_grad_B, old_laplace_B = self.variables["B"].interpolate_at(self.variables.extract_from(old_hidden_states, "B"), offset[:2])
+        new_B, new_grad_B, new_laplace_B = self.variables["B"].interpolate_at(self.variables.extract_from(new_hidden_states, "B"), offset[:2])
+
         # First order interpolation in time
         h = (1-offset[2])*old_h + offset[2]*new_h
         grad_h = (1-offset[2])*old_grad_h + offset[2]*new_grad_h
@@ -414,8 +428,18 @@ class Dataset:
         grad_v = (1-offset[2])*old_grad_v + offset[2]*new_grad_v
         laplace_v = (1-offset[2])*old_laplace_v + offset[2]*new_laplace_v
         dv_dt = (new_v - old_v) / self.params.dt
+
+        S = (1-offset[2])*old_S + offset[2]*new_S
+        grad_S = (1-offset[2])*old_grad_S + offset[2]*new_grad_S
+        laplace_S = (1-offset[2])*old_laplace_S + offset[2]*new_laplace_S
+        dS_dt = (new_S - old_S) / self.params.dt
+
+        B = (1-offset[2])*old_B + offset[2]*new_B
+        grad_B = (1-offset[2])*old_grad_B + offset[2]*new_grad_B
+        laplace_B = (1-offset[2])*old_laplace_B + offset[2]*new_laplace_B
+        dB_dt = (new_B - old_B) / self.params.dt
         
-        return h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt
+        return h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt, S, grad_S, laplace_S, dS_dt, B, grad_B, laplace_B, dB_dt
     
 
     def interpolate_superres(self, hidden_states, resolution_factor):
@@ -439,4 +463,10 @@ class Dataset:
         # v field: requires first derivative + laplace
         v, grad_v, laplace_v = self.variables["v"].interpolate_superres_at(self.variables.extract_from(hidden_states, "v"), resolution_factor)
 
-        return h, grad_h, u, grad_u, laplace_u, v, grad_v, laplace_v
+        # S field: requires first derivative + laplace
+        S, grad_S, laplace_S = self.variables["S"].interpolate_superres_at(self.variables.extract_from(hidden_states, "S"), resolution_factor)
+
+        # B field: requires first derivative + laplace
+        B, grad_B, laplace_B = self.variables["B"].interpolate_superres_at(self.variables.extract_from(hidden_states, "B"), resolution_factor)
+
+        return h, grad_h, u, grad_u, laplace_u, v, grad_v, laplace_v, S, grad_S, laplace_S, B, grad_B, laplace_B

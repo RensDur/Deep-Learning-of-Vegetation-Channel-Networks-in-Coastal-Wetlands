@@ -94,7 +94,7 @@ class SplinePINNSolver:
             sample_uv_mask = (sample_uv_mask + sample_uv_mask*self.diffuse(sample_uv_domain_mask)*self.params.border_weight).detach()
 
             # Interpolate spline coefficients to obtain the necessary quantities
-            h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt = self.dataset.interpolate_states(old_hidden_state, new_hidden_state, offset)
+            h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt, S, grad_S, laplace_S, dS_dt, B, grad_B, laplace_B, dB_dt = self.dataset.interpolate_states(old_hidden_state, new_hidden_state, offset)
 
             #
             # COMPUTE SAMPLE LOSS
@@ -459,13 +459,13 @@ class SplinePINNSolver:
             # loss_h, loss_u, loss_v, loss_bound, loss_damp = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks, sample_S_conds, sampleS_masks)
 
             # Interpolate spline coefficients to obtain the necessary quantities
-            h, grad_h, u, grad_u, laplace_u, v, grad_v, laplace_v = self.dataset.interpolate_superres(new_hidden_state, self.params.resolution_factor)
+            h, grad_h, u, grad_u, laplace_u, v, grad_v, laplace_v, S, grad_S, laplace_S, B, grad_B, laplace_B = self.dataset.interpolate_superres(old_hidden_state, self.params.resolution_factor)
 
             # Store the newly obtained result in the dataset
-            self.dataset.tell(new_hidden_state)
+            # self.dataset.tell(new_hidden_state)
 
             # Display water level thickness h
-            h = uv_mask[0, 0].clone()
+            h = B[0, 0].clone()
             # h = h - torch.min(h)
             # h = h / torch.max(h)
             h = h.detach().cpu().numpy()
