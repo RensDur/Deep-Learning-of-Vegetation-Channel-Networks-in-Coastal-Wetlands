@@ -115,6 +115,15 @@ class SplinePINNSolver:
 
             he = h + self.params.H0 - self.params.Hc
 
+            # Compute topographic diffusion term (\/(Ds\/S)) (Ds is a field)
+            Ds = self.params.D0 * (1.0 - self.params.pD * (B / self.params.k))
+            grad_Ds = - ((self.params.D0 * self.params.pD) / self.params.k) * grad_B
+
+            gradDs_dot_gradS = grad_Ds[:, 1:2] * grad_S[:, 1:2] + grad_Ds[:, 0:1] * grad_S[:, 0:1]
+
+            # Full divergence term
+            div_Ds_grad_S = Ds * laplace_S + gradDs_dot_gradS
+
             # h-loss
             loss_h = loss_h + torch.mean(self.loss_function(
                 dh_dt + (grad_u[:,1:2] + grad_v[:,0:1]) * (h + self.params.H0) + (grad_h[:,1:2]*u + grad_h[:,0:1]*v) + self.params.epsilon * h
@@ -130,8 +139,10 @@ class SplinePINNSolver:
             ), dim)
 
             loss_S = loss_S + torch.mean(self.loss_function(
-                dS_dt - self.params.Sin * (he / (self.params.Qs + he)) + self.params.Es * (1.0 - self.params.pE * (B / self.params.k)) * S * tau_b_per_rho
+                dS_dt - self.params.Sin * (he / (self.params.Qs + he)) + self.params.Es * (1.0 - self.params.pE * (B / self.params.k)) * S * tau_b_per_rho - div_Ds_grad_S
             ), dim)
+
+            
 
             # h boundary condition loss
             loss_bound_h = torch.mean(sample_h_mask[:,:,1:-1,1:-1] * self.loss_function(
