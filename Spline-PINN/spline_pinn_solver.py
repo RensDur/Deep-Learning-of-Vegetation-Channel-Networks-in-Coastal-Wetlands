@@ -72,6 +72,8 @@ class SplinePINNSolver:
         loss_h = 0
         loss_u = 0
         loss_v = 0
+        loss_S = 0
+        loss_B = 0
         loss_bound = 0
         loss_damp = 0
 
@@ -84,14 +86,18 @@ class SplinePINNSolver:
             sample_h_mask = sample_h_masks[j]
             sample_uv_cond = sample_uv_conds[j]
             sample_uv_mask = sample_uv_masks[j]
+            sample_S_cond = sample_S_conds[j]
+            sample_S_mask = sample_S_masks[j]
 
             sample_h_domain_mask = 1-sample_h_mask
             sample_uv_domain_mask = 1-sample_uv_mask
+            sample_S_domain_mask = 1-sample_S_mask
 
             # Put additional border_weight on domain boundaries:
             # Important: weighed by parameter 'border_weight'
             sample_h_mask = (sample_h_mask + sample_h_mask*self.diffuse(sample_h_domain_mask)*self.params.border_weight).detach()
             sample_uv_mask = (sample_uv_mask + sample_uv_mask*self.diffuse(sample_uv_domain_mask)*self.params.border_weight).detach()
+            sample_S_mask = (sample_S_mask + sample_S_mask*self.diffuse(sample_S_domain_mask)*self.params.border_weight).detach()
 
             # Interpolate spline coefficients to obtain the necessary quantities
             h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt, S, grad_S, laplace_S, dS_dt, B, grad_B, laplace_B, dB_dt = self.dataset.interpolate_states(old_hidden_state, new_hidden_state, offset)
@@ -100,6 +106,15 @@ class SplinePINNSolver:
             # COMPUTE SAMPLE LOSS
             #
 
+            # Compute intermediate terms
+            bed_roughness_coefficient_n = self.params.nb + (self.params.nv - self.params.nb) * (B / self.params.k)
+            chezy_coefficient = (1.0 / bed_roughness_coefficient_n) * torch.pow(h + self.params.H0, 1.0/6.0)
+            tau_bx_per_rho = (self.params.grav / torch.pow(chezy_coefficient, 2.0)) * torch.pow(u**2 + v**2, 0.5) * u
+            tau_by_per_rho = (self.params.grav / torch.pow(chezy_coefficient, 2.0)) * torch.pow(u**2 + v**2, 0.5) * v
+            tau_b_per_rho = (self.params.grav / torch.pow(chezy_coefficient, 2.0)) * (u**2 + v**2)
+
+            he = h + self.params.H0 - self.params.Hc
+
             # h-loss
             loss_h = loss_h + torch.mean(self.loss_function(
                 dh_dt + (grad_u[:,1:2] + grad_v[:,0:1]) * (h + self.params.H0) + (grad_h[:,1:2]*u + grad_h[:,0:1]*v) + self.params.epsilon * h
@@ -107,11 +122,15 @@ class SplinePINNSolver:
 
             # Momentum loss
             loss_u = loss_u + torch.mean(self.loss_function(
-                du_dt - self.params.nu * laplace_u + self.params.grav * grad_h[:,1:2] + self.params.k_epsilon*u + u * grad_u[:,1:2] + v * grad_u[:,0:1] - self.params.f_epsilon * v
+                du_dt - self.params.Du * laplace_u + self.params.grav * (grad_h[:,1:2] + grad_S[:,1:2]) + self.params.k_epsilon*u + u * grad_u[:,1:2] + v * grad_u[:,0:1] - self.params.f_epsilon * v + tau_bx_per_rho/h
             ), dim)
 
             loss_v = loss_v + torch.mean(self.loss_function(
-                dv_dt - self.params.nu * laplace_v + self.params.grav * grad_h[:,0:1] + self.params.k_epsilon*v + u * grad_v[:,1:2] + v * grad_v[:,0:1] + self.params.f_epsilon * u
+                dv_dt - self.params.Du * laplace_v + self.params.grav * (grad_h[:,0:1] + grad_S[:,0:1]) + self.params.k_epsilon*v + u * grad_v[:,1:2] + v * grad_v[:,0:1] + self.params.f_epsilon * u + tau_by_per_rho/h
+            ), dim)
+
+            loss_S = loss_S + torch.mean(self.loss_function(
+                dS_dt - self.params.Sin * (he / (self.params.Qs + he)) + self.params.Es * (1.0 - self.params.pE * (B / self.params.k)) * S * tau_b_per_rho
             ), dim)
 
             # h boundary condition loss
