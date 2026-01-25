@@ -50,6 +50,8 @@ class Logger():
 		:value: value to log
 		:index: index (e.g. batchindex / epoch)
 		"""
+
+		print(f"Logged: {item} = {value}")
 		
 		if self.use_csv:
 			filename = 'Logger/{}/{}/logs/{}.log'.format(self.name,self.datetime,item)

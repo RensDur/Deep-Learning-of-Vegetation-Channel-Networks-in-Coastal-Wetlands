@@ -31,8 +31,10 @@ def params():
 	parser.add_argument('--loss_bound_uv', default=1, type=float, help='loss factor for boundary conditions flowvelocity')
 	parser.add_argument('--loss_h', default=1, type=float, help='loss factor for wave equation')
 	parser.add_argument('--loss_momentum', default=1, type=float, help='loss factor to connect dz_dt and v')
+	parser.add_argument('--loss_sediment', default=1, type=float, help='loss factor for sedimentary bed elevation loss')
+	parser.add_argument('--loss_vegetation', default=1, type=float, help='loss factor for vegetation stem density loss')
 	parser.add_argument('--border_weight', default=0, type=float, help='extra weight on fluid domain borders')
-	parser.add_argument('--huber_delta', default=100, type=float, help='Huber Loss: Square loss when |residual| <= threshold, linear outside the threshold')
+	parser.add_argument('--huber_delta', default=10, type=float, help='Huber Loss: Square loss when |residual| <= threshold, linear outside the threshold')
 	
 	parser.add_argument('--lr', default=0.0001, type=float, help='learning rate of ADAM-optimizer (default: 0.0001)')
 	parser.add_argument('--clip_grad_norm', default=None, type=float, help='gradient norm clipping (default: None)')
