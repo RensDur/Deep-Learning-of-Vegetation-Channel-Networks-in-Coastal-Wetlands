@@ -169,7 +169,7 @@ class SplinePINNSolver:
         # Optimizer
         #
         self.optimizer = Adam(self.net.parameters(), lr=self.params.lr)
-        self.optimizer = PCGrad(self.optimizer)
+        # self.optimizer = PCGrad(self.optimizer)
 
         #
         # Logger
@@ -315,17 +315,20 @@ class SplinePINNSolver:
                 loss_bound = torch.mean(loss_bound)
 
                 # For backprop using PCGrad, construct each loss term
-                pcgrad_losses = [
-                    loss_h,
-                    loss_momentum,
-                    loss_bound
-                ]
+                # pcgrad_losses = [
+                #     loss_h,
+                #     loss_momentum,
+                #     loss_bound
+                # ]
+
+                loss_total = loss_h + loss_momentum + loss_bound
 
                 # Reset old gradients to 0 and compute new gradients with backpropagation
                 self.net.zero_grad()
                 
                 # PCGrad backprop pass
-                self.optimizer.pc_backward(pcgrad_losses)
+                # self.optimizer.pc_backward(pcgrad_losses)
+                loss_total.backward()
 
                 # Clip gradients
                 if self.params.clip_grad_value is not None:
