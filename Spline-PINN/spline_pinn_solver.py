@@ -104,12 +104,11 @@ class SplinePINNSolver:
 
             # Compute intermediate terms
             h_total = h + self.params.H0
-            print(f"Minimal eta found: {torch.min(h_total)}")
 
             bed_roughness_coefficient_n = self.params.nb + (self.params.nv - self.params.nb) * (B / self.params.k)
             chezy_coefficient = (1.0 / bed_roughness_coefficient_n) * torch.pow(h_total, 1.0/6.0)
-            tau_bx_per_rho = (self.params.grav / torch.pow(chezy_coefficient, 2.0)) * torch.pow(u**2 + v**2, 0.5) * u
-            tau_by_per_rho = (self.params.grav / torch.pow(chezy_coefficient, 2.0)) * torch.pow(u**2 + v**2, 0.5) * v
+            tau_bx_per_rho = (self.params.grav / torch.pow(chezy_coefficient, 2.0)) * torch.pow(u**2 + v**2 + 0.001, 0.5) * u
+            tau_by_per_rho = (self.params.grav / torch.pow(chezy_coefficient, 2.0)) * torch.pow(u**2 + v**2 + 0.001, 0.5) * v
             tau_b_per_rho = (self.params.grav / torch.pow(chezy_coefficient, 2.0)) * (u**2 + v**2)
 
             he = h_total - self.params.Hc
@@ -224,6 +223,8 @@ class SplinePINNSolver:
         self.optimizer = Adam(self.net.parameters(), lr=self.params.lr)
         # self.optimizer = PCGrad(self.optimizer)
 
+        torch.autograd.set_detect_anomaly(True)
+
         #
         # Logger
         #
@@ -316,8 +317,6 @@ class SplinePINNSolver:
 
                 # Predict the new domain state by performing a forward pass through the network
                 new_hidden_state = self.net(old_hidden_state, uv_cond, uv_mask, S_cond, S_mask)
-
-                print(f"Mean hidden state value: {torch.mean(new_hidden_state)}")
 
                 dim = [1,2,3]
                 if self.params.plot_loss:
