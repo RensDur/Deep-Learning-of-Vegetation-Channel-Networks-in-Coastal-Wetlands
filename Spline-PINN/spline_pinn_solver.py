@@ -124,7 +124,7 @@ class SplinePINNSolver:
 
             # h-loss
             loss_h = loss_h + torch.mean(self.loss_function(
-                dh_dt + (grad_u[:,1:2] + grad_v[:,0:1]) * (h + self.params.H0) + (grad_h[:,1:2]*u + grad_h[:,0:1]*v) + self.params.epsilon * h
+                dh_dt + (grad_u[:,1:2] + grad_v[:,0:1]) * (h + self.params.H0) + (grad_h[:,1:2]*u + grad_h[:,0:1]*v) + self.params.epsilon * h - self.params.Hin
             ), dim)
 
             # Momentum loss
@@ -221,7 +221,7 @@ class SplinePINNSolver:
         # Optimizer
         #
         self.optimizer = Adam(self.net.parameters(), lr=self.params.lr)
-        # self.optimizer = PCGrad(self.optimizer)
+        self.optimizer = PCGrad(self.optimizer)
 
         torch.autograd.set_detect_anomaly(True)
 
@@ -355,11 +355,12 @@ class SplinePINNSolver:
                 loss_vegetation = torch.mean(loss_B)
                 loss_bound = torch.mean(loss_bound)
 
-                loss_total = loss_h + loss_momentum + loss_sediment + loss_vegetation + loss_bound
-
                 # For backprop using PCGrad, construct each loss term
                 pcgrad_losses = [
-                    loss_h + loss_momentum,
+                    loss_h,
+                    loss_momentum,
+                    loss_sediment,
+                    loss_vegetation,
                     loss_bound
                 ]
 
@@ -367,8 +368,7 @@ class SplinePINNSolver:
                 self.net.zero_grad()
                 
                 # PCGrad backprop pass
-                # self.optimizer.pc_backward(pcgrad_losses)
-                loss_total.backward()
+                self.optimizer.pc_backward(pcgrad_losses)
 
                 # Clip gradients
                 if self.params.clip_grad_value is not None:
