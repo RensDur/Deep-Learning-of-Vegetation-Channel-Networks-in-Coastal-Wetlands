@@ -104,15 +104,17 @@ class SplinePINNSolver:
             print(f"Minimal eta found: {torch.min(h)}")
 
             # Compute intermediate terms
-            h_clamped = h + self.params.H0
+            h_total = h + self.params.H0
+
+            # 
 
             bed_roughness_coefficient_n = self.params.nb + (self.params.nv - self.params.nb) * (B / self.params.k)
-            chezy_coefficient = (1.0 / bed_roughness_coefficient_n) * torch.pow(h_clamped, 1.0/6.0)
+            chezy_coefficient = (1.0 / bed_roughness_coefficient_n) * torch.pow(h_total, 1.0/6.0)
             tau_bx_per_rho = (self.params.grav / torch.pow(chezy_coefficient, 2.0)) * torch.pow(u**2 + v**2, 0.5) * u
             tau_by_per_rho = (self.params.grav / torch.pow(chezy_coefficient, 2.0)) * torch.pow(u**2 + v**2, 0.5) * v
             tau_b_per_rho = (self.params.grav / torch.pow(chezy_coefficient, 2.0)) * (u**2 + v**2)
 
-            he = h_clamped - self.params.Hc
+            he = h_total - self.params.Hc
 
             # Compute topographic diffusion term (\/(Ds\/S)) (Ds is a field)
             Ds = self.params.D0 * (1.0 - self.params.pD * (B / self.params.k))
@@ -130,11 +132,11 @@ class SplinePINNSolver:
 
             # Momentum loss
             loss_u = loss_u + torch.mean(self.loss_function(
-                du_dt - self.params.Du * laplace_u + self.params.grav * (grad_h[:,1:2] + grad_S[:,1:2]) + self.params.k_epsilon*u + u * grad_u[:,1:2] + v * grad_u[:,0:1] - self.params.f_epsilon * v + tau_bx_per_rho/h_clamped
+                du_dt - self.params.Du * laplace_u + self.params.grav * (grad_h[:,1:2] + grad_S[:,1:2]) + self.params.k_epsilon*u + u * grad_u[:,1:2] + v * grad_u[:,0:1] - self.params.f_epsilon * v + tau_bx_per_rho/h_total
             ), dim)
 
             loss_v = loss_v + torch.mean(self.loss_function(
-                dv_dt - self.params.Du * laplace_v + self.params.grav * (grad_h[:,0:1] + grad_S[:,0:1]) + self.params.k_epsilon*v + u * grad_v[:,1:2] + v * grad_v[:,0:1] + self.params.f_epsilon * u + tau_by_per_rho/h_clamped
+                dv_dt - self.params.Du * laplace_v + self.params.grav * (grad_h[:,0:1] + grad_S[:,0:1]) + self.params.k_epsilon*v + u * grad_v[:,1:2] + v * grad_v[:,0:1] + self.params.f_epsilon * u + tau_by_per_rho/h_total
             ), dim)
 
             loss_S = loss_S + torch.mean(self.loss_function(
