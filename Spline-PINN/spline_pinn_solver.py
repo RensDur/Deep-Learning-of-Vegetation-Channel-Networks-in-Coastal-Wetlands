@@ -101,12 +101,10 @@ class SplinePINNSolver:
             # COMPUTE SAMPLE LOSS
             #
 
-            print(f"Minimal eta found: {torch.min(h)}")
 
             # Compute intermediate terms
             h_total = h + self.params.H0
-
-            # 
+            print(f"Minimal eta found: {torch.min(h_total)}")
 
             bed_roughness_coefficient_n = self.params.nb + (self.params.nv - self.params.nb) * (B / self.params.k)
             chezy_coefficient = (1.0 / bed_roughness_coefficient_n) * torch.pow(h_total, 1.0/6.0)
@@ -224,7 +222,7 @@ class SplinePINNSolver:
         # Optimizer
         #
         self.optimizer = Adam(self.net.parameters(), lr=self.params.lr)
-        self.optimizer = PCGrad(self.optimizer)
+        # self.optimizer = PCGrad(self.optimizer)
 
         #
         # Logger
@@ -358,6 +356,8 @@ class SplinePINNSolver:
                 loss_vegetation = torch.mean(loss_B)
                 loss_bound = torch.mean(loss_bound)
 
+                loss_total = loss_h + loss_momentum + loss_sediment + loss_vegetation + loss_bound
+
                 # For backprop using PCGrad, construct each loss term
                 pcgrad_losses = [
                     loss_h + loss_momentum,
@@ -368,7 +368,8 @@ class SplinePINNSolver:
                 self.net.zero_grad()
                 
                 # PCGrad backprop pass
-                self.optimizer.pc_backward(pcgrad_losses)
+                # self.optimizer.pc_backward(pcgrad_losses)
+                loss_total.backward()
 
                 # Clip gradients
                 if self.params.clip_grad_value is not None:

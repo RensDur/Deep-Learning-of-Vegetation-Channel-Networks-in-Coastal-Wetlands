@@ -186,7 +186,9 @@ class SaltmarshUNet(nn.Module):
 
 		self.output_scalar = torch.ones(1, self.hidden_state_size, 1, 1)*2
 
-		self.output_scalar[:,spline_variables.get_singular_slice_for("h"),:,:] = 10
+		self.output_scalar[:,spline_variables.get_slice_for("h"),:,:] = 0.018
+
+		self.output_scalar[:,spline_variables.get_singular_slice_for("h"),:,:] = 0.018
 		self.output_scalar[:,spline_variables.get_singular_slice_for("u"),:,:] = 10
 		self.output_scalar[:,spline_variables.get_singular_slice_for("v"),:,:] = 10
 		self.output_scalar[:,spline_variables.get_singular_slice_for("S"),:,:] = 100
@@ -228,6 +230,8 @@ class SaltmarshUNet(nn.Module):
 		out[:,self.spline_variables.get_singular_slice_for("h"),:,:] = out[:,self.spline_variables.get_singular_slice_for("h"),:,:] - torch.mean(out[:,self.spline_variables.get_singular_slice_for("h"),:,:],dim=(2,3)).unsqueeze(2).unsqueeze(3)
 		out[:,self.spline_variables.get_singular_slice_for("u"),:,:] = out[:,self.spline_variables.get_singular_slice_for("u"),:,:] - torch.mean(out[:,self.spline_variables.get_singular_slice_for("u"),:,:],dim=(2,3)).unsqueeze(2).unsqueeze(3)
 		out[:,self.spline_variables.get_singular_slice_for("v"),:,:] = out[:,self.spline_variables.get_singular_slice_for("v"),:,:] - torch.mean(out[:,self.spline_variables.get_singular_slice_for("v"),:,:],dim=(2,3)).unsqueeze(2).unsqueeze(3)
+
+		print(f"Min out h value: {torch.min(out[:,self.spline_variables.get_singular_slice_for('h'),:,:])}")
 
 		return out
 
