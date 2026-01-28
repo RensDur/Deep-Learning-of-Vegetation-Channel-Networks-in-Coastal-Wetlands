@@ -496,12 +496,12 @@ class SplinePINNSolver:
         while window.is_open():
 
             # Ask for a batch from the dataset
-            old_hidden_state, h_cond, h_mask, uv_cond, uv_mask, S_cond, S_mask, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks, sample_S_conds, sampleS_masks = self.dataset.ask()
+            old_hidden_state, uv_cond, uv_mask, S_cond, S_mask, grid_offsets, sample_uv_conds, sample_uv_masks, sample_S_conds, sampleS_masks = self.dataset.ask()
 
             # Predict the new domain state by performing a forward pass through the network
-            new_hidden_state = self.net(old_hidden_state, h_cond, h_mask, uv_cond, uv_mask, S_cond, S_mask)
+            new_hidden_state = self.net(old_hidden_state, uv_cond, uv_mask, S_cond, S_mask)
 
-            # loss_h, loss_u, loss_v, loss_bound, loss_damp = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks, sample_S_conds, sampleS_masks)
+            # loss_h, loss_u, loss_v, loss_bound, loss_damp = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_uv_conds, sample_uv_masks, sample_S_conds, sampleS_masks)
 
             # Interpolate spline coefficients to obtain the necessary quantities
             h, grad_h, u, grad_u, laplace_u, v, grad_v, laplace_v, S, grad_S, laplace_S, B, grad_B, laplace_B = self.dataset.interpolate_superres(new_hidden_state, self.params.resolution_factor)
@@ -510,9 +510,9 @@ class SplinePINNSolver:
             self.dataset.tell(new_hidden_state)
 
             # Display water level thickness h
-            h = B[0, 0].clone()
-            # h = h - torch.min(h)
-            # h = h / torch.max(h)
+            h = S[0, 0].clone()
+            h = h - torch.min(h)
+            h = h / torch.max(h)
             h = h.detach().cpu().numpy()
 
             window.put_image(h)
