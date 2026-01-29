@@ -222,18 +222,7 @@ class SaltmarshUNet(nn.Module):
 		out = x
 		
 		# residual connections
-		out_h = self.output_scalar[:,self.spline_variables.get_singular_slice_for("h"),:,:] * torch.tanh((out[:,self.spline_variables.get_singular_slice_for("h"),:,:]+hidden_state[:,self.spline_variables.get_singular_slice_for("h"),:,:])/self.output_scalar[:,self.spline_variables.get_singular_slice_for("h"),:,:])
-		out_u = self.output_scalar[:,self.spline_variables.get_singular_slice_for("u"),:,:] * torch.tanh((out[:,self.spline_variables.get_singular_slice_for("u"),:,:]+hidden_state[:,self.spline_variables.get_singular_slice_for("u"),:,:])/self.output_scalar[:,self.spline_variables.get_singular_slice_for("u"),:,:])
-		out_v = self.output_scalar[:,self.spline_variables.get_singular_slice_for("v"),:,:] * torch.tanh((out[:,self.spline_variables.get_singular_slice_for("v"),:,:]+hidden_state[:,self.spline_variables.get_singular_slice_for("v"),:,:])/self.output_scalar[:,self.spline_variables.get_singular_slice_for("v"),:,:])
-		out_S = self.output_scalar[:,self.spline_variables.get_singular_slice_for("S"),:,:] * torch.sigmoid((out[:,self.spline_variables.get_singular_slice_for("S"),:,:]+hidden_state[:,self.spline_variables.get_singular_slice_for("S"),:,:])/self.output_scalar[:,self.spline_variables.get_singular_slice_for("S"),:,:])
-		out_B = self.output_scalar[:,self.spline_variables.get_singular_slice_for("B"),:,:] * torch.sigmoid((out[:,self.spline_variables.get_singular_slice_for("B"),:,:]+hidden_state[:,self.spline_variables.get_singular_slice_for("B"),:,:])/self.output_scalar[:,self.spline_variables.get_singular_slice_for("B"),:,:])
-
-		out[:,:,:,:] = self.output_scalar[:,:,:,:] * torch.tanh((out[:,:,:,:]+hidden_state[:,:,:,:])/self.output_scalar[:,:,:,:])
-		out[:,self.spline_variables.get_singular_slice_for("h"),:,:] = out_h
-		out[:,self.spline_variables.get_singular_slice_for("u"),:,:] = out_u
-		out[:,self.spline_variables.get_singular_slice_for("v"),:,:] = out_v
-		out[:,self.spline_variables.get_singular_slice_for("S"),:,:] = out_S
-		out[:,self.spline_variables.get_singular_slice_for("B"),:,:] = out_B
+		out[:,:,:,:] = self.output_scalar*torch.tanh((out[:,:,:,:]+hidden_state[:,:,:,:])/self.output_scalar)
 
 		return out
 

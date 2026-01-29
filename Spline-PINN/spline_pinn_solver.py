@@ -509,7 +509,7 @@ class SplinePINNSolver:
             self.dataset.tell(new_hidden_state)
 
             # Display water level thickness h
-            h = S[0, 0].clone()
+            h = B[0, 0].clone()
             h = h - torch.min(h)
             h = h / torch.max(h)
             h = h.detach().cpu().numpy()
