@@ -137,11 +137,11 @@ class SplinePINNSolver:
             ), dim)
 
             loss_S = loss_S + torch.mean(self.loss_function(
-                dS_dt - self.params.morphological_acc_factor * (self.params.Sin * (he / (self.params.Qs + he)) + self.params.Es * (1.0 - self.params.pE * (B / self.params.k)) * S * tau_b_per_rho - div_Ds_grad_S)
+                dS_dt - self.params.morphological_acc_factor * (self.params.Sin * (he / (self.params.Qs + he)) - self.params.Es * (1.0 - self.params.pE * (B / self.params.k)) * S * tau_b_per_rho + div_Ds_grad_S)
             ), dim)
 
             loss_B = loss_B + torch.mean(self.loss_function(
-                dB_dt - self.params.morphological_acc_factor * (self.params.r * B * (1.0 - (B / self.params.k)) * (self.params.Qq / (self.params.Qq + he)) + self.params.EB * B * tau_b_per_rho - self.params.DB * laplace_B)
+                dB_dt - self.params.morphological_acc_factor * (self.params.r * B * (1.0 - (B / self.params.k)) * (self.params.Qq / (self.params.Qq + he)) - self.params.EB * B * tau_b_per_rho + self.params.DB * laplace_B)
             ), dim)
 
             #
