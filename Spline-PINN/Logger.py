@@ -60,6 +60,10 @@ class Logger():
 				append_write = 'w'
 			
 			with open(filename, append_write) as log_file:
+				# If we're writing the first line, also include the column-names of this file
+				if append_write == 'w':
+					log_file.write("Index,{}\n".format(item))
+
 				log_file.write("{}, {}\n".format(index,value))
 		
 		if self.use_tensorboard:

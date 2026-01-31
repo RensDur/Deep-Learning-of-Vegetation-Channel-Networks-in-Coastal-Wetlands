@@ -346,6 +346,10 @@ class SplinePINNSolver:
                 loss_vegetation = torch.mean(loss_B)
                 loss_bound = torch.mean(loss_bound)
 
+                # TODO: Temporary test: less loss objectives
+                loss_objective_hydrodynamics = loss_h + loss_momentum
+                loss_objective_sediment_vegetation = loss_sediment + loss_vegetation
+
                 # Log loss (per term)
                 if self.params.log_loss:
                     loss_h = torch.log(loss_h + 0.0001)
@@ -354,12 +358,13 @@ class SplinePINNSolver:
                     loss_vegetation = torch.log(loss_vegetation + 0.0001)
                     loss_bound = torch.log(loss_bound + 0.0001)
 
+                    loss_objective_hydrodynamics = torch.log(loss_objective_hydrodynamics + 0.0001)
+                    loss_objective_sediment_vegetation = torch.log(loss_objective_sediment_vegetation + 0.0001)
+
                 # For backprop using PCGrad, construct each loss term
                 pcgrad_losses = [
-                    loss_h,
-                    loss_momentum,
-                    loss_sediment,
-                    loss_vegetation,
+                    loss_objective_hydrodynamics,
+                    loss_objective_sediment_vegetation,
                     loss_bound
                 ]
 
@@ -409,6 +414,9 @@ class SplinePINNSolver:
                     self.logger.log("loss_sediment", loss_sediment.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
                     self.logger.log("loss_vegetation", loss_vegetation.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
                     self.logger.log("loss_bound", loss_bound.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
+
+                    self.logger.log("loss_objective_hydrodynamics", loss_objective_hydrodynamics.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
+                    self.logger.log("loss_objective_sediment_vegetation", loss_objective_sediment_vegetation.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
 
                     # log_index = epoch * self.params.n_batches_per_epoch + i
                     # self.logger.log_all(["loss_h", "loss_momentum", "loss_bound"], [loss_h.detach().cpu(), loss_momentum.detach().cpu(), loss_bound.detach().cpu()], log_index)
