@@ -190,7 +190,7 @@ class SaltmarshUNet(nn.Module):
 		self.output_scalar[:,spline_variables.get_singular_slice_for("u"),:,:] = 10
 		self.output_scalar[:,spline_variables.get_singular_slice_for("v"),:,:] = 10
 		self.output_scalar[:,spline_variables.get_singular_slice_for("S"),:,:] = 10
-		self.output_scalar[:,spline_variables.get_singular_slice_for("B"),:,:] = 2000
+		self.output_scalar[:,spline_variables.get_singular_slice_for("B"),:,:] = 2500
 
 	def to(self, torch_device):
 		super(SaltmarshUNet, self).to(torch_device)

@@ -149,7 +149,7 @@ class SplinePINNSolver:
             #
 
             # Sedimentary bed elevation (S) boundary condition loss
-            loss_bound_open = torch.mean(sample_S_mask[:,:,1:-1,1:-1] * self.loss_function(
+            loss_bound_open = 100 * torch.mean(sample_S_mask[:,:,1:-1,1:-1] * self.loss_function( # TODO: Temporary test: make S-cond loss more prominent
                 S - sample_S_cond[:,:,1:-1,1:-1]
             ), dim)
 
@@ -160,7 +160,7 @@ class SplinePINNSolver:
 
             # ... and no gradient in B
             loss_bound_open = loss_bound_open + torch.mean(sample_S_mask[:,:,1:-1,1:-1] * self.loss_function(
-                grad_B
+                grad_B / self.params.k # TODO: Temporary test: normalize B-loss by carrying capacity k
             ), dim)
 
             #
@@ -177,7 +177,7 @@ class SplinePINNSolver:
             ), dim)
 
             loss_bound_closed = loss_bound_closed + torch.mean(sample_uv_mask[:,:,1:-1,1:-1] * self.loss_function(
-                grad_B
+                grad_B / self.params.k # TODO: Temporary test: normalize B-loss by carrying capacity k
             ), dim)
 
             loss_bound_closed = loss_bound_closed + torch.mean(sample_uv_mask[:,:,1:-1,1:-1] * self.loss_function(
