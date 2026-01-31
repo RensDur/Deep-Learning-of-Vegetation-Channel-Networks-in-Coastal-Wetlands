@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-folder = "saltmarsh-hs-40-test"
+folder = "saltmarsh-30-jan-hs-64"
 
 loss_bound_df = pd.read_csv(f"./{folder}/loss_bound.log")
 loss_h_df = pd.read_csv(f"./{folder}/loss_h.log")
