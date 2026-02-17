@@ -1,0 +1,11 @@
+--extra-index-url https://download.pytorch.org/whl/cu124
+
+matplotlib
+natsort
+numpy<2
+statsmodels
+tensorboard
+psutil
+torch==2.6.0
+torchvision==0.21.0
+torchaudio==2.6.0
