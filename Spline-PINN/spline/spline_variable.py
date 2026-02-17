@@ -5,6 +5,20 @@ import numpy as np
 import spline.kernels as kernels
 import spline.operators as operators
 
+def _dbg(_desc='',_expr=None):
+    print(f"DBG! >> {_desc}:\n{_expr}")
+    return _expr
+
+def _dbg_nan(_desc='',_tensor=torch.zeros(1)):
+    _expr = torch.mean(_tensor).detach().cpu()
+    _dbg(_desc, _expr)
+    return _tensor
+
+def _dbg_blocking(_desc='',_expr=None):
+    _ = _dbg(_desc, _expr)
+    _ = input("HIT ENTER TO STEP")
+    return _expr
+
 class SplineVariable:
 
     def __init__(self, name, order: int, requires_derivative=False, requires_laplacian=False, device=torch.device("cpu")):
@@ -91,8 +105,13 @@ class SplineVariable:
             self.kernels = self.kernel_buffer[offset_key]
         else:
 
-            # Prepare offsets
+            # The incoming offset is a local coordinate (dx, dy) describing a position between four support points
+            # Repeat the offset four times and organise them in a grid of shape [1,   2, 2, 2]
+            #                                                                   [_, x/y, <[0,0],[0,1],[1,0],[1,1]>]
+            # This gives an offset coordinate relative to each of the four corners in a cell.
             offsets = (offsets.clone().unsqueeze(0).unsqueeze(2).unsqueeze(3).repeat(1,1,2,2)-self.offset_summary)
+
+            # Repeat the offsets for each order
             offsets = offsets.unsqueeze(2).unsqueeze(3).repeat(1,1,(self.orders[0]+1),(self.orders[1]+1),1,1).detach().requires_grad_(True)
             
             # Prepare the new kernels for these offsets

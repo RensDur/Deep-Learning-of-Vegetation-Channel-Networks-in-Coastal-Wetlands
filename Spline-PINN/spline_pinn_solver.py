@@ -20,6 +20,11 @@ def _dbg_nan(_desc='',_tensor=torch.zeros(1)):
     _dbg(_desc, _expr)
     return _tensor
 
+def _dbg_blocking(_desc='',_expr=None):
+    _ = _dbg(_desc, _expr)
+    _ = input("HIT ENTER TO STEP")
+    return _expr
+
 class SplinePINNSolver:
     def __init__(self, dataset: Dataset, params, device):
 
