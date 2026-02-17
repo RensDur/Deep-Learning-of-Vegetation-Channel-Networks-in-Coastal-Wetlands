@@ -16,12 +16,8 @@ class Dataset:
         # Dimensions
         self.width = params.width
         self.height = params.height
-        self.resolution_factor = params.resolution_factor
-        self.width_fullres = self.resolution_factor * self.width
-        self.height_fullres = self.resolution_factor * self.height
 
         self.padding = 5
-        self.padding_fullres = self.padding * self.resolution_factor
 
         self.dx = params.separation
         self.dy = params.separation
@@ -60,11 +56,6 @@ class Dataset:
         self.h_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
         self.uv_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
         self.uv_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
-
-        self.h_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
-        self.h_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
-        self.uv_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
-        self.uv_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
 
         # Environment information
         self.types = [
@@ -131,15 +122,15 @@ class Dataset:
         self.hidden_states[indices, :, :, :] = 0
 
         # Reset all masks and conditions
-        self.h_mask_fullres[indices] = 0
-        self.h_cond_fullres[indices] = 0
+        self.h_mask[indices] = 0
+        self.h_cond[indices] = 0
 
         # BC: h holds around the entire frame
-        self.uv_mask_fullres[indices] = 1
-        self.uv_mask_fullres[indices, :, self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
+        self.uv_mask[indices] = 1
+        self.uv_mask[indices, :, self.padding:-self.padding, self.padding:-self.padding] = 0
 
         # Velocity condition zero
-        self.uv_cond_fullres[indices] = 0
+        self.uv_cond[indices] = 0
 
         # Randomly choose a new type for each environment
         self.env_type[indices] = np.random.choice(self.types, indices.shape)
@@ -169,12 +160,12 @@ class Dataset:
                 # obstabcles (oscillators)
                 for x in [0]:#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
                     for y in [0]:#[-45,-15,15,45]:
-                        self.h_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
-                        self.uv_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
+                        self.h_mask[group_indices,:,(self.height//2+x-5):(self.height//2+x+5),(self.width//2+y-5):(self.width//2+y+5)] = 1
+                        self.uv_mask[group_indices,:,(self.height//2+x-5):(self.height//2+x+5),(self.width//2+y-5):(self.width//2+y+5)] = 1
 
                 # Set the masks and conditions
-                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+                self.h_cond[group_indices,:,self.padding:-self.padding, self.padding:-self.padding] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width - 2*self.padding, self.height - 2*self.padding)
+                self.h_cond[group_indices] = self.h_cond[group_indices] * self.h_mask[group_indices]
 
             #
             # RANDOMLY PLACED OSCILLATOR
@@ -183,12 +174,12 @@ class Dataset:
                 # obstabcles (oscillators)
                 for x in np.random.choice(range(-45, 46), 1):#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
                     for y in np.random.choice(range(-45, 46), 1):#[-45,-15,15,45]:
-                        self.h_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
-                        self.uv_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
+                        self.h_mask[group_indices,:,(self.height//2+x-5):(self.height//2+x+5),(self.width//2+y-5):(self.width//2+y+5)] = 1
+                        self.uv_mask[group_indices,:,(self.height//2+x-5):(self.height//2+x+5),(self.width//2+y-5):(self.width//2+y+5)] = 1
 
                 # Set the masks and conditions
-                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+                self.h_cond[group_indices,:,self.padding:-self.padding, self.padding:-self.padding] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width - 2*self.padding, self.height - 2*self.padding)
+                self.h_cond[group_indices] = self.h_cond[group_indices] * self.h_mask[group_indices]
 
             #
             # RANDOMLY PLACED OSCILLATOR
@@ -197,12 +188,12 @@ class Dataset:
                 # obstabcles (oscillators)
                 for x in np.random.choice(range(-45, 46, 5), 2):#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
                     for y in np.random.choice(range(-45, 46, 5), 2):#[-45,-15,15,45]:
-                        self.h_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
-                        self.uv_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
+                        self.h_mask[group_indices,:,(self.height//2+x-5):(self.height//2+x+5),(self.width//2+y-5):(self.width//2+y+5)] = 1
+                        self.uv_mask[group_indices,:,(self.height//2+x-5):(self.height//2+x+5),(self.width//2+y-5):(self.width//2+y+5)] = 1
 
                 # Set the masks and conditions
-                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+                self.h_cond[group_indices,:,self.padding:-self.padding, self.padding:-self.padding] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width - 2*self.padding, self.height - 2*self.padding)
+                self.h_cond[group_indices] = self.h_cond[group_indices] * self.h_mask[group_indices]
 
             #
             # REFLECTION
@@ -212,39 +203,23 @@ class Dataset:
                 # obstabcles (oscillators)
                 for x in [-10]:#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
                     for y in [60]:#[-45,-15,15,45]:
-                        self.h_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
-                        self.uv_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
+                        self.h_mask[group_indices,:,(self.height//2+x-5):(self.height//2+x+5),(self.width//2+y-5):(self.width//2+y+5)] = 1
+                        self.uv_mask[group_indices,:,(self.height//2+x-5):(self.height//2+x+5),(self.width//2+y-5):(self.width//2+y+5)] = 1
 
                 # Set the masks and conditions
-                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+                self.h_cond[group_indices,:,self.padding:-self.padding, self.padding:-self.padding] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width - 2*self.padding, self.height - 2*self.padding)
+                self.h_cond[group_indices] = self.h_cond[group_indices] * self.h_mask[group_indices]
 
                 # We install a barrier starting in the top-center going towards the middle of the domain of thickness 10
-                barrier_thickness = 10 * self.resolution_factor
-                self.uv_mask_fullres[group_indices,:, 0:(self.height_fullres//2), (self.width_fullres//2-barrier_thickness//2):(self.width_fullres//2+barrier_thickness//2)+1] = 1
+                barrier_thickness = 10
+                self.uv_mask[group_indices,:, 0:(self.height//2), (self.width//2-barrier_thickness//2):(self.width//2+barrier_thickness//2)+1] = 1
 
                 # Set the masks and conditions
-                self.uv_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
-                self.uv_cond_fullres[group_indices] = self.uv_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+                self.uv_cond[group_indices,:,self.padding:-self.padding, self.padding:-self.padding] = 0
+                self.uv_cond[group_indices] = self.uv_cond[group_indices] * self.h_mask[group_indices]
 
         for typename in grouping.keys():
             reset_all_of_type(typename, grouping[typename])
-
-        # Soften the transition planes
-        # Create sponge BCs by applying a gradient in the boundary
-        # conv_kernel = torch.tensor([[0, 0.25, 0],
-        #                             [0.25, 0, 0.25],
-        #                             [0, 0.25, 0]]).view(1, 1, 3, 3)
-        
-        # for _ in range(2):
-        #     self.h_mask_fullres[indices] = 1-F.conv2d(1-self.h_mask_fullres[indices], conv_kernel, padding=1)
-        #     self.uv_mask_fullres[indices] = 1-F.conv2d(1-self.uv_mask_fullres[indices], conv_kernel, padding=1)
-    
-        # Average pooling to create downsampled versions of the BCs
-        self.h_cond[indices] = F.avg_pool2d(self.h_cond_fullres[indices],self.resolution_factor)
-        self.h_mask[indices] = F.avg_pool2d(self.h_mask_fullres[indices],self.resolution_factor)
-        self.uv_cond[indices] = F.avg_pool2d(self.uv_cond_fullres[indices],self.resolution_factor)
-        self.uv_mask[indices] = F.avg_pool2d(self.uv_mask_fullres[indices],self.resolution_factor)
 
 
 
@@ -270,17 +245,11 @@ class Dataset:
             # OSCILLATOR
             #
             if typename == "oscillator" or typename == "random-oscillator" or typename == "multiple-random-oscillator" or typename == "reflection":
-                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+                self.h_cond[group_indices,:,self.padding:-self.padding,self.padding:-self.padding] = self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width - 2*self.padding, self.height - 2*self.padding)
+                self.h_cond[group_indices] = self.h_cond[group_indices] * self.h_mask[group_indices]
 
         for typename in grouping.keys():
             reset_all_of_type(typename, grouping[typename])
-    
-        # Average pooling to create downsampled versions of the BCs
-        self.h_cond[indices] = F.avg_pool2d(self.h_cond_fullres[indices],self.resolution_factor)
-        self.h_mask[indices] = F.avg_pool2d(self.h_mask_fullres[indices],self.resolution_factor)
-        self.uv_cond[indices] = F.avg_pool2d(self.uv_cond_fullres[indices],self.resolution_factor)
-        self.uv_mask[indices] = F.avg_pool2d(self.uv_mask_fullres[indices],self.resolution_factor)
         
         # Update the time for each environment
         self.env_time[indices] = self.env_time[indices] + math.pi / 10.0
