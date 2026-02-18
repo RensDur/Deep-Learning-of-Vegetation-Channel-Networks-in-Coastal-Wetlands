@@ -19,8 +19,8 @@ class Testset:
         self.hidden_states = torch.zeros(
             1,
             self.hidden_size(),
-            self.height,
-            self.width,
+            self.height+1,
+            self.width+1,
         )
 
         self.hidden_states[:, 0, :, :] = 200
@@ -53,7 +53,7 @@ class Testset:
                 self.kernels[0:1,0:1,l,m,:,:] = kernels.p_multidim(local_offset_corners_orders[:,:,l,m],[self.orders[0],self.orders[1]],[l,m])
 
         # Multiplicant
-        multiplicant = torch.zeros(1, self.kernel_size, (self.orders[0]+1), (self.orders[1]+1), self.height, self.width).to(self.device)
+        multiplicant = torch.zeros(1, self.kernel_size, (self.orders[0]+1), (self.orders[1]+1), self.height+1, self.width+1).to(self.device)
 
         top_left_support_point = torch.floor(offset).int()
         top_left_x = top_left_support_point[0]
@@ -62,7 +62,7 @@ class Testset:
         multiplicant[..., top_left_y:top_left_y+2, top_left_x:top_left_x+2] = self.kernels
 
         # Reshape to align all order parts
-        multiplicant = multiplicant.reshape(1, (self.orders[0]+1)*(self.orders[1]+1), self.height, self.width)
+        multiplicant = multiplicant.reshape(1, (self.orders[0]+1)*(self.orders[1]+1), self.height+1, self.width+1)
 
         # Convolution
         out = F.conv2d(multiplicant, self.hidden_states, padding=0)
@@ -95,7 +95,7 @@ class Testset:
         print(self.kernels.shape)
 
         # Multiplicant
-        multiplicant = torch.zeros(num_samples, self.kernel_size, (self.orders[0]+1), (self.orders[1]+1), self.height, self.width).to(self.device)
+        multiplicant = torch.zeros(num_samples, self.kernel_size, (self.orders[0]+1), (self.orders[1]+1), self.height+1, self.width+1).to(self.device)
 
         top_left_support_point = torch.floor(offsets).int()
 
@@ -106,7 +106,7 @@ class Testset:
             multiplicant[i:i+1, ..., top_left_y:top_left_y+2, top_left_x:top_left_x+2] = self.kernels[i:i+1, ...]
 
         # Reshape to align all order parts
-        multiplicant = multiplicant.reshape(num_samples, (self.orders[0]+1)*(self.orders[1]+1), self.height, self.width)
+        multiplicant = multiplicant.reshape(num_samples, (self.orders[0]+1)*(self.orders[1]+1), self.height+1, self.width+1)
 
         # Convolution
         out = F.conv2d(multiplicant, self.hidden_states, padding=0)
@@ -127,4 +127,4 @@ if __name__ == "__main__":
     main()
 
 testset = Testset()
-k = testset.interpolate_multiple_samples(torch.rand(10, 2) * 4)
+k = testset.interpolate_multiple_samples(torch.rand(10, 2) * 5)
