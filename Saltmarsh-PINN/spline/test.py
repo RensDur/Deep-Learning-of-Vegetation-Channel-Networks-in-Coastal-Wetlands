@@ -23,6 +23,8 @@ class Testset:
             self.width,
         )
 
+        self.hidden_states[:, 0, :, :] = 200
+
         self.kernel_size = 1
 
         self.offset_summary = torch.tensor([[[0,0],[1,0]],[[0,1],[1,1]]]).unsqueeze(0).permute(0,3,2,1).to(self.device)
@@ -38,7 +40,7 @@ class Testset:
 
         # Obtain local offset relative to all support points of this cell
         # (four corners)
-        local_offset_corners = local_offset.clone().unsqueeze(0).unsqueeze(2).unsqueeze(3).repeat(1,1,2,2) - self.offset_summary
+        local_offset_corners = local_offset.unsqueeze(0).unsqueeze(2).unsqueeze(3).repeat(1,1,2,2) - self.offset_summary
 
         # Repeat this offset for each order
         local_offset_corners_orders = local_offset_corners.unsqueeze(2).unsqueeze(3).repeat(1,1,(self.orders[0]+1),(self.orders[1]+1),1,1)
@@ -67,8 +69,49 @@ class Testset:
 
         return out
 
-    
+    def interpolate_multiple_samples(self, offsets):
 
+        # Offsets of shape (#samples(N), 2)
+        num_samples = offsets.shape[0]
+
+        # Grab the fractional part
+        local_offsets = torch.frac(offsets)
+
+        # Obtain local offset relative to all support points of this cell
+        # (four corners)
+        local_offsets_corners = local_offsets.unsqueeze(2).unsqueeze(3).repeat(1,1,2,2) - self.offset_summary.repeat(num_samples, 1, 1, 1)
+
+        # Repeat this offset for each order
+        local_offsets_corners_orders = local_offsets_corners.unsqueeze(2).unsqueeze(3).repeat(1,1,(self.orders[0]+1),(self.orders[1]+1),1,1)
+
+        # Prepare the new kernels for these offsets
+        self.kernels = torch.zeros(num_samples, self.kernel_size, (self.orders[0]+1), (self.orders[1]+1), 2, 2).to(self.device)
+        for i in range(num_samples):
+            for l in range(self.orders[0]+1):
+                for m in range(self.orders[1]+1):
+                    # Function value (directy from linear combination of splines)
+                    self.kernels[i:i+1,0:1,l,m,:,:] = kernels.p_multidim(local_offsets_corners_orders[i:i+1,:,l,m],[self.orders[0],self.orders[1]],[l,m])
+
+        print(self.kernels.shape)
+
+        # Multiplicant
+        multiplicant = torch.zeros(num_samples, self.kernel_size, (self.orders[0]+1), (self.orders[1]+1), self.height, self.width).to(self.device)
+
+        top_left_support_point = torch.floor(offsets).int()
+
+        for i in range(num_samples):
+            top_left_x = top_left_support_point[i, 0]
+            top_left_y = top_left_support_point[i, 1]
+
+            multiplicant[i:i+1, ..., top_left_y:top_left_y+2, top_left_x:top_left_x+2] = self.kernels[i:i+1, ...]
+
+        # Reshape to align all order parts
+        multiplicant = multiplicant.reshape(num_samples, (self.orders[0]+1)*(self.orders[1]+1), self.height, self.width)
+
+        # Convolution
+        out = F.conv2d(multiplicant, self.hidden_states, padding=0)
+
+        return out
 
 
 
@@ -82,3 +125,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+testset = Testset()
+k = testset.interpolate_multiple_samples(torch.rand(10, 2) * 4)
