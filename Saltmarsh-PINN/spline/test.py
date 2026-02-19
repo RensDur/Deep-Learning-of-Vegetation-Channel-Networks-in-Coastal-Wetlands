@@ -98,23 +98,28 @@ class Testset:
                 # Function value (directy from linear combination of splines)
                 self.kernels[torch.arange(num_samples),0:1,l,m,:,:] = kernels.p_multidim(local_offsets_corners_orders[torch.arange(num_samples),:,l,m],[self.orders[0],self.orders[1]],[l,m])
 
-        # With masking
+        self.kernels = self.kernels.reshape(num_samples, (self.orders[0]+1)*(self.orders[1]+1), 2, 2)
+
+        # Round down to obtain top-left support point indices
         top_left_support_point = torch.floor(offsets).int()
-        mask = torch.zeros(num_samples, self.kernel_size, (self.orders[0]+1), (self.orders[1]+1), self.height+1, self.width+1, dtype=torch.bool).to(self.device)
 
-        mask[torch.arange(num_samples), ..., top_left_support_point[:, 1], top_left_support_point[:, 0]] = 1
-        mask[torch.arange(num_samples), ..., top_left_support_point[:, 1]+1, top_left_support_point[:, 0]] = 1
-        mask[torch.arange(num_samples), ..., top_left_support_point[:, 1], top_left_support_point[:, 0]+1] = 1
-        mask[torch.arange(num_samples), ..., top_left_support_point[:, 1]+1, top_left_support_point[:, 0]+1] = 1
-        
-        kernels_positioned_per_sample = torch.zeros(num_samples, self.kernel_size, (self.orders[0]+1), (self.orders[1]+1), self.height+1, self.width+1).to(self.device)
-        kernels_positioned_per_sample[mask] = self.kernels.reshape(-1)
+        tx = top_left_support_point[:, 0]
+        ty = top_left_support_point[:, 1]
 
-        # Reshape to align all order parts
-        kernels_positioned_per_sample = kernels_positioned_per_sample.reshape(num_samples, (self.orders[0]+1)*(self.orders[1]+1), self.height+1, self.width+1)
+        # Extract local support point weights for each sample
+        support_00 = self.hidden_states[0, :, ty, tx].T # Top left support points - shape [#samples, lxm]
+        support_01 = self.hidden_states[0, :, ty, tx+1].T # Top right support points - shape [#samples, lxm]
+        support_10 = self.hidden_states[0, :, ty+1, tx].T # Bottom left support points - shape [#samples, lxm]
+        support_11 = self.hidden_states[0, :, ty+1, tx+1].T # Bottom right support points - shape [#samples, lxm]
 
-        # Convolution
-        out = F.conv2d(kernels_positioned_per_sample, self.hidden_states, padding=0)
+        # Arrange the support point weights
+        hidden_patch = torch.stack([
+            torch.stack([support_00, support_01], dim=-1),
+            torch.stack([support_10, support_11], dim=-1)
+        ], dim=-1)  # Shape [#samples, lxm, 2, 2]
+
+        # Multiply the weights with the kernels and sum the spline kernels per sample
+        out = (self.kernels * hidden_patch).sum(dim=(1, 2, 3)).reshape(num_samples)
 
         return out
 
