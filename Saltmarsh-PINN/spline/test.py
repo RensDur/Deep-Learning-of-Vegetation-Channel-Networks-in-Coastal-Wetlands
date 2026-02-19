@@ -3,15 +3,21 @@ import torch.nn.functional as F
 import numpy as np
 import math
 import kernels
+import multiprocessing
+
+# Find the number of available CPUs, capped at 8
+NUM_CPUS = multiprocessing.cpu_count()
+torch.set_num_threads(NUM_CPUS)
+print(f"Using {NUM_CPUS} threads")
 
 class Testset:
 
     def __init__(self):
 
-        self.width = 5
-        self.height = 5
+        self.width = 200
+        self.height = 200
 
-        self.device = torch.device("cpu")
+        self.device = torch.device("mps")
 
         self.orders = [1, 1]
 
@@ -21,6 +27,7 @@ class Testset:
             self.hidden_size(),
             self.height+1,
             self.width+1,
+            device=self.device
         )
 
         self.hidden_states[:, 0, :, :] = 200
@@ -36,7 +43,7 @@ class Testset:
     def interpolate_sample(self, offset):
 
         # offset in [0, width], [0, height]
-        local_offset = torch.frac(offset) # Retrieve fractional part == (dx, dy) within local cell
+        local_offset = torch.frac(offset).to(self.device) # Retrieve fractional part == (dx, dy) within local cell
 
         # Obtain local offset relative to all support points of this cell
         # (four corners)
@@ -75,7 +82,7 @@ class Testset:
         num_samples = offsets.shape[0]
 
         # Grab the fractional part
-        local_offsets = torch.frac(offsets)
+        local_offsets = torch.frac(offsets).to(self.device)
 
         # Obtain local offset relative to all support points of this cell
         # (four corners)
@@ -87,23 +94,40 @@ class Testset:
         # Prepare the new kernels for these offsets
         self.kernels = torch.zeros(num_samples, self.kernel_size, (self.orders[0]+1), (self.orders[1]+1), 2, 2).to(self.device)
         for i in range(num_samples):
+            print(f"\rProcessing sample {i}", end="")
             for l in range(self.orders[0]+1):
                 for m in range(self.orders[1]+1):
                     # Function value (directy from linear combination of splines)
                     self.kernels[i:i+1,0:1,l,m,:,:] = kernels.p_multidim(local_offsets_corners_orders[i:i+1,:,l,m],[self.orders[0],self.orders[1]],[l,m])
 
+        print()
+
         print(self.kernels.shape)
+
+        # With masking
+        top_left_support_point = torch.floor(offsets).int()
+        mask = torch.zeros(num_samples, self.kernel_size, (self.orders[0]+1), (self.orders[1]+1), self.height+1, self.width+1, dtype=torch.bool).to(self.device)
+
+        mask[:, ..., top_left_support_point[:, 0], top_left_support_point[:, 1]] = 1
+        mask[:, ..., top_left_support_point[:, 0]+1, top_left_support_point[:, 1]] = 1
+        mask[:, ..., top_left_support_point[:, 0], top_left_support_point[:, 1]+1] = 1
+        mask[:, ..., top_left_support_point[:, 0]+1, top_left_support_point[:, 1]+1] = 1
 
         # Multiplicant
         multiplicant = torch.zeros(num_samples, self.kernel_size, (self.orders[0]+1), (self.orders[1]+1), self.height+1, self.width+1).to(self.device)
 
-        top_left_support_point = torch.floor(offsets).int()
+        print(f"self.kernels.shape = {self.kernels.shape}")
+        print(f"mask.shape         = {mask.shape}")
+        print(f"multiplicant[mask] = {multiplicant[mask].reshape(num_samples, self.kernel_size, (self.orders[0]+1), (self.orders[1]+1), 2, 2).shape}")
 
         for i in range(num_samples):
+            print(f"\rComputing top-left index for sample {i}", end="")
             top_left_x = top_left_support_point[i, 0]
             top_left_y = top_left_support_point[i, 1]
 
             multiplicant[i:i+1, ..., top_left_y:top_left_y+2, top_left_x:top_left_x+2] = self.kernels[i:i+1, ...]
+
+        print()
 
         # Reshape to align all order parts
         multiplicant = multiplicant.reshape(num_samples, (self.orders[0]+1)*(self.orders[1]+1), self.height+1, self.width+1)
@@ -127,4 +151,4 @@ if __name__ == "__main__":
     main()
 
 testset = Testset()
-k = testset.interpolate_multiple_samples(torch.rand(10, 2) * 5)
+k = testset.interpolate_multiple_samples(torch.rand(10, 2) * testset.width)

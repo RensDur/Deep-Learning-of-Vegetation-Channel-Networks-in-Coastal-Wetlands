@@ -101,3 +101,13 @@ def p_multidim(offsets,orders,indices):
 	:indices: indices of spline for each dimension (note: counting starts at 0)
 	"""
 	return torch.prod(torch.cat([pi[orders[i]][indices[i]](offsets[:,i:(i+1)]).unsqueeze(0) for i in range(len(orders))]),dim=0)
+
+def p_multidim_fast(offsets,orders,indices):
+	"""
+	multidimensional basis spline of specified orders and indices
+	:offsets: offsets of size: bs x n_dims x ...
+	:orders: orders of spline for each dimension (note: counting starts at 0 => 0 ~ 1st order, 1 ~ 2nd order, 2 ~ 3rd order)
+	:indices: indices of spline for each dimension (note: counting starts at 0)
+	"""
+	return torch.prod(torch.cat([pi[orders[i]][indices[i]](offsets[:,i:(i+1)]).unsqueeze(0) for i in range(len(orders))]),dim=0)
+
