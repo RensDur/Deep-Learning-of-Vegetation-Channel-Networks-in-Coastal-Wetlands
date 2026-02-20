@@ -63,11 +63,22 @@ class SplineVariable:
         # Extract the number of samples per environment
         num_samples = sample_points.shape[1]
 
+        # The number of sample channels describes the number of values we interpolate per sample
+        # func_val + dx + dy + laplace = 4
+        num_sample_channels = 1 + \
+            (2 if include_derivative else 0) + \
+            (1 if include_laplacian else 0)
+
+        print(f"num sample channels: {num_sample_channels}")
+
         # The result of this interpolation is an outcome (batch x N), separately for
         # - function value
         # - derivative
         # - laplacian
-        result = torch.zeros(batch_size, num_samples, device=self.device)
+        result = torch.zeros(batch_size, num_sample_channels, num_samples, device=self.device)
+
+        if include_derivative or include_laplacian:
+            sample_points = sample_points.requires_grad_(True)
 
         for b in range(batch_size):
 
@@ -89,13 +100,20 @@ class SplineVariable:
             local_offsets_per_sp_orders = local_offsets_per_sp.unsqueeze(2).unsqueeze(3).repeat(1,1,(self.orders[0]+1),(self.orders[1]+1),1,1)
 
             # Use the offsets to obtain function values for each spline kernel
-            spline_kernel_val_at_offsets = torch.zeros(num_samples, 1, (self.orders[0]+1), (self.orders[1]+1), 2, 2).to(self.device)
+            sample_kernels = torch.zeros(num_samples, num_sample_channels, (self.orders[0]+1), (self.orders[1]+1), 2, 2).to(self.device)
             for l in range(self.orders[0]+1):
                 for m in range(self.orders[1]+1):
                     # Function value (directy from linear combination of splines)
-                    spline_kernel_val_at_offsets[torch.arange(num_samples),0:1,l,m,:,:] = kernels.p_multidim(local_offsets_per_sp_orders[torch.arange(num_samples),:,l,m],[self.orders[0],self.orders[1]],[l,m])
+                    sample_kernels[torch.arange(num_samples),0:1,l,m,:,:] = kernels.p_multidim(local_offsets_per_sp_orders[torch.arange(num_samples),:,l,m],[self.orders[0],self.orders[1]],[l,m])
 
-            spline_kernel_val_at_offsets = spline_kernel_val_at_offsets.reshape(num_samples, (self.orders[0]+1)*(self.orders[1]+1), 2, 2)
+            if include_derivative:
+                sample_kernels[torch.arange(num_samples),1:3] = operators.grad(sample_kernels[torch.arange(num_samples),0:1], local_offsets_per_sp_orders, create_graph=True, retain_graph=True)
+                
+            if include_derivative and include_laplacian:
+                sample_kernels[torch.arange(num_samples),3:4] = operators.div(sample_kernels[torch.arange(num_samples),1:3], local_offsets_per_sp_orders, retain_graph=True)
+
+            # Cast the local evaluations to the right shape, grouping orders in one dimension
+            sample_kernels = sample_kernels.reshape(num_samples, num_sample_channels, (self.orders[0]+1)*(self.orders[1]+1), 2, 2)
 
             # Round down to obtain top-left support point indices
             top_left_support_point = torch.floor(offsets).int()
@@ -115,11 +133,13 @@ class SplineVariable:
                 torch.stack([support_10, support_11], dim=-1)
             ], dim=-1)  # Shape [#samples, lxm, 2, 2]
 
-            # Multiply the weights with the kernels and sum the spline kernels per sample
-            interpolated_func_val = (spline_kernel_val_at_offsets * hidden_patch).sum(dim=(1, 2, 3)).reshape(num_samples)
+            hidden_patch = hidden_patch.unsqueeze(1).repeat(1, num_sample_channels, 1, 1, 1)
 
-            # Store the result
-            result[b, :] = interpolated_func_val.flatten()
+            print(f"hidden_patch shape = {hidden_patch.shape}")
+            print(f"sample_kernels shape = {sample_kernels.shape}")
+
+            # Multiply the weights with the kernels and sum the spline kernels per sample
+            result[b, ...] = (sample_kernels * hidden_patch).sum(dim=(2, 3, 4)).reshape(num_sample_channels, num_samples)
 
         return result
     
