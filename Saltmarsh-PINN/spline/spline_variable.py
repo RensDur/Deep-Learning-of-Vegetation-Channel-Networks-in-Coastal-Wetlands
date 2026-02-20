@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 import spline.kernels as kernels
 import spline.operators as operators
+import time
 
 def _dbg(_desc='',_expr=None):
     print(f"DBG! >> {_desc}:\n{_expr}")
@@ -69,18 +70,17 @@ class SplineVariable:
             (2 if include_derivative else 0) + \
             (1 if include_laplacian else 0)
 
-        print(f"num sample channels: {num_sample_channels}")
-
         # The result of this interpolation is an outcome (batch x N), separately for
         # - function value
         # - derivative
         # - laplacian
-        result = torch.zeros(batch_size, num_sample_channels, num_samples, device=self.device)
+        result = torch.zeros(batch_size, num_samples, num_sample_channels, device=self.device)
 
-        if include_derivative or include_laplacian:
-            sample_points = sample_points.requires_grad_(True)
+        sample_points = sample_points.requires_grad_(True)
 
         for b in range(batch_size):
+
+            START_TIME = time.time()
 
             offsets = sample_points[b]
 
@@ -135,11 +135,16 @@ class SplineVariable:
 
             hidden_patch = hidden_patch.unsqueeze(1).repeat(1, num_sample_channels, 1, 1, 1)
 
-            print(f"hidden_patch shape = {hidden_patch.shape}")
-            print(f"sample_kernels shape = {sample_kernels.shape}")
+            hidden_patch = hidden_patch.reshape(num_samples * num_sample_channels, (self.orders[0]+1)*(self.orders[1]+1), 2, 2)
+            sample_kernels = sample_kernels.reshape(num_samples * num_sample_channels, (self.orders[0]+1)*(self.orders[1]+1), 2, 2)
 
             # Multiply the weights with the kernels and sum the spline kernels per sample
-            result[b, ...] = (sample_kernels * hidden_patch).sum(dim=(2, 3, 4)).reshape(num_sample_channels, num_samples)
+            result[b, ...] = (sample_kernels * hidden_patch).sum(dim=(1, 2, 3)).reshape(num_samples, num_sample_channels)
+
+            DURATION = time.time() - START_TIME
+
+            print(f"Processed env {b}/{batch_size} in {DURATION}s")
+
 
         return result
     
@@ -190,8 +195,7 @@ class SplineVariable:
     
 
 
-var = SplineVariable('f', 1)
-hidden_state = torch.zeros(50, var.hidden_size(), 101, 101)
-sample_points = torch.rand(50, 100, 2) * 100
+var = SplineVariable('f', 1, torch.device("mps"))
+hidden_state = torch.zeros(50, var.hidden_size(), 101, 101, device=torch.device("mps"))
+sample_points = torch.rand(50, 10000, 2, device=torch.device("mps")) * 100
 
-hidden_state[25, 0, :, :] = 500
