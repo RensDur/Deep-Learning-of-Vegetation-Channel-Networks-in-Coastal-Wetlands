@@ -21,7 +21,7 @@ def _dbg_blocking(_desc='',_expr=None):
 
 class SplineVariable:
 
-    def __init__(self, name, order: int, requires_derivative=False, requires_laplacian=False, device=torch.device("cpu")):
+    def __init__(self, name, order: int, device=torch.device("cpu")):
 
         # Name for buffering on disk
         self.name = name
@@ -33,22 +33,7 @@ class SplineVariable:
         self.device = device
 
         # Prepare the required spline kernels for this variable
-        self.requires_derivative = requires_derivative or requires_laplacian # Requiring laplacian without requiring first.deriv. is unsupported.
-        self.requires_laplacian = requires_laplacian
-        self.kernel_size = 1 \
-            + (2 if self.requires_derivative else 0) \
-            + (1 if self.requires_laplacian else 0)
-
         self.offset_summary = torch.tensor([[[0,0],[1,0]],[[0,1],[1,1]]]).unsqueeze(0).permute(0,3,2,1).to(self.device)
-        self.kernel_buffer = {}
-        self.kernel_buffer_superres = {}
-
-        # Immediately try to load the buffers for this variable
-        try:
-            self.load_buffers()
-            print(f"Loaded buffers for SplineVariable '{self.name}'")
-        except:
-            print(f"No buffers available for SplineVariable '{self.name}'")
 
     def to(self, torch_device):
         self.device = torch_device
@@ -56,90 +41,87 @@ class SplineVariable:
         # Move data to the new device
         self.offset_summary = self.offset_summary.to(self.device)
 
-        for k in self.kernel_buffer.keys():
-            self.kernel_buffer[k] = self.kernel_buffer[k].to(self.device)
-
-        for k in self.kernel_buffer_superres.keys():
-            self.kernel_buffer_superres[k] = self.kernel_buffer_superres[k].to(self.device)
-
     def get_name(self):
         return self.name
 
     def hidden_size(self) -> int:
         return np.prod([i+1 for i in self.orders])
-
-    def save_buffers(self):
-        os.makedirs("Logger/spline_kernel_buffers",exist_ok=True)
-        path = f"Logger/spline_kernel_buffers/kernel_buffers_{self.name}.dic"
-        with open(path,"wb") as file:
-            pickle.dump({"kernel_buffer":self.kernel_buffer,"kernel_buffer_superres":self.kernel_buffer_superres}, file)
-
-    def load_buffers(self):
-        path = f"Logger/spline_kernel_buffers/kernel_buffers_{self.name}.dic"
-        with open(path,"rb") as file:
-            buffers = pickle.load(file)
-            self.kernel_buffer = buffers["kernel_buffer"]
-            self.kernel_buffer_superres = buffers["kernel_buffer_superres"]
-
-        # Make sure these kernel buffers are all on the desired device
-        self.to(self.device)
     
-    def interpolate_at(self, weights, offsets):
+    def interpolate_at(self, hidden_state, sample_points, include_derivative=False, include_laplacian=False):
         """
-        Idea: return derivatives of splines directly, implement with convolutions
-        :weights: size: bs x (orders[0]+1) * (orders[1]+1) x w x h
-        :offsets: offsets to interpolate in between weights, size: 2
-        :orders: orders of spline for each dimension (note: counting starts at 0 => 0 ~ 1st order, 1 ~ 2nd order, 2 ~ 3rd order)
-        :return: a_z,v,grad_v,laplace_v - note that, width / height is decreased by 1, because we only interpolate in between support points (weights)
-            :a_z: vector potential of velocity field, size: bs x 1 x (w-1) x (h-1)
-            :rot(a_z): velocity field, size: bs x 2 x (w-1) x (h-1)
-            :grad(rot(a_z)): gradient (jacobian) of velocity field (dvx/dx dvx/dy dvy/dx dvy/dy), size: bs x 4 x (w-1) x (h-1)
-            :laplace(rot(a_z)): laplacian of velocity field (laplace(vx) laplace(vy)), size:  bs x 2 x (w-1) x (h-1)
+        :hidden_state: Spline-weights - size: bs x (orders[0]+1) * (orders[1]+1) x H x W
+        :sample_points: Set of sampling points per environment in the batch - size: bs x N x 2
+        :return: Interpolated values (function values, derivatives and laplacians optional) for this spline variable
         """
-        # construct kernel matrix for 2x2 convolution based on offset:
-        # => number of input channels = (orders[0]+1) * (orders[1]+1)
-        # => number of output channels = 1 + 2 + 4 + 2 (a_z,v=rot(a_z),grad(v_x),grad(v_y),laplace(v_x),laplace(v_y)
-        offset_key = f"{offsets[0]} {offsets[1]}, orders: {self.orders}"
+        
+        # hidden_state contains the hidden state for this SplineVariable only (batch x (order x order) x H x W)
+        # offsets contains an (N x 3) for each environment in the batch (batch x N x 2) for position (x,y)
 
-        if offset_key in self.kernel_buffer.keys():
-            self.kernels = self.kernel_buffer[offset_key]
-        else:
+        # Extract the number of environments in the batch
+        batch_size = hidden_state.shape[0]
 
-            # The incoming offset is a local coordinate (dx, dy) describing a position between four support points
-            # Repeat the offset four times and organise them in a grid of shape [1,   2, 2, 2]
-            #                                                                   [_, x/y, <[0,0],[0,1],[1,0],[1,1]>]
-            # This gives an offset coordinate relative to each of the four corners in a cell.
-            offsets = (offsets.clone().unsqueeze(0).unsqueeze(2).unsqueeze(3).repeat(1,1,2,2)-self.offset_summary)
+        # Extract the number of samples per environment
+        num_samples = sample_points.shape[1]
+
+        # The result of this interpolation is an outcome (batch x N), separately for
+        # - function value
+        # - derivative
+        # - laplacian
+        result = torch.zeros(batch_size, num_samples, device=self.device)
+
+        for b in range(batch_size):
+
+            offsets = sample_points[b]
+
+            # Extract the fractional part of each sample
+            local_offsets = torch.frac(offsets).to(self.device)
+
+            # Obtain local offsets relative to each support point of this cell
+            #
+            #  o--o
+            #  |  |
+            #  o--o
+            #
+            # Within each cell, we need offsets relative to each support point
+            local_offsets_per_sp = local_offsets.unsqueeze(2).unsqueeze(3).repeat(1,1,2,2) - self.offset_summary.repeat(num_samples, 1, 1, 1)
 
             # Repeat the offsets for each order
-            offsets = offsets.unsqueeze(2).unsqueeze(3).repeat(1,1,(self.orders[0]+1),(self.orders[1]+1),1,1).detach().requires_grad_(True)
-            
-            # Prepare the new kernels for these offsets
-            self.kernels = torch.zeros(1, self.kernel_size, (self.orders[0]+1), (self.orders[1]+1), 2, 2).to(self.device)
+            local_offsets_per_sp_orders = local_offsets_per_sp.unsqueeze(2).unsqueeze(3).repeat(1,1,(self.orders[0]+1),(self.orders[1]+1),1,1)
+
+            # Use the offsets to obtain function values for each spline kernel
+            spline_kernel_val_at_offsets = torch.zeros(num_samples, 1, (self.orders[0]+1), (self.orders[1]+1), 2, 2).to(self.device)
             for l in range(self.orders[0]+1):
                 for m in range(self.orders[1]+1):
                     # Function value (directy from linear combination of splines)
-                    self.kernels[0:1,0:1,l,m,:,:] = kernels.p_multidim(offsets[:,:,l,m],[self.orders[0],self.orders[1]],[l,m])
-            
-            # First derivative (d/dx and d/dy)
-            if self.requires_derivative:
-                self.kernels[0:1,1:3] = operators.grad(self.kernels[0:1,0:1,:,:,:,:],offsets,create_graph=True,retain_graph=True)
+                    spline_kernel_val_at_offsets[torch.arange(num_samples),0:1,l,m,:,:] = kernels.p_multidim(local_offsets_per_sp_orders[torch.arange(num_samples),:,l,m],[self.orders[0],self.orders[1]],[l,m])
 
-            # Laplace -- Note: laplacian without first derivative is not supported (quicker computation)
-            if self.requires_laplacian:
-                self.kernels[0:1,3:4] = operators.div(self.kernels[0:1,1:3], offsets, retain_graph=True)
-            
-            self.kernels = self.kernels.reshape(1, self.kernel_size, (self.orders[0]+1)*(self.orders[1]+1), 2, 2).detach() # Group orders in one channel
-            
-            # buffer self.kernels
-            self.kernel_buffer[offset_key] = self.kernels
-            self.save_buffers()
+            spline_kernel_val_at_offsets = spline_kernel_val_at_offsets.reshape(num_samples, (self.orders[0]+1)*(self.orders[1]+1), 2, 2)
 
-        output = F.conv2d(weights,self.kernels[0],padding=0)
+            # Round down to obtain top-left support point indices
+            top_left_support_point = torch.floor(offsets).int()
 
-        return output[:, 0:1], \
-                output[:, 1:3] if self.requires_derivative else None, \
-                output[:, 3:4] if self.requires_laplacian else None
+            tx = top_left_support_point[:, 0]
+            ty = top_left_support_point[:, 1]
+
+            # Extract local support point weights for each sample
+            support_00 = hidden_state[b, :, ty, tx].T # Top left support points - shape [#samples, lxm]
+            support_01 = hidden_state[b, :, ty, tx+1].T # Top right support points - shape [#samples, lxm]
+            support_10 = hidden_state[b, :, ty+1, tx].T # Bottom left support points - shape [#samples, lxm]
+            support_11 = hidden_state[b, :, ty+1, tx+1].T # Bottom right support points - shape [#samples, lxm]
+
+            # Arrange the support point weights
+            hidden_patch = torch.stack([
+                torch.stack([support_00, support_01], dim=-1),
+                torch.stack([support_10, support_11], dim=-1)
+            ], dim=-1)  # Shape [#samples, lxm, 2, 2]
+
+            # Multiply the weights with the kernels and sum the spline kernels per sample
+            interpolated_func_val = (spline_kernel_val_at_offsets * hidden_patch).sum(dim=(1, 2, 3)).reshape(num_samples)
+
+            # Store the result
+            result[b, :] = interpolated_func_val.flatten()
+
+        return result
     
 
     def interpolate_superres_at(self, weights, resolution_factor):
@@ -187,3 +169,9 @@ class SplineVariable:
         
     
 
+
+var = SplineVariable('f', 1)
+hidden_state = torch.zeros(50, var.hidden_size(), 101, 101)
+sample_points = torch.rand(50, 100, 2) * 100
+
+hidden_state[25, 0, :, :] = 500
