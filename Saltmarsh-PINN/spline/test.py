@@ -14,8 +14,8 @@ class Testset:
 
     def __init__(self):
 
-        self.width = 200
-        self.height = 200
+        self.width = 1
+        self.height = 1
 
         self.device = torch.device("mps")
 
@@ -31,6 +31,7 @@ class Testset:
         )
 
         self.hidden_states[:, 0, :, :] = 200
+        self.hidden_states[:, 0, 1, 1] = 0
 
         self.kernel_size = 1
 
@@ -137,4 +138,5 @@ if __name__ == "__main__":
     main()
 
 testset = Testset()
-k = testset.interpolate_multiple_samples(torch.rand(100, 2) * testset.width)
+samples = torch.arange(11) / 10
+k = testset.interpolate_multiple_samples(torch.stack([samples, samples], dim=-1))
