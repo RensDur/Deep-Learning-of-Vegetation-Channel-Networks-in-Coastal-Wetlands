@@ -80,8 +80,6 @@ class SplineVariable:
 
         for b in range(batch_size):
 
-            START_TIME = time.time()
-
             offsets = sample_points[b]
 
             # Extract the fractional part of each sample
@@ -135,67 +133,46 @@ class SplineVariable:
 
             hidden_patch = hidden_patch.unsqueeze(1).repeat(1, num_sample_channels, 1, 1, 1)
 
-            hidden_patch = hidden_patch.reshape(num_samples * num_sample_channels, (self.orders[0]+1)*(self.orders[1]+1), 2, 2)
-            sample_kernels = sample_kernels.reshape(num_samples * num_sample_channels, (self.orders[0]+1)*(self.orders[1]+1), 2, 2)
-
             # Multiply the weights with the kernels and sum the spline kernels per sample
-            result[b, ...] = (sample_kernels * hidden_patch).sum(dim=(1, 2, 3)).reshape(num_samples, num_sample_channels)
-
-            DURATION = time.time() - START_TIME
-
-            print(f"Processed env {b}/{batch_size} in {DURATION}s")
-
+            result[b, ...] = (sample_kernels * hidden_patch).sum(dim=(2, 3, 4)).reshape(num_samples, num_sample_channels)
 
         return result
     
 
-    def interpolate_superres_at(self, weights, resolution_factor):
+    def interpolate_highres(self, hidden_state, width, height, include_derivative=False, include_laplacian=False):
 
-        res_key = f"{resolution_factor}, orders: {self.orders}"
+        batch_size = hidden_state.shape[0]
+
+        spline_width = hidden_state.shape[3] - 1
+        spline_height = hidden_state.shape[2] - 1
+
+        xs = torch.arange(width, device=self.device) * (spline_width / (width-1))
+        ys = torch.arange(height, device=self.device) * (spline_height / (height-1))
+
+        x_grid, y_grid = torch.meshgrid(xs, ys, indexing='xy')
+
+        print(f"xs: {xs}\nys: {ys}")
+
+        sample_points = torch.stack([x_grid, y_grid], dim=-1).reshape(width*height, 2).unsqueeze(0).repeat(batch_size, 1, 1)
+
+        # Interpolate at these sample points to obtain an image
+        interpolated_samples = self.interpolate_at(hidden_state, sample_points, include_derivative, include_laplacian)
+
+        # Reshape to obtain an image tensor
+        num_sample_channels = interpolated_samples.shape[2]
+
+        image = interpolated_samples.reshape(batch_size, width, height, num_sample_channels).swapdims(1, 3)
+
+        return image
+
         
-        if res_key in self.kernel_buffer_superres.keys():
-            self.superres_kernels = self.kernel_buffer_superres[res_key]
-        else:
-            self.superres_kernels = torch.zeros(1,self.kernel_size,(self.orders[0]+1)*(self.orders[1]+1),2*resolution_factor,2*resolution_factor).to(self.device)
-
-            for i in range(resolution_factor):
-                for j in range(resolution_factor):
-                    offsets = torch.tensor([i/resolution_factor,j/resolution_factor], device=self.device).unsqueeze(0).unsqueeze(2).unsqueeze(3).repeat(1,1,2,2)-1 + self.offset_summary
-                    offsets = offsets.unsqueeze(2).unsqueeze(3).repeat(1,1,(self.orders[0]+1),(self.orders[1]+1),1,1).detach().requires_grad_(True)
-                    
-                    sub_kernels = torch.zeros(1,self.kernel_size,(self.orders[0]+1),(self.orders[1]+1),2,2, device=self.device)
-                    for l in range(self.orders[0]+1):
-                        for m in range(self.orders[1]+1):
-                            # Function value (directy from linear combination of splines)
-                            sub_kernels[0:1,0:1,l,m,:,:] = kernels.p_multidim(offsets[:,:,l,m],[self.orders[0],self.orders[1]],[l,m])
-
-                    
-                    # First derivative (d/dx and d/dy)
-                    if self.requires_derivative:
-                        sub_kernels[0:1,1:3] = operators.grad(sub_kernels[0:1,0:1,:,:,:,:],offsets,create_graph=True,retain_graph=True)
-
-                    # Laplace -- Note: laplacian without first derivative is not supported (quicker computation)
-                    if self.requires_laplacian:
-                        sub_kernels[0:1,3:4] = operators.div(sub_kernels[0:1,1:3], offsets, retain_graph=False)
-                    
-                    sub_kernels = sub_kernels.reshape(1,self.kernel_size,(self.orders[0]+1)*(self.orders[1]+1),2,2).detach()
-                    self.superres_kernels[:,:,:,i::resolution_factor,j::resolution_factor] = sub_kernels
-
-            # buffer kernels
-            self.superres_kernels = self.superres_kernels.permute(0,2,1,3,4)
-            self.kernel_buffer_superres[res_key] = self.superres_kernels
-            self.save_buffers()
-
-        output = F.conv_transpose2d(weights,self.superres_kernels[0],padding=0,stride=resolution_factor)
-
-        return output[:, 0:1], \
-                output[:, 1:3] if self.requires_derivative else None, \
-                output[:, 3:4] if self.requires_laplacian else None
         
     
+width = 5
+height = 5
+
+var = SplineVariable('f', 1, torch.device("cpu"))
+hidden_state = torch.zeros(1, var.hidden_size(), height+1, width+1, device=torch.device("cpu"))
 
 
-var = SplineVariable('f', 1, torch.device("mps"))
-hidden_state = torch.zeros(50, var.hidden_size(), 101, 101, device=torch.device("mps"))
-sample_points = torch.rand(50, 10000, 2, device=torch.device("mps")) * 100
-
+k = var.interpolate_highres(hidden_state, width*10, height*10)
