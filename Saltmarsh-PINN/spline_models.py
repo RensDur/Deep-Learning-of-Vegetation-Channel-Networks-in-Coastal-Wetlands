@@ -122,9 +122,16 @@ class ShallowWaterUNet(nn.Module):
 		:v_mask: mask for boundary conditions (average value within cell): bs x 1 x w x h
 		:return: new hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
 		"""
+        # The BCs and their masks have shape (WxH)
 		x = torch.cat([h_cond, h_mask, uv_cond, uv_mask],dim=1)
 		
+        # Interpolate with a 2x2 kernel, combining the surrounding BCs per support cell
+        # This yields BCs and masks of shape (W-1)x(H-1)
 		x = self.interpol(x)
+
+        # Now add one layer of repetitive padding around the outside
+        # to match the shape of the latent space (W+1)x(H+1)
+        x = F.pad(x, (1,1,1,1), mode="replicate")
 		
 		x = torch.cat([hidden_state,x],dim=1)
 		x1 = self.inc(x)
