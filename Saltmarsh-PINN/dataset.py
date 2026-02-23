@@ -164,7 +164,7 @@ class Dataset:
                         self.uv_mask[group_indices,:,(self.height//2+x-5):(self.height//2+x+5),(self.width//2+y-5):(self.width//2+y+5)] = 1
 
                 # Set the masks and conditions
-                self.h_cond[group_indices,:,self.padding:-self.padding, self.padding:-self.padding] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width - 2*self.padding, self.height - 2*self.padding)
+                self.h_cond[group_indices,:,self.padding:-self.padding, self.padding:-self.padding] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.height - 2*self.padding, self.width - 2*self.padding)
                 self.h_cond[group_indices] = self.h_cond[group_indices] * self.h_mask[group_indices]
 
             #
@@ -178,7 +178,7 @@ class Dataset:
                         self.uv_mask[group_indices,:,(self.height//2+x-5):(self.height//2+x+5),(self.width//2+y-5):(self.width//2+y+5)] = 1
 
                 # Set the masks and conditions
-                self.h_cond[group_indices,:,self.padding:-self.padding, self.padding:-self.padding] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width - 2*self.padding, self.height - 2*self.padding)
+                self.h_cond[group_indices,:,self.padding:-self.padding, self.padding:-self.padding] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.height - 2*self.padding, self.width - 2*self.padding)
                 self.h_cond[group_indices] = self.h_cond[group_indices] * self.h_mask[group_indices]
 
             #
@@ -192,7 +192,7 @@ class Dataset:
                         self.uv_mask[group_indices,:,(self.height//2+x-5):(self.height//2+x+5),(self.width//2+y-5):(self.width//2+y+5)] = 1
 
                 # Set the masks and conditions
-                self.h_cond[group_indices,:,self.padding:-self.padding, self.padding:-self.padding] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width - 2*self.padding, self.height - 2*self.padding)
+                self.h_cond[group_indices,:,self.padding:-self.padding, self.padding:-self.padding] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.height - 2*self.padding, self.width - 2*self.padding)
                 self.h_cond[group_indices] = self.h_cond[group_indices] * self.h_mask[group_indices]
 
             #
@@ -207,7 +207,7 @@ class Dataset:
                         self.uv_mask[group_indices,:,(self.height//2+x-5):(self.height//2+x+5),(self.width//2+y-5):(self.width//2+y+5)] = 1
 
                 # Set the masks and conditions
-                self.h_cond[group_indices,:,self.padding:-self.padding, self.padding:-self.padding] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width - 2*self.padding, self.height - 2*self.padding)
+                self.h_cond[group_indices,:,self.padding:-self.padding, self.padding:-self.padding] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.height - 2*self.padding, self.width - 2*self.padding)
                 self.h_cond[group_indices] = self.h_cond[group_indices] * self.h_mask[group_indices]
 
                 # We install a barrier starting in the top-center going towards the middle of the domain of thickness 10
@@ -245,7 +245,7 @@ class Dataset:
             # OSCILLATOR
             #
             if typename == "oscillator" or typename == "random-oscillator" or typename == "multiple-random-oscillator" or typename == "reflection":
-                self.h_cond[group_indices,:,self.padding:-self.padding,self.padding:-self.padding] = self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width - 2*self.padding, self.height - 2*self.padding)
+                self.h_cond[group_indices,:,self.padding:-self.padding,self.padding:-self.padding] = self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.height - 2*self.padding, self.width - 2*self.padding)
                 self.h_cond[group_indices] = self.h_cond[group_indices] * self.h_mask[group_indices]
 
         for typename in grouping.keys():
@@ -253,6 +253,47 @@ class Dataset:
         
         # Update the time for each environment
         self.env_time[indices] = self.env_time[indices] + math.pi / 10.0
+
+    def sample_conditions(self, indices, offsets, strat="nearest-neighbour"):
+        """
+        :indices: selected batch indices from the dataset
+        :offsets: offsets at which we would like to draw a sample. Shape (batch_size x num_samples x 2:{x,y})
+        :return: condition sample for each variable in this dataset. Shape (batch_size x num_samples x num_channels)
+                 where the num_channels refers to the number of conditioned variables or derivations thereof
+        """
+
+        # This function accepts both arrays and a single integer as input,
+        # make sure we can process everything as an np array
+        indices = np.array([indices]).flatten()
+
+        batch_size = indices.shape[0]
+        num_samples = offsets.shape[1]
+
+        # Quick check to validate the number of selected indices matches the offset size
+        assert batch_size == offsets.shape[0]
+
+        # 1. Apply Nearest Neighbour to find integer offsets within [width, height]
+        offsets_nn = torch.round(offsets - 0.5).clamp(min=0).long() # Subtract 1/2 because we sample in the center of each cell
+
+        # 2. Allocate space for the samples
+        sample_h_mask = torch.zeros(batch_size, num_samples, 1)
+        sample_h_cond = torch.zeros(batch_size, num_samples, 1)
+        sample_uv_mask = torch.zeros(batch_size, num_samples, 1)
+        sample_uv_cond = torch.zeros(batch_size, num_samples, 1)
+
+        # 3. Go over each environment in the selection and extract the conditions
+        for i in range(batch_size):
+            sample_h_mask[i, :, :] = self.h_mask[indices[i], :, offsets_nn[i, :, 1], offsets_nn[i, :, 0]]
+            sample_h_cond[i, :, :] = self.h_cond[indices[i], :, offsets_nn[i, :, 1], offsets_nn[i, :, 0]]
+            sample_uv_mask[i, :, :] = self.uv_mask[indices[i], :, offsets_nn[i, :, 1], offsets_nn[i, :, 0]]
+            sample_uv_cond[i, :, :] = self.uv_cond[indices[i], :, offsets_nn[i, :, 1], offsets_nn[i, :, 0]]
+            
+        # 4. Return the samples
+        return sample_h_mask,
+            sample_h_cond,
+            sample_uv_mask,
+            sample_uv_cond
+
         
 
     def ask(self):
@@ -280,34 +321,11 @@ class Dataset:
         # Update the environments before sending them out
         self.update(self.asked_indices)
 
-        # Compute grid offsets and sample BCs
-        grid_offsets = []
-        sample_h_cond = []
-        sample_h_mask = []
-        sample_uv_cond = []
-        sample_uv_mask = []
+        # Generate random sample offsets
+        sample_offsets = torch.rand(self.n_samples, 3)
 
-        for _ in range(self.n_samples):
-
-            # Grid offsets
-            offset = torch.rand(3)
-            grid_offsets.append(offset)
-
-            x_offset = min(int(self.resolution_factor*offset[0]),self.resolution_factor-1)
-            y_offset = min(int(self.resolution_factor*offset[1]),self.resolution_factor-1)
-
-            sample_h_cond.append(self.h_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
-            sample_h_mask.append(self.h_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
-            sample_uv_cond.append(self.uv_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
-            sample_uv_mask.append(self.uv_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
-
-        # Move all data to the desired device
-        for i in range(self.n_samples):
-            grid_offsets[i] = grid_offsets[i].to(self.device)
-            sample_h_cond[i] = sample_h_cond[i].to(self.device)
-            sample_h_mask[i] = sample_h_mask[i].to(self.device)
-            sample_uv_cond[i] = sample_uv_cond[i].to(self.device)
-            sample_uv_mask[i] = sample_uv_mask[i].to(self.device)
+        # Sample at these offsets to obtain boundary conditions
+        sample_h_mask, sample_h_cond, sample_uv_mask, sample_uv_cond = self.sample_conditions(self.asked_indices, sample_offsets)
 
         # Return the hidden states and boundary conditions after moving them to the desired device
         return self.hidden_states[self.asked_indices].to(self.device), \
@@ -315,11 +333,11 @@ class Dataset:
                 self.h_mask[self.asked_indices].to(self.device), \
                 self.uv_cond[self.asked_indices].to(self.device), \
                 self.uv_mask[self.asked_indices].to(self.device), \
-                grid_offsets, \
-                sample_h_cond, \
-                sample_h_mask, \
-                sample_uv_cond, \
-                sample_uv_mask
+                sample_offsets, \
+                sample_h_mask.to(self.device), \
+                sample_h_cond.to(self.device), \
+                sample_uv_mask.to(self.device), \
+                sample_uv_cond.to(self.device)
     
     def tell(self, hidden_states):
 
@@ -340,10 +358,6 @@ class Dataset:
         #     self.reset(self.asked_indices)
         #     self.warmup_t = 0
         #     self.warmup_reset_at *= 2 # We reset the entire batch every 1, 2, 4, 8, 16, 32, ..., 128, ..., 1024 iterations
-
-
-
-
 
 
     #
