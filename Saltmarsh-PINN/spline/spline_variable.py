@@ -143,11 +143,11 @@ class SplineVariable:
 
         batch_size = hidden_state.shape[0]
 
-        spline_width = hidden_state.shape[3] - 1
-        spline_height = hidden_state.shape[2] - 1
+        spline_width = hidden_state.shape[3]
+        spline_height = hidden_state.shape[2]
 
-        xs = torch.arange(width, device=self.device) * (spline_width / (width-1))
-        ys = torch.arange(height, device=self.device) * (spline_height / (height-1))
+        xs = torch.arange(width, device=self.device) / width * (spline_width-1) + 0.5 / width * (spline_width-1)
+        ys = torch.arange(height, device=self.device) / height * (spline_height-1) + 0.5 / height * (spline_height-1)
 
         x_grid, y_grid = torch.meshgrid(xs, ys, indexing='xy')
 
@@ -175,4 +175,4 @@ var = SplineVariable('f', 1, torch.device("cpu"))
 hidden_state = torch.zeros(1, var.hidden_size(), height+1, width+1, device=torch.device("cpu"))
 
 
-k = var.interpolate_highres(hidden_state, width*10, height*10)
+k = var.interpolate_highres(hidden_state, 1920, 1080)
