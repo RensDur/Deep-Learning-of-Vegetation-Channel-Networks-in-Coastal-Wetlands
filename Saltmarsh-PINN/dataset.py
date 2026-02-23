@@ -275,19 +275,19 @@ class Dataset:
         # 1. Apply Nearest Neighbour to find integer offsets within [width, height]
         offsets_nn = torch.round(offsets - 0.5).clamp(min=0).long() # Subtract 1/2 because we sample in the center of each cell
 
-        # 2. Allocate space for the samples
-        sample_h_cond = torch.zeros(batch_size, num_samples, 1)
-        sample_h_mask = torch.zeros(batch_size, num_samples, 1)
-        sample_uv_cond = torch.zeros(batch_size, num_samples, 1)
-        sample_uv_mask = torch.zeros(batch_size, num_samples, 1)
+        # 2. Gather the selected environments' BCs and masks
+        sample_h_cond = self.h_cond[indices]
+        sample_h_mask = self.h_mask[indices]
+        sample_uv_cond = self.uv_cond[indices]
+        sample_uv_mask = self.uv_mask[indices]
 
-        # 3. Go over each environment in the selection and extract the conditions
-        for i in range(batch_size):
-            # RHS has shape (num_samples,) from advanced indexing; write into channel 0 explicitly
-            sample_h_cond[i, torch.arange(num_samples), 0] = self.h_cond[indices[i], :, offsets_nn[i, :, 1], offsets_nn[i, :, 0]]
-            sample_h_mask[i, torch.arange(num_samples), 0] = self.h_mask[indices[i], :, offsets_nn[i, :, 1], offsets_nn[i, :, 0]]
-            sample_uv_cond[i, torch.arange(num_samples), 0] = self.uv_cond[indices[i], :, offsets_nn[i, :, 1], offsets_nn[i, :, 0]]
-            sample_uv_mask[i, torch.arange(num_samples), 0] = self.uv_mask[indices[i], :, offsets_nn[i, :, 1], offsets_nn[i, :, 0]]
+        # 3. Extract the samples from these environments
+        batch_indices = torch.arange(batch_size, device=self.device)[:, None].expand(batch_size, num_samples)
+
+        sample_h_cond = sample_h_cond[batch_indices, :, offsets_nn[:, :, 1], offsets_nn[:, :, 0]]
+        sample_h_mask = sample_h_mask[batch_indices, :, offsets_nn[:, :, 1], offsets_nn[:, :, 0]]
+        sample_uv_cond = sample_uv_cond[batch_indices, :, offsets_nn[:, :, 1], offsets_nn[:, :, 0]]
+        sample_uv_mask = sample_uv_mask[batch_indices, :, offsets_nn[:, :, 1], offsets_nn[:, :, 0]]
             
         # 4. Return the samples
         return sample_h_cond, \
