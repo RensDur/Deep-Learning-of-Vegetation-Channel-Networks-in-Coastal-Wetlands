@@ -276,24 +276,24 @@ class Dataset:
         offsets_nn = torch.round(offsets - 0.5).clamp(min=0).long() # Subtract 1/2 because we sample in the center of each cell
 
         # 2. Allocate space for the samples
-        sample_h_mask = torch.zeros(batch_size, num_samples, 1)
         sample_h_cond = torch.zeros(batch_size, num_samples, 1)
-        sample_uv_mask = torch.zeros(batch_size, num_samples, 1)
+        sample_h_mask = torch.zeros(batch_size, num_samples, 1)
         sample_uv_cond = torch.zeros(batch_size, num_samples, 1)
+        sample_uv_mask = torch.zeros(batch_size, num_samples, 1)
 
         # 3. Go over each environment in the selection and extract the conditions
         for i in range(batch_size):
             # RHS has shape (num_samples,) from advanced indexing; write into channel 0 explicitly
-            sample_h_mask[i, torch.arange(num_samples), 0] = self.h_mask[indices[i], :, offsets_nn[i, :, 1], offsets_nn[i, :, 0]]
             sample_h_cond[i, torch.arange(num_samples), 0] = self.h_cond[indices[i], :, offsets_nn[i, :, 1], offsets_nn[i, :, 0]]
-            sample_uv_mask[i, torch.arange(num_samples), 0] = self.uv_mask[indices[i], :, offsets_nn[i, :, 1], offsets_nn[i, :, 0]]
+            sample_h_mask[i, torch.arange(num_samples), 0] = self.h_mask[indices[i], :, offsets_nn[i, :, 1], offsets_nn[i, :, 0]]
             sample_uv_cond[i, torch.arange(num_samples), 0] = self.uv_cond[indices[i], :, offsets_nn[i, :, 1], offsets_nn[i, :, 0]]
+            sample_uv_mask[i, torch.arange(num_samples), 0] = self.uv_mask[indices[i], :, offsets_nn[i, :, 1], offsets_nn[i, :, 0]]
             
         # 4. Return the samples
-        return sample_h_mask, \
-            sample_h_cond, \
-            sample_uv_mask, \
-            sample_uv_cond
+        return sample_h_cond, \
+            sample_h_mask, \
+            sample_uv_cond, \
+            sample_uv_mask
 
         
 
@@ -326,7 +326,7 @@ class Dataset:
         sample_offsets = torch.rand(self.batch_size, self.n_samples, 3) * self.width # TODO: Here, we assume width==height!
 
         # Sample at these offsets to obtain boundary conditions
-        sample_h_mask, sample_h_cond, sample_uv_mask, sample_uv_cond = self.sample_conditions(self.asked_indices, sample_offsets)
+        sample_h_cond, sample_h_mask, sample_uv_cond, sample_uv_mask = self.sample_conditions(self.asked_indices, sample_offsets)
 
         # Return the hidden states and boundary conditions after moving them to the desired device
         return self.hidden_states[self.asked_indices].to(self.device), \
@@ -335,10 +335,10 @@ class Dataset:
                 self.uv_cond[self.asked_indices].to(self.device), \
                 self.uv_mask[self.asked_indices].to(self.device), \
                 sample_offsets, \
-                sample_h_mask.to(self.device), \
                 sample_h_cond.to(self.device), \
-                sample_uv_mask.to(self.device), \
-                sample_uv_cond.to(self.device)
+                sample_h_mask.to(self.device), \
+                sample_uv_cond.to(self.device), \
+                sample_uv_mask.to(self.device)
     
     def tell(self, hidden_states):
 
@@ -414,7 +414,6 @@ class Dataset:
         dv_dt = (new_v - old_v) / self.params.dt
 
         # Resulting fields now have shape <batch_size x num_samples x num_channels>
-        
         return h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt
     
 
