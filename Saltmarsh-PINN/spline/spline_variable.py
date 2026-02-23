@@ -116,8 +116,8 @@ class SplineVariable:
             # Round down to obtain top-left support point indices
             top_left_support_point = torch.floor(offsets).int()
 
-            tx = top_left_support_point[:, 1]
-            ty = top_left_support_point[:, 0]
+            tx = top_left_support_point[:, 0]
+            ty = top_left_support_point[:, 1]
 
             # Extract local support point weights for each sample
             support_00 = hidden_state[b, :, ty, tx].T # Top left support points - shape [#samples, lxm]
@@ -151,7 +151,7 @@ class SplineVariable:
 
         x_grid, y_grid = torch.meshgrid(xs, ys, indexing='xy')
 
-        sample_points = torch.stack([y_grid, x_grid], dim=-1).reshape(width*height, 2).unsqueeze(0).repeat(batch_size, 1, 1)
+        sample_points = torch.stack([x_grid, y_grid], dim=-1).reshape(width*height, 2).unsqueeze(0).repeat(batch_size, 1, 1)
 
         # Interpolate at these sample points to obtain an image
         interpolated_samples = self.interpolate_at(hidden_state, sample_points, include_derivative, include_laplacian)
