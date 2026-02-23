@@ -37,9 +37,9 @@ class Dataset:
 
         # Variables in this dataset
         self.variables = SplineArray(
-            SplineVariable("h", 1, requires_derivative=True),                           # h describes the zero-meaned surface height, on top of H0
-            SplineVariable("u", 2, requires_derivative=True, requires_laplacian=True),
-            SplineVariable("v", 2, requires_derivative=True, requires_laplacian=True),
+            SplineVariable("h", 1),                           # h describes the zero-meaned surface height, on top of H0
+            SplineVariable("u", 2),
+            SplineVariable("v", 2),
             device=self.device
         )
 
@@ -283,10 +283,11 @@ class Dataset:
 
         # 3. Go over each environment in the selection and extract the conditions
         for i in range(batch_size):
-            sample_h_mask[i, :, :] = self.h_mask[indices[i], :, offsets_nn[i, :, 1], offsets_nn[i, :, 0]]
-            sample_h_cond[i, :, :] = self.h_cond[indices[i], :, offsets_nn[i, :, 1], offsets_nn[i, :, 0]]
-            sample_uv_mask[i, :, :] = self.uv_mask[indices[i], :, offsets_nn[i, :, 1], offsets_nn[i, :, 0]]
-            sample_uv_cond[i, :, :] = self.uv_cond[indices[i], :, offsets_nn[i, :, 1], offsets_nn[i, :, 0]]
+            # RHS has shape (num_samples,) from advanced indexing; write into channel 0 explicitly
+            sample_h_mask[i, torch.arange(num_samples), 0] = self.h_mask[indices[i], :, offsets_nn[i, :, 1], offsets_nn[i, :, 0]]
+            sample_h_cond[i, torch.arange(num_samples), 0] = self.h_cond[indices[i], :, offsets_nn[i, :, 1], offsets_nn[i, :, 0]]
+            sample_uv_mask[i, torch.arange(num_samples), 0] = self.uv_mask[indices[i], :, offsets_nn[i, :, 1], offsets_nn[i, :, 0]]
+            sample_uv_cond[i, torch.arange(num_samples), 0] = self.uv_cond[indices[i], :, offsets_nn[i, :, 1], offsets_nn[i, :, 0]]
             
         # 4. Return the samples
         return sample_h_mask, \
