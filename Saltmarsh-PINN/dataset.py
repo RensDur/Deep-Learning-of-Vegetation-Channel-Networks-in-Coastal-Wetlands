@@ -334,7 +334,7 @@ class Dataset:
                 self.h_mask[self.asked_indices].to(self.device), \
                 self.uv_cond[self.asked_indices].to(self.device), \
                 self.uv_mask[self.asked_indices].to(self.device), \
-                sample_offsets, \
+                sample_offsets.to(self.device), \
                 sample_h_cond.to(self.device), \
                 sample_h_mask.to(self.device), \
                 sample_uv_cond.to(self.device), \
