@@ -282,7 +282,7 @@ class Dataset:
         sample_uv_mask = self.uv_mask[indices]
 
         # 3. Extract the samples from these environments
-        batch_indices = torch.arange(batch_size, device=self.device)[:, None].expand(batch_size, num_samples)
+        batch_indices = torch.arange(batch_size)[:, None].expand(batch_size, num_samples)
 
         sample_h_cond = sample_h_cond[batch_indices, :, offsets_nn[:, :, 1], offsets_nn[:, :, 0]]
         sample_h_mask = sample_h_mask[batch_indices, :, offsets_nn[:, :, 1], offsets_nn[:, :, 0]]
