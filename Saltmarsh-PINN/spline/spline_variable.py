@@ -65,6 +65,11 @@ class SplineVariable:
         # Extract the number of samples per environment
         num_samples = sample_points.shape[1]
 
+        # Total number of samples
+        # This is used to 'batch over the total number of samples', instead of first batching
+        # over the various environments and then over the samples inside that environment
+        total_num_samples = batch_size * num_samples
+
         # The number of sample channels describes the number of values we interpolate per sample
         # func_val + dx + dy + laplace = 4
         num_sample_channels = 1 + \
@@ -75,67 +80,70 @@ class SplineVariable:
         # - function value
         # - derivative
         # - laplacian
-        result = torch.zeros(batch_size, num_samples, num_sample_channels, device=self.device)
-
         sample_points = sample_points.requires_grad_(True)
 
-        for b in range(batch_size):
+        #
+        # GPU ACCELERATED SAMPLING
+        #
 
-            offsets = sample_points[b]
+        # Reshape the offsets to group batch and num_samples
+        sample_points = sample_points.reshape(total_num_samples, 2)
 
-            # Extract the fractional part of each sample
-            local_offsets = torch.frac(offsets).to(self.device)
+        # Extract the fractional part of each sample
+        local_offsets = torch.frac(sample_points).to(self.device)
 
-            # Obtain local offsets relative to each support point of this cell
-            #
-            #  o--o
-            #  |  |
-            #  o--o
-            #
-            # Within each cell, we need offsets relative to each support point
-            local_offsets_per_sp = local_offsets.unsqueeze(2).unsqueeze(3).repeat(1,1,2,2) - self.offset_summary.repeat(num_samples, 1, 1, 1)
+        # Obtain local offsets relative to each support point of this cell
+        #
+        #  o--o
+        #  |  |
+        #  o--o
+        #
+        # Within each cell, we need offsets relative to each support point
+        local_offsets_per_sp = local_offsets.unsqueeze(2).unsqueeze(3).repeat(1,1,2,2) - self.offset_summary.repeat(total_num_samples, 1, 1, 1)
 
-            # Repeat the offsets for each order
-            local_offsets_per_sp_orders = local_offsets_per_sp.unsqueeze(2).unsqueeze(3).repeat(1,1,(self.orders[0]+1),(self.orders[1]+1),1,1)
+        # Repeat the offsets for each order
+        local_offsets_per_sp_orders = local_offsets_per_sp.unsqueeze(2).unsqueeze(3).repeat(1,1,(self.orders[0]+1),(self.orders[1]+1),1,1)
 
-            # Use the offsets to obtain function values for each spline kernel
-            sample_kernels = torch.zeros(num_samples, num_sample_channels, (self.orders[0]+1), (self.orders[1]+1), 2, 2).to(self.device)
-            for l in range(self.orders[0]+1):
-                for m in range(self.orders[1]+1):
-                    # Function value (directy from linear combination of splines)
-                    sample_kernels[torch.arange(num_samples),0:1,l,m,:,:] = kernels.p_multidim(local_offsets_per_sp_orders[torch.arange(num_samples),:,l,m],[self.orders[0],self.orders[1]],[l,m])
+        # Use the offsets to obtain function values for each spline kernel
+        sample_kernels = torch.zeros(total_num_samples, num_sample_channels, (self.orders[0]+1), (self.orders[1]+1), 2, 2).to(self.device)
+        for l in range(self.orders[0]+1):
+            for m in range(self.orders[1]+1):
+                # Function value (directy from linear combination of splines)
+                sample_kernels[torch.arange(total_num_samples),0:1,l,m,:,:] = kernels.p_multidim(local_offsets_per_sp_orders[torch.arange(total_num_samples),:,l,m],[self.orders[0],self.orders[1]],[l,m])
 
-            if include_derivative:
-                sample_kernels[torch.arange(num_samples),1:3] = operators.grad(sample_kernels[torch.arange(num_samples),0:1], local_offsets_per_sp_orders, create_graph=True, retain_graph=True)
-                
-            if include_derivative and include_laplacian:
-                sample_kernels[torch.arange(num_samples),3:4] = operators.div(sample_kernels[torch.arange(num_samples),1:3], local_offsets_per_sp_orders, retain_graph=True)
+        if include_derivative:
+            sample_kernels[torch.arange(total_num_samples),1:3] = operators.grad(sample_kernels[torch.arange(total_num_samples),0:1], local_offsets_per_sp_orders, create_graph=True, retain_graph=True)
+            
+        if include_derivative and include_laplacian:
+            sample_kernels[torch.arange(total_num_samples),3:4] = operators.div(sample_kernels[torch.arange(total_num_samples),1:3], local_offsets_per_sp_orders, retain_graph=True)
 
-            # Cast the local evaluations to the right shape, grouping orders in one dimension
-            sample_kernels = sample_kernels.reshape(num_samples, num_sample_channels, (self.orders[0]+1)*(self.orders[1]+1), 2, 2)
+        # Cast the local evaluations to the right shape, grouping orders in one dimension
+        sample_kernels = sample_kernels.reshape(total_num_samples, num_sample_channels, (self.orders[0]+1)*(self.orders[1]+1), 2, 2)
 
-            # Round down to obtain top-left support point indices
-            top_left_support_point = torch.floor(offsets).int()
+        # Round down to obtain top-left support point indices
+        top_left_support_point = torch.floor(sample_points).int()
 
-            tx = top_left_support_point[:, 0]
-            ty = top_left_support_point[:, 1]
+        tx = top_left_support_point[:, 0]
+        ty = top_left_support_point[:, 1]
 
-            # Extract local support point weights for each sample
-            support_00 = hidden_state[b, :, ty, tx].T # Top left support points - shape [#samples, lxm]
-            support_01 = hidden_state[b, :, ty, tx+1].T # Top right support points - shape [#samples, lxm]
-            support_10 = hidden_state[b, :, ty+1, tx].T # Bottom left support points - shape [#samples, lxm]
-            support_11 = hidden_state[b, :, ty+1, tx+1].T # Bottom right support points - shape [#samples, lxm]
+        # Batch index for each flattened sample: sample k belongs to batch k // num_samples
+        batch_idx = torch.arange(batch_size)[:, None].expand(batch_size, num_samples).reshape(-1)
 
-            # Arrange the support point weights
-            hidden_patch = torch.stack([
-                torch.stack([support_00, support_01], dim=-1),
-                torch.stack([support_10, support_11], dim=-1)
-            ], dim=-1)  # Shape [#samples, lxm, 2, 2]
+        # Extract local support point weights for each sample -> (total_num_samples, lxm)
+        support_00 = hidden_state[batch_idx, :, ty, tx]
+        support_01 = hidden_state[batch_idx, :, ty, tx + 1]
+        support_10 = hidden_state[batch_idx, :, ty + 1, tx]
+        support_11 = hidden_state[batch_idx, :, ty + 1, tx + 1]
 
-            hidden_patch = hidden_patch.unsqueeze(1).repeat(1, num_sample_channels, 1, 1, 1)
+        # Arrange the support point weights
+        hidden_patch = torch.stack([
+            torch.stack([support_00, support_01], dim=-1),
+            torch.stack([support_10, support_11], dim=-1)
+        ], dim=-1)  # Shape [#samples, lxm, 2, 2]
 
-            # Multiply the weights with the kernels and sum the spline kernels per sample
-            result[b, ...] = (sample_kernels * hidden_patch).sum(dim=(2, 3, 4)).reshape(num_samples, num_sample_channels)
+        hidden_patch = hidden_patch.unsqueeze(1).repeat(1, num_sample_channels, 1, 1, 1)
+
+        result = (sample_kernels * hidden_patch).sum(dim=(2, 3, 4)).reshape(batch_size, num_samples, num_sample_channels)
 
         return result
     
