@@ -1,5 +1,6 @@
 import torch
 import torch.nn.functional as F
+from torch.amp import autocast
 from torch.optim import Adam
 import numpy as np
 from dataset import Dataset
@@ -234,10 +235,13 @@ class SplinePINNSolver:
                 # Ask for a batch from the dataset
                 old_hidden_state, h_cond, h_mask, uv_cond, uv_mask, sample_offsets, sample_h_cond, sample_h_mask, sample_uv_cond, sample_uv_mask = self.dataset.ask()
 
-                # Predict the new domain state by performing a forward pass through the network
-                new_hidden_state = self.net(old_hidden_state, h_cond, h_mask, uv_cond, uv_mask)
+                # Forward pass (and loss computation) in mixed precision when AMP is enabled
+                amp_ctx = autocast(device_type=self.device.type, enabled=self.params.amp)
+                with amp_ctx:
+                    # Predict the new domain state by performing a forward pass through the network
+                    new_hidden_state = self.net(old_hidden_state, h_cond, h_mask, uv_cond, uv_mask)
 
-                loss_h, loss_u, loss_v, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, sample_offsets, sample_h_cond, sample_h_mask, sample_uv_cond, sample_uv_mask)
+                    loss_h, loss_u, loss_v, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, sample_offsets, sample_h_cond, sample_h_mask, sample_uv_cond, sample_uv_mask)
 
                 if self.params.plot_loss:
                     # Compute total loss value

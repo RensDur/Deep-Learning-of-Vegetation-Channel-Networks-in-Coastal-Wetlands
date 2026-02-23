@@ -38,6 +38,7 @@ def params():
 	parser.add_argument('--clip_grad_norm', default=None, type=float, help='gradient norm clipping (default: None)')
 	parser.add_argument('--clip_grad_value', default=None, type=float, help='gradient value clipping (default: None)')
 	parser.add_argument('--cuda', default=True, type=str2bool, help='use GPU')
+	parser.add_argument('--amp', default=True, type=str2bool, help='use Automatic Mixed Precision (float16 where safe, float32 when needed)')
 	parser.add_argument('--detach', default=False, type=str2bool, help='detach gradients in between steps (for train_wave_3)')
 	parser.add_argument('--log_loss', default=True, type=str2bool, help='logarithmic loss to "normalize" gradients')
 	parser.add_argument('--plot_loss', default=False, type=str2bool, help='Plot loss-image alongside losses over time')

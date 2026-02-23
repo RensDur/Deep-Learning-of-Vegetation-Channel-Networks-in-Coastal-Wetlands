@@ -27,6 +27,8 @@ def main():
     elif torch.cuda.is_available() and params.cuda:
         torch_device = torch.device('cuda')
     print(f"Using torch device '{torch_device}'")
+    if params.amp:
+        print("Automatic Mixed Precision (AMP) enabled: float16 where safe, float32 when needed")
 
     # Initialize randomization seeds
     torch.manual_seed(0)

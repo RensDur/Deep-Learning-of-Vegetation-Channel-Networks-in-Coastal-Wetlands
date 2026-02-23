@@ -342,8 +342,9 @@ class Dataset:
     
     def tell(self, hidden_states):
 
-        # Update hidden states after moving them back to the CPU
-        self.hidden_states[self.asked_indices] = hidden_states.detach().cpu()
+        # Update hidden states after moving them back to the CPU.
+        # Cast to storage dtype so AMP (float16/bfloat16) outputs don't break in-place assign.
+        self.hidden_states[self.asked_indices] = hidden_states.detach().cpu().float()
 
         # Randomly reset environments
         self.t += 1
