@@ -378,6 +378,7 @@ class Dataset:
         new_h_group = self.variables["h"].interpolate_at(self.variables.extract_from(new_hidden_states, "h"), offsets[:,:,:2], include_derivative=True)
 
         old_h, old_grad_h = old_h_group[:, :, 0:1], old_h_group[:, :, 1:3]
+        new_h, new_grad_h = new_h_group[:, :, 0:1], new_h_group[:, :, 1:3]
 
         # u field: requires first derivative + laplace
         old_u_group = self.variables["u"].interpolate_at(self.variables.extract_from(old_hidden_states, "u"), offsets[:,:,:2], include_derivative=True, include_laplacian=True)
@@ -399,18 +400,18 @@ class Dataset:
         # Offsets have shape <batch_size x num_samples x 3:{x,y,t}>
 
         # First order interpolation in time
-        h = (1-offset[:,:,2:3])*old_h + offset[:,:,2:3]*new_h
-        grad_h = (1-offset[:,:,2:3])*old_grad_h + offset[:,:,2:3]*new_grad_h
+        h = (1-offsets[:,:,2:3])*old_h + offsets[:,:,2:3]*new_h
+        grad_h = (1-offsets[:,:,2:3])*old_grad_h + offsets[:,:,2:3]*new_grad_h
         dh_dt = (new_h - old_h) / self.params.dt
 
-        u = (1-offset[:,:,2:3])*old_u + offset[:,:,2:3]*new_u
-        grad_u = (1-offset[:,:,2:3])*old_grad_u + offset[:,:,2:3]*new_grad_u
-        laplace_u = (1-offset[:,:,2:3])*old_laplace_u + offset[:,:,2:3]*new_laplace_u
+        u = (1-offsets[:,:,2:3])*old_u + offsets[:,:,2:3]*new_u
+        grad_u = (1-offsets[:,:,2:3])*old_grad_u + offsets[:,:,2:3]*new_grad_u
+        laplace_u = (1-offsets[:,:,2:3])*old_laplace_u + offsets[:,:,2:3]*new_laplace_u
         du_dt = (new_u - old_u) / self.params.dt
 
-        v = (1-offset[:,:,2:3])*old_v + offset[:,:,2:3]*new_v
-        grad_v = (1-offset[:,:,2:3])*old_grad_v + offset[:,:,2:3]*new_grad_v
-        laplace_v = (1-offset[:,:,2:3])*old_laplace_v + offset[:,:,2:3]*new_laplace_v
+        v = (1-offsets[:,:,2:3])*old_v + offsets[:,:,2:3]*new_v
+        grad_v = (1-offsets[:,:,2:3])*old_grad_v + offsets[:,:,2:3]*new_grad_v
+        laplace_v = (1-offsets[:,:,2:3])*old_laplace_v + offsets[:,:,2:3]*new_laplace_v
         dv_dt = (new_v - old_v) / self.params.dt
 
         # Resulting fields now have shape <batch_size x num_samples x num_channels>
