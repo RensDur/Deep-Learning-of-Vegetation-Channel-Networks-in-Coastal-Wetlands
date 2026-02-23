@@ -47,15 +47,15 @@ class Dataset:
         self.hidden_states = torch.zeros(
             self.dataset_size,
             self.variables.hidden_size(),
-            self.width-1,
-            self.height-1
+            self.height+1,
+            self.width+1,
         )
 
         # Boundary conditions and masking
-        self.h_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
-        self.h_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
-        self.uv_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
-        self.uv_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.h_mask = torch.zeros(self.dataset_size, 1, self.height, self.width)
+        self.h_cond = torch.zeros(self.dataset_size, 1, self.height, self.width)
+        self.uv_mask = torch.zeros(self.dataset_size, 1, self.height, self.width)
+        self.uv_cond = torch.zeros(self.dataset_size, 1, self.height, self.width)
 
         # Environment information
         self.types = [
@@ -350,68 +350,74 @@ class Dataset:
     # Data related tasks
     #
 
-    def interpolate_states(self, old_hidden_states, new_hidden_states, offset):
+    def interpolate_states_at(self, old_hidden_states, new_hidden_states, offsets):
         """
         :old_hidden_states: old hidden states (size: bs x (v_size+p_size) x w x h)
         :new_hidden_states: new hidden states (size: bs x (v_size+p_size) x w x h)
-        :offset: offset in x / y / t direction (vector of size 3 containing values between 0 and 1)
-        :return: interpolated fields for:
-            :z: z field
-            :grad(z): gradient of z field
-            :laplace(z): laplacian of z field
-            :dz/dt: velocity of z field
-            :dz^2/dt^2: acceleration of z field
+        :offset: offset in x / y / t direction (size: bs x num_samples x 3:<x,y,t>)
+        :return: interpolated fields for all variables in this dataset
         """
 
         # z field: requires first derivative
-        old_h, old_grad_h, _ = self.variables["h"].interpolate_at(self.variables.extract_from(old_hidden_states, "h"), offset[:2])
-        new_h, new_grad_h, _ = self.variables["h"].interpolate_at(self.variables.extract_from(new_hidden_states, "h"), offset[:2])
+        old_h_group = self.variables["h"].interpolate_at(self.variables.extract_from(old_hidden_states, "h"), offsets[:,:,:2], include_derivative=True)
+        new_h_group = self.variables["h"].interpolate_at(self.variables.extract_from(new_hidden_states, "h"), offsets[:,:,:2], include_derivative=True)
+
+        old_h, old_grad_h = old_h_group[:, :, 0:1], old_h_group[:, :, 1:3]
 
         # u field: requires first derivative + laplace
-        old_u, old_grad_u, old_laplace_u = self.variables["u"].interpolate_at(self.variables.extract_from(old_hidden_states, "u"), offset[:2])
-        new_u, new_grad_u, new_laplace_u = self.variables["u"].interpolate_at(self.variables.extract_from(new_hidden_states, "u"), offset[:2])
+        old_u_group = self.variables["u"].interpolate_at(self.variables.extract_from(old_hidden_states, "u"), offsets[:,:,:2], include_derivative=True, include_laplacian=True)
+        new_u_group = self.variables["u"].interpolate_at(self.variables.extract_from(new_hidden_states, "u"), offsets[:,:,:2], include_derivative=True, include_laplacian=True)
+
+        old_u, old_grad_u, old_laplace_u = old_u_group[:, :, 0:1], old_u_group[:, :, 1:3], old_u_group[:, :, 3:4]
+        new_u, new_grad_u, new_laplace_u = new_u_group[:, :, 0:1], new_u_group[:, :, 1:3], new_u_group[:, :, 3:4]
 
         # v field: requires first derivative + laplace
-        old_v, old_grad_v, old_laplace_v = self.variables["v"].interpolate_at(self.variables.extract_from(old_hidden_states, "v"), offset[:2])
-        new_v, new_grad_v, new_laplace_v = self.variables["v"].interpolate_at(self.variables.extract_from(new_hidden_states, "v"), offset[:2])
+        old_v_group = self.variables["v"].interpolate_at(self.variables.extract_from(old_hidden_states, "v"), offsets[:,:,:2], include_derivative=True, include_laplacian=True)
+        new_v_group = self.variables["v"].interpolate_at(self.variables.extract_from(new_hidden_states, "v"), offsets[:,:,:2], include_derivative=True, include_laplacian=True)
+
+        old_v, old_grad_v, old_laplace_v = old_v_group[:, :, 0:1], old_v_group[:, :, 1:3], old_v_group[:, :, 3:4]
+        new_v, new_grad_v, new_laplace_v = new_v_group[:, :, 0:1], new_v_group[:, :, 1:3], new_v_group[:, :, 3:4]
+
+        # All above interpolation-results have shape <batch_size x num_samples x num_channels>
+        # where the number of channels is 1 for a scalar field and 2 for a vector field (i.e. gradients)
+        #
+        # Offsets have shape <batch_size x num_samples x 3:{x,y,t}>
 
         # First order interpolation in time
-        h = (1-offset[2])*old_h + offset[2]*new_h
-        grad_h = (1-offset[2])*old_grad_h + offset[2]*new_grad_h
+        h = (1-offset[:,:,2:3])*old_h + offset[:,:,2:3]*new_h
+        grad_h = (1-offset[:,:,2:3])*old_grad_h + offset[:,:,2:3]*new_grad_h
         dh_dt = (new_h - old_h) / self.params.dt
 
-        u = (1-offset[2])*old_u + offset[2]*new_u
-        grad_u = (1-offset[2])*old_grad_u + offset[2]*new_grad_u
-        laplace_u = (1-offset[2])*old_laplace_u + offset[2]*new_laplace_u
+        u = (1-offset[:,:,2:3])*old_u + offset[:,:,2:3]*new_u
+        grad_u = (1-offset[:,:,2:3])*old_grad_u + offset[:,:,2:3]*new_grad_u
+        laplace_u = (1-offset[:,:,2:3])*old_laplace_u + offset[:,:,2:3]*new_laplace_u
         du_dt = (new_u - old_u) / self.params.dt
 
-        v = (1-offset[2])*old_v + offset[2]*new_v
-        grad_v = (1-offset[2])*old_grad_v + offset[2]*new_grad_v
-        laplace_v = (1-offset[2])*old_laplace_v + offset[2]*new_laplace_v
+        v = (1-offset[:,:,2:3])*old_v + offset[:,:,2:3]*new_v
+        grad_v = (1-offset[:,:,2:3])*old_grad_v + offset[:,:,2:3]*new_grad_v
+        laplace_v = (1-offset[:,:,2:3])*old_laplace_v + offset[:,:,2:3]*new_laplace_v
         dv_dt = (new_v - old_v) / self.params.dt
+
+        # Resulting fields now have shape <batch_size x num_samples x num_channels>
         
         return h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt
     
 
-    def interpolate_superres(self, hidden_states, resolution_factor):
+    def interpolate_states_highres(self, hidden_states, width, height):
         """
-        :hidden_states: new hidden states (size: bs x (v_size+p_size) x w x h)
-        "resolution_factor": resolution factor for superres interpolation
-        :return: interpolated fields for:
-            :z: z field
-            :grad(z): gradient of z field
-            :laplace(z): laplacian of z field
-            :dz/dt: velocity of z field
-            :dz^2/dt^2: acceleration of z field
+        :hidden_states: new hidden states (size: bs x (v_size+p_size) x H x W)
+        :width: output image width
+        :height: output image height
+        :return: interpolated fields for all variables in this dataset
         """
 
         # h field: requires first derivative
-        h, grad_h, _ = self.variables["h"].interpolate_superres_at(self.variables.extract_from(hidden_states, "h"), resolution_factor)
+        h = self.variables["h"].interpolate_highres(self.variables.extract_from(hidden_states, "h"), width, height)
 
         # u field: requires first derivative + laplace
-        u, grad_u, laplace_u = self.variables["u"].interpolate_superres_at(self.variables.extract_from(hidden_states, "u"), resolution_factor)
+        u = self.variables["u"].interpolate_highres(self.variables.extract_from(hidden_states, "u"), width, height)
 
         # v field: requires first derivative + laplace
-        v, grad_v, laplace_v = self.variables["v"].interpolate_superres_at(self.variables.extract_from(hidden_states, "v"), resolution_factor)
+        v = self.variables["v"].interpolate_highres(self.variables.extract_from(hidden_states, "v"), width, height)
 
-        return h, grad_h, u, grad_u, laplace_u, v, grad_v, laplace_v
+        return h, u, v

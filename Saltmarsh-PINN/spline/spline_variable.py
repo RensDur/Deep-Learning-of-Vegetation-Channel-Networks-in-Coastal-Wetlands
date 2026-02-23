@@ -53,6 +53,7 @@ class SplineVariable:
         :hidden_state: Spline-weights - size: bs x (orders[0]+1) * (orders[1]+1) x H x W
         :sample_points: Set of sampling points per environment in the batch - size: bs x N x 2
         :return: Interpolated values (function values, derivatives and laplacians optional) for this spline variable
+                 shape: (bs x num_samples x num_sample_channels)
         """
         
         # hidden_state contains the hidden state for this SplineVariable only (batch x (order x order) x H x W)
