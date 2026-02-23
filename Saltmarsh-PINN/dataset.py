@@ -301,18 +301,18 @@ class Dataset:
         """
 		:return:
 			grids:
-				hidden_state					-> shape: bs x hidden_size x (w-1) x (h-1)
+				hidden_state					-> shape: bs x hidden_size x (h+1) x (w+1)
 				boundary-features:
-					u_cond						-> shape: bs x 1 x w x h
-					u_mask (continuous) 		-> shape: bs x 1 x w x h differentiable renderer would allow for differentiable geometries
-					v_cond						-> shape: bs x 1 x w x h
-					v_mask (continuous) 		-> shape: bs x 1 x w x h differentiable renderer would allow for differentiable geometries
+					u_cond						-> shape: bs x 1 x h x w
+					u_mask               		-> shape: bs x 1 x h x w
+					v_cond						-> shape: bs x 1 x h x w
+					v_mask               		-> shape: bs x 1 x h x w
 			sample-grids:
-				- grid-offsets (x,y,t) 			-> shape: bs x 3 x 1 x 1 (values between 0,1; all offsets are the same within an "image" - otherwise: bsx3xwxh)
-				- sample_u_cond					-> shape: bs x 1 x w x h
-				- sample_u_mask (boolean)		-> shape: bs x 1 x w x h
-				- sample_v_cond					-> shape: bs x 1 x w x h
-				- sample_v_mask (boolean)		-> shape: bs x 1 x w x h
+				- sample_offsets (x,y,t) 		-> shape: bs x num_samples x 3:{x,y,t}
+				- sample_u_cond					-> shape: bs x num_samples x 1
+				- sample_u_mask (boolean)		-> shape: bs x num_samples x 1
+				- sample_v_cond					-> shape: bs x num_samples x 1
+				- sample_v_mask (boolean)		-> shape: bs x num_samples x 1
 		"""
 
         # Store which indices we gather in the batch, so we can
@@ -323,7 +323,7 @@ class Dataset:
         self.update(self.asked_indices)
 
         # Generate random sample offsets
-        sample_offsets = torch.rand(self.n_samples, 3)
+        sample_offsets = torch.rand(self.batch_size, self.n_samples, 3) * self.width # TODO: Here, we assume width==height!
 
         # Sample at these offsets to obtain boundary conditions
         sample_h_mask, sample_h_cond, sample_uv_mask, sample_uv_cond = self.sample_conditions(self.asked_indices, sample_offsets)
