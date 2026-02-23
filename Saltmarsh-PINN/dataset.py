@@ -289,9 +289,9 @@ class Dataset:
             sample_uv_cond[i, :, :] = self.uv_cond[indices[i], :, offsets_nn[i, :, 1], offsets_nn[i, :, 0]]
             
         # 4. Return the samples
-        return sample_h_mask,
-            sample_h_cond,
-            sample_uv_mask,
+        return sample_h_mask, \
+            sample_h_cond, \
+            sample_uv_mask, \
             sample_uv_cond
 
         
