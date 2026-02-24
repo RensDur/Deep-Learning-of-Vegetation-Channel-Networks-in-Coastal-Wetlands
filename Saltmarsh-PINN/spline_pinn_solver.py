@@ -247,7 +247,7 @@ class SplinePINNSolver:
 
                     # Now, also generate several (a configurable amount) of regular-interval images with a random offset that's identical in each sell
                     # (this is the original method by Wandel et. al)
-                    for i in range(self.params.n_reg_interval_samples):
+                    for _ in range(self.params.n_reg_interval_samples):
 
                         # Find a random offset
                         # This method ensures the offset will be not just any random value in [0,1]
