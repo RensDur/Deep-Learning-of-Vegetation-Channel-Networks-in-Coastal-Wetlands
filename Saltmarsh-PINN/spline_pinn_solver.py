@@ -72,7 +72,7 @@ class SplinePINNSolver:
         # return F.huber_loss(x, torch.zeros_like(x), reduction="none", delta=self.params.huber_delta)
         return x**2
     
-    def compute_batch_loss(self, h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt, sample_h_cond, sample_h_mask, sample_uv_cond, sample_uv_mask):
+    def compute_batch_loss(self, h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt, sample_h_cond, sample_h_mask, sample_uv_cond, sample_uv_mask, produce_loss_image=False):
         """
         Compute the batch loss for the selected samples.
         The computed loss should have the shape (bs x 1 x num_samples) and eventually even (bs x 1)
@@ -82,37 +82,47 @@ class SplinePINNSolver:
         2. [batch_size, num_channels, height, width]
         """
 
+        # During typical training, we want to compute a single number for the loss
+        # But during debugging, we would like to produce a loss image for visual inspection.
+
+        # So: by default: mean across all dimensions of the tensors
+        dim = tuple(range(h.dim())) # <- [0, 1, 2, 3] in case of a [batch_size, num_channels, height, width] tensor
+
+        if produce_loss_image:
+            # If asked to return a loss image instead, only take the mean across the first two dimensions
+            dim = (0, 1)
+
         # h-loss
         loss_h = torch.mean(self.loss_function(
             dh_dt + (grad_u[:,1:2] + grad_v[:,0:1]) * (h + self.params.H0) + (grad_h[:,1:2]*u + grad_h[:,0:1]*v) + self.params.epsilon * h
-        ))
+        ), dim)
 
         # Momentum loss
         loss_u = torch.mean(self.loss_function(
             du_dt - self.params.nu * laplace_u + self.params.grav * grad_h[:,1:2] + self.params.k_epsilon*u + u * grad_u[:,1:2] + v * grad_u[:,0:1] - self.params.f_epsilon * v
-        ))
+        ), dim)
 
         loss_v = torch.mean(self.loss_function(
             dv_dt - self.params.nu * laplace_v + self.params.grav * grad_h[:,0:1] + self.params.k_epsilon*v + u * grad_v[:,1:2] + v * grad_v[:,0:1] + self.params.f_epsilon * u
-        ))
+        ), dim)
 
         # h boundary condition loss
         loss_bound_h = torch.mean(self.loss_function(
             h - sample_h_cond
-        ))
+        ), dim)
 
         # Boundary condition loss
         loss_bound_grad_h = torch.mean(self.loss_function(
             grad_h
-        ))
+        ), dim)
 
         loss_bound_u = torch.mean(self.loss_function(
             u - sample_uv_cond
-        ))
+        ), dim)
 
         loss_bound_v = torch.mean(self.loss_function(
             v - sample_uv_cond
-        ))
+        ), dim)
 
         loss_bound = loss_bound_h + loss_bound_grad_h + loss_bound_u + loss_bound_v
 
@@ -265,7 +275,7 @@ class SplinePINNSolver:
 
                         # Compute the loss of this loss image
                         # Since this is a loss-image, we can directly use the h_cond, h_mask, uv_cond, uv_mask!
-                        reg_int_loss_h, reg_int_loss_u, reg_int_loss_v, reg_int_loss_bound = self.compute_batch_loss(h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt, h_cond, h_mask, uv_cond, uv_mask)
+                        reg_int_loss_h, reg_int_loss_u, reg_int_loss_v, reg_int_loss_bound = self.compute_batch_loss(h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt, h_cond, h_mask, uv_cond, uv_mask, produce_loss_image=self.params.plot_loss)
 
                         # Add these terms to the loss
                         img_loss_h = img_loss_h + reg_int_loss_h
@@ -273,15 +283,18 @@ class SplinePINNSolver:
                         img_loss_v = img_loss_v + reg_int_loss_v
                         img_loss_bound = img_loss_bound + reg_int_loss_bound
 
+                    # Normalize loss from unordered sample set by the number of samples
+                    # Then bring it up to similar level as the loss image by multiplying by width*height
+                    loss_h = (loss_h / self.params.n_samples) * (self.dataset.width * self.dataset.height)
+                    loss_u = (loss_u / self.params.n_samples) * (self.dataset.width * self.dataset.height)
+                    loss_v = (loss_v / self.params.n_samples) * (self.dataset.width * self.dataset.height)
+                    loss_bound = (loss_bound / self.params.n_samples) * (self.dataset.width * self.dataset.height)
+
                     # Normalize the regular interval loss by the number of reg-int samples
                     img_loss_h = img_loss_h / self.params.n_reg_interval_samples
                     img_loss_u = img_loss_u / self.params.n_reg_interval_samples
                     img_loss_v = img_loss_v / self.params.n_reg_interval_samples
                     img_loss_bound = img_loss_bound / self.params.n_reg_interval_samples
-
-                if self.params.plot_loss:
-                    # Compute total loss value
-                    loss_total = torch.log(torch.mean(loss_h + loss_u + loss_v + loss_bound))
 
                 # Log loss (per term)
                 if self.params.log_loss:
@@ -289,6 +302,24 @@ class SplinePINNSolver:
                     loss_u = torch.log(loss_u + 0.0001)
                     loss_v = torch.log(loss_v + 0.0001)
                     loss_bound = torch.log(loss_bound + 0.0001)
+
+                    img_loss_h = torch.log(img_loss_h + 0.0001) # Separately for the regular interval loss (which is an image)
+                    img_loss_u = torch.log(img_loss_u + 0.0001)
+                    img_loss_v = torch.log(img_loss_v + 0.0001)
+                    img_loss_bound = torch.log(img_loss_bound + 0.0001)
+
+                if self.params.plot_loss:
+                    # Compute total loss image
+                    loss_tensor = img_loss_h + img_loss_u + img_loss_v + img_loss_bound
+
+                # After computing the total loss image using the regular-interval loss,
+                # we don't need the image separately anymore, average the image and add it to the loss terms
+                loss_h = loss_h + torch.mean(img_loss_h)
+                loss_u = loss_u + torch.mean(img_loss_u)
+                loss_v = loss_v + torch.mean(img_loss_v)
+                loss_bound = loss_bound + torch.mean(img_loss_bound)
+
+                loss_total = loss_h + loss_u + loss_v + loss_bound
 
                 # Compute the loss terms we would like to consider separate learning tasks for PCGrad
                 loss_h = torch.mean(loss_h)
