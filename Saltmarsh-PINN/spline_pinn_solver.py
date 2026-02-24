@@ -283,12 +283,6 @@ class SplinePINNSolver:
                         img_loss_v = img_loss_v + reg_int_loss_v
                         img_loss_bound = img_loss_bound + reg_int_loss_bound
 
-                    # Normalize loss from unordered sample set by the number of samples
-                    # Then bring it up to similar level as the loss image by multiplying by width*height
-                    loss_h = (loss_h / self.params.n_samples) * (self.dataset.width * self.dataset.height)
-                    loss_u = (loss_u / self.params.n_samples) * (self.dataset.width * self.dataset.height)
-                    loss_v = (loss_v / self.params.n_samples) * (self.dataset.width * self.dataset.height)
-                    loss_bound = (loss_bound / self.params.n_samples) * (self.dataset.width * self.dataset.height)
 
                     # Normalize the regular interval loss by the number of reg-int samples
                     img_loss_h = img_loss_h / self.params.n_reg_interval_samples
