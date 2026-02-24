@@ -257,8 +257,8 @@ class Dataset:
     def sample_conditions(self, indices, offsets, strat="nearest-neighbour"):
         """
         :indices: selected batch indices from the dataset
-        :offsets: offsets at which we would like to draw a sample. Shape (batch_size x num_samples x 2:{x,y})
-        :return: condition sample for each variable in this dataset. Shape (batch_size x num_samples x num_channels)
+        :offsets: offsets at which we would like to draw a sample. Shape (batch_size x 2:{x,y} x num_samples)
+        :return: condition sample for each variable in this dataset. Shape (batch_size x num_channels x num_samples)
                  where the num_channels refers to the number of conditioned variables or derivations thereof
         """
 
@@ -267,7 +267,7 @@ class Dataset:
         indices = np.array([indices]).flatten()
 
         batch_size = indices.shape[0]
-        num_samples = offsets.shape[1]
+        num_samples = offsets.shape[2]
 
         # Quick check to validate the number of selected indices matches the offset size
         assert batch_size == offsets.shape[0]
@@ -284,10 +284,10 @@ class Dataset:
         # 3. Extract the samples from these environments
         batch_indices = torch.arange(batch_size)[:, None].expand(batch_size, num_samples)
 
-        sample_h_cond = sample_h_cond[batch_indices, :, offsets_nn[:, :, 1], offsets_nn[:, :, 0]]
-        sample_h_mask = sample_h_mask[batch_indices, :, offsets_nn[:, :, 1], offsets_nn[:, :, 0]]
-        sample_uv_cond = sample_uv_cond[batch_indices, :, offsets_nn[:, :, 1], offsets_nn[:, :, 0]]
-        sample_uv_mask = sample_uv_mask[batch_indices, :, offsets_nn[:, :, 1], offsets_nn[:, :, 0]]
+        sample_h_cond = sample_h_cond[batch_indices, :, offsets_nn[:, 1], offsets_nn[:, 0]].swapdims(1,2)
+        sample_h_mask = sample_h_mask[batch_indices, :, offsets_nn[:, 1], offsets_nn[:, 0]].swapdims(1,2)
+        sample_uv_cond = sample_uv_cond[batch_indices, :, offsets_nn[:, 1], offsets_nn[:, 0]].swapdims(1,2)
+        sample_uv_mask = sample_uv_mask[batch_indices, :, offsets_nn[:, 1], offsets_nn[:, 0]].swapdims(1,2)
             
         # 4. Return the samples
         return sample_h_cond, \
@@ -323,7 +323,7 @@ class Dataset:
         self.update(self.asked_indices)
 
         # Generate random sample offsets
-        sample_offsets = torch.rand(self.batch_size, self.n_samples, 3) * self.width # TODO: Here, we assume width==height!
+        sample_offsets = torch.rand(self.batch_size, 3, self.n_samples) * self.width # TODO: Here, we assume width==height!
 
         # Sample at these offsets to obtain boundary conditions
         sample_h_cond, sample_h_mask, sample_uv_cond, sample_uv_mask = self.sample_conditions(self.asked_indices, sample_offsets)
@@ -375,25 +375,27 @@ class Dataset:
         """
 
         # z field: requires first derivative
-        old_h_group = self.variables["h"].interpolate_at(self.variables.extract_from(old_hidden_states, "h"), offsets[:,:,:2], include_derivative=True)
-        new_h_group = self.variables["h"].interpolate_at(self.variables.extract_from(new_hidden_states, "h"), offsets[:,:,:2], include_derivative=True)
+        old_h_group = self.variables["h"].interpolate_at(self.variables.extract_from(old_hidden_states, "h"), offsets[:,:2], include_derivative=True)
+        new_h_group = self.variables["h"].interpolate_at(self.variables.extract_from(new_hidden_states, "h"), offsets[:,:2], include_derivative=True)
 
-        old_h, old_grad_h = old_h_group[:, :, 0:1], old_h_group[:, :, 1:3]
-        new_h, new_grad_h = new_h_group[:, :, 0:1], new_h_group[:, :, 1:3]
+        old_h, old_grad_h = old_h_group[:, 0:1], old_h_group[:, 1:3]
+        new_h, new_grad_h = new_h_group[:, 0:1], new_h_group[:, 1:3]
+
+        print(f"some shapes: old_h={old_h.shape}, old_grad_h={old_grad_h.shape}")
 
         # u field: requires first derivative + laplace
-        old_u_group = self.variables["u"].interpolate_at(self.variables.extract_from(old_hidden_states, "u"), offsets[:,:,:2], include_derivative=True, include_laplacian=True)
-        new_u_group = self.variables["u"].interpolate_at(self.variables.extract_from(new_hidden_states, "u"), offsets[:,:,:2], include_derivative=True, include_laplacian=True)
+        old_u_group = self.variables["u"].interpolate_at(self.variables.extract_from(old_hidden_states, "u"), offsets[:,:2], include_derivative=True, include_laplacian=True)
+        new_u_group = self.variables["u"].interpolate_at(self.variables.extract_from(new_hidden_states, "u"), offsets[:,:2], include_derivative=True, include_laplacian=True)
 
-        old_u, old_grad_u, old_laplace_u = old_u_group[:, :, 0:1], old_u_group[:, :, 1:3], old_u_group[:, :, 3:4]
-        new_u, new_grad_u, new_laplace_u = new_u_group[:, :, 0:1], new_u_group[:, :, 1:3], new_u_group[:, :, 3:4]
+        old_u, old_grad_u, old_laplace_u = old_u_group[:, 0:1], old_u_group[:, 1:3], old_u_group[:, 3:4]
+        new_u, new_grad_u, new_laplace_u = new_u_group[:, 0:1], new_u_group[:, 1:3], new_u_group[:, 3:4]
 
         # v field: requires first derivative + laplace
-        old_v_group = self.variables["v"].interpolate_at(self.variables.extract_from(old_hidden_states, "v"), offsets[:,:,:2], include_derivative=True, include_laplacian=True)
-        new_v_group = self.variables["v"].interpolate_at(self.variables.extract_from(new_hidden_states, "v"), offsets[:,:,:2], include_derivative=True, include_laplacian=True)
+        old_v_group = self.variables["v"].interpolate_at(self.variables.extract_from(old_hidden_states, "v"), offsets[:,:2], include_derivative=True, include_laplacian=True)
+        new_v_group = self.variables["v"].interpolate_at(self.variables.extract_from(new_hidden_states, "v"), offsets[:,:2], include_derivative=True, include_laplacian=True)
 
-        old_v, old_grad_v, old_laplace_v = old_v_group[:, :, 0:1], old_v_group[:, :, 1:3], old_v_group[:, :, 3:4]
-        new_v, new_grad_v, new_laplace_v = new_v_group[:, :, 0:1], new_v_group[:, :, 1:3], new_v_group[:, :, 3:4]
+        old_v, old_grad_v, old_laplace_v = old_v_group[:, 0:1], old_v_group[:, 1:3], old_v_group[:, 3:4]
+        new_v, new_grad_v, new_laplace_v = new_v_group[:, 0:1], new_v_group[:, 1:3], new_v_group[:, 3:4]
 
         # All above interpolation-results have shape <batch_size x num_samples x num_channels>
         # where the number of channels is 1 for a scalar field and 2 for a vector field (i.e. gradients)
@@ -401,18 +403,18 @@ class Dataset:
         # Offsets have shape <batch_size x num_samples x 3:{x,y,t}>
 
         # First order interpolation in time
-        h = (1-offsets[:,:,2:3])*old_h + offsets[:,:,2:3]*new_h
-        grad_h = (1-offsets[:,:,2:3])*old_grad_h + offsets[:,:,2:3]*new_grad_h
+        h = (1-offsets[:,2:3])*old_h + offsets[:,2:3]*new_h
+        grad_h = (1-offsets[:,2:3])*old_grad_h + offsets[:,2:3]*new_grad_h
         dh_dt = (new_h - old_h) / self.params.dt
 
-        u = (1-offsets[:,:,2:3])*old_u + offsets[:,:,2:3]*new_u
-        grad_u = (1-offsets[:,:,2:3])*old_grad_u + offsets[:,:,2:3]*new_grad_u
-        laplace_u = (1-offsets[:,:,2:3])*old_laplace_u + offsets[:,:,2:3]*new_laplace_u
+        u = (1-offsets[:,2:3])*old_u + offsets[:,2:3]*new_u
+        grad_u = (1-offsets[:,2:3])*old_grad_u + offsets[:,2:3]*new_grad_u
+        laplace_u = (1-offsets[:,2:3])*old_laplace_u + offsets[:,2:3]*new_laplace_u
         du_dt = (new_u - old_u) / self.params.dt
 
-        v = (1-offsets[:,:,2:3])*old_v + offsets[:,:,2:3]*new_v
-        grad_v = (1-offsets[:,:,2:3])*old_grad_v + offsets[:,:,2:3]*new_grad_v
-        laplace_v = (1-offsets[:,:,2:3])*old_laplace_v + offsets[:,:,2:3]*new_laplace_v
+        v = (1-offsets[:,2:3])*old_v + offsets[:,2:3]*new_v
+        grad_v = (1-offsets[:,2:3])*old_grad_v + offsets[:,2:3]*new_grad_v
+        laplace_v = (1-offsets[:,2:3])*old_laplace_v + offsets[:,2:3]*new_laplace_v
         dv_dt = (new_v - old_v) / self.params.dt
 
         # Resulting fields now have shape <batch_size x num_samples x num_channels>

@@ -75,13 +75,13 @@ class SplinePINNSolver:
     def compute_batch_loss(self, old_hidden_state, new_hidden_state, sample_offsets, sample_h_cond, sample_h_mask, sample_uv_cond, sample_uv_mask):
         """
         Compute the batch loss for the selected samples.
-        The computed loss should have the shape (bs x num_samples x 1) and eventually even (bs x 1)
+        The computed loss should have the shape (bs x 1 x num_samples) and eventually even (bs x 1)
         sample-grids:
             - sample_offsets (x,y,t) 		-> shape: bs x num_samples x 3:{x,y,t}
-            - sample_u_cond					-> shape: bs x num_samples x 1
-            - sample_u_mask (boolean)		-> shape: bs x num_samples x 1
-            - sample_v_cond					-> shape: bs x num_samples x 1
-            - sample_v_mask (boolean)		-> shape: bs x num_samples x 1
+            - sample_u_cond					-> shape: bs x 1 x num_samples
+            - sample_u_mask (boolean)		-> shape: bs x 1 x num_samples
+            - sample_v_cond					-> shape: bs x 1 x num_samples
+            - sample_v_mask (boolean)		-> shape: bs x 1 x num_samples
         """
 
         # Interpolate spline coefficients to obtain the necessary quantities
@@ -90,16 +90,16 @@ class SplinePINNSolver:
 
         # h-loss
         loss_h = torch.mean(self.loss_function(
-            dh_dt + (grad_u[:,:,1:2] + grad_v[:,:,0:1]) * (h + self.params.H0) + (grad_h[:,:,1:2]*u + grad_h[:,:,0:1]*v) + self.params.epsilon * h
+            dh_dt + (grad_u[:,1:2] + grad_v[:,0:1]) * (h + self.params.H0) + (grad_h[:,1:2]*u + grad_h[:,0:1]*v) + self.params.epsilon * h
         ))
 
         # Momentum loss
         loss_u = torch.mean(self.loss_function(
-            du_dt - self.params.nu * laplace_u + self.params.grav * grad_h[:,:,1:2] + self.params.k_epsilon*u + u * grad_u[:,:,1:2] + v * grad_u[:,:,0:1] - self.params.f_epsilon * v
+            du_dt - self.params.nu * laplace_u + self.params.grav * grad_h[:,1:2] + self.params.k_epsilon*u + u * grad_u[:,1:2] + v * grad_u[:,0:1] - self.params.f_epsilon * v
         ))
 
         loss_v = torch.mean(self.loss_function(
-            dv_dt - self.params.nu * laplace_v + self.params.grav * grad_h[:,:,0:1] + self.params.k_epsilon*v + u * grad_v[:,:,1:2] + v * grad_v[:,:,0:1] + self.params.f_epsilon * u
+            dv_dt - self.params.nu * laplace_v + self.params.grav * grad_h[:,0:1] + self.params.k_epsilon*v + u * grad_v[:,1:2] + v * grad_v[:,0:1] + self.params.f_epsilon * u
         ))
 
         # h boundary condition loss

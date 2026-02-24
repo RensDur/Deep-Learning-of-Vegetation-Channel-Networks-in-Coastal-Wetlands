@@ -114,19 +114,19 @@ class SplineVariable:
     def interpolate_at(self, hidden_state, sample_points, include_derivative=False, include_laplacian=False):
         """
         :hidden_state: Spline-weights - size: bs x (orders[0]+1) * (orders[1]+1) x H+1 x W+1
-        :sample_points: Set of sampling points per environment in the batch - size: bs x N x 2
+        :sample_points: Set of sampling points per environment in the batch - size: bs x 2 x N
         :return: Interpolated values (function values, derivatives and laplacians optional) for this spline variable
-                 shape: (bs x num_samples x num_sample_channels)
+                 shape: (bs x num_sample_channels x num_samples)
         """
         
         # hidden_state contains the hidden state for this SplineVariable only (batch x (order x order) x H x W)
-        # offsets contains an (N x 3) for each environment in the batch (batch x N x 2) for position (x,y)
+        # offsets contains an (N x 3) for each environment in the batch (batch x 2 x N) for position (x,y)
 
         # Extract the number of environments in the batch
         batch_size = hidden_state.shape[0]
 
         # Extract the number of samples per environment
-        num_samples = sample_points.shape[1]
+        num_samples = sample_points.shape[2]
 
         # Total number of samples
         # This is used to 'batch over the total number of samples', instead of first batching
@@ -150,7 +150,8 @@ class SplineVariable:
         #
 
         # Reshape the offsets to group batch and num_samples
-        sample_points = sample_points.reshape(total_num_samples, 2)
+        # Swap the num_channels and num_samples dimensions to allow reshaping
+        sample_points = sample_points.swapdims(1, 2).reshape(total_num_samples, 2)
 
         # Extract the fractional part of each sample
         local_offsets = torch.frac(sample_points).to(self.device)
@@ -206,7 +207,10 @@ class SplineVariable:
 
         hidden_patch = hidden_patch.unsqueeze(1).repeat(1, num_sample_channels, 1, 1, 1)
 
-        result = (sample_kernels * hidden_patch).sum(dim=(2, 3, 4)).reshape(batch_size, num_samples, num_sample_channels)
+        # Multiply and sum
+        # Then reshape to expand the batch_size and num_samples again
+        # Then swap dims 1 and 2 to facilitate compatibility with interpolate_at_regular_interval
+        result = (sample_kernels * hidden_patch).sum(dim=(2, 3, 4)).reshape(batch_size, num_samples, num_sample_channels).swapdims(1, 2)
 
         return result
     
@@ -223,15 +227,15 @@ class SplineVariable:
 
         x_grid, y_grid = torch.meshgrid(xs, ys, indexing='xy')
 
-        sample_points = torch.stack([x_grid, y_grid], dim=-1).reshape(width*height, 2).unsqueeze(0).repeat(batch_size, 1, 1)
+        sample_points = torch.stack([x_grid, y_grid], dim=-1).reshape(2, width*height).unsqueeze(0).repeat(batch_size, 1, 1)
 
         # Interpolate at these sample points to obtain an image
         interpolated_samples = self.interpolate_at(hidden_state, sample_points, include_derivative, include_laplacian)
 
         # Reshape to obtain an image tensor
-        num_sample_channels = interpolated_samples.shape[2]
+        num_sample_channels = interpolated_samples.shape[1]
 
-        image = interpolated_samples.reshape(batch_size, height, width, num_sample_channels).swapdims(1, 3).swapdims(2, 3)
+        image = interpolated_samples.reshape(batch_size, num_sample_channels, height, width)
 
         return image
 
