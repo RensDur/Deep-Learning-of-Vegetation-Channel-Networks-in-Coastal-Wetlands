@@ -67,7 +67,7 @@ class SplineVariable:
             (1 if include_laplacian else 0)
 
         # ID this specific kernel by offset {x,y}, spline orders and whether or not derivatives or laplacian are included
-        offset_key = f"{offsets[0]} {offsets[1]}, orders: {self.orders}, deriv: {include_derivative}, laplace: {include_laplacian}"
+        offset_key = f"{offset[0]} {offset[1]}, orders: {self.orders}, deriv: {include_derivative}, laplace: {include_laplacian}"
 
         if offset_key in self.kernel_buffer.keys():
             sample_kernels = self.kernel_buffer[offset_key]
@@ -77,7 +77,7 @@ class SplineVariable:
             # Repeat the offset four times and organise them in a grid of shape [1,   2, 2, 2]
             #                                                                   [_, x/y, <[0,0],[0,1],[1,0],[1,1]>]
             # This gives an offset coordinate relative to each of the four corners in a cell.
-            offsets = (offsets.clone().unsqueeze(0).unsqueeze(2).unsqueeze(3).repeat(1,1,2,2)-self.offset_summary)
+            offsets = (offset.clone().unsqueeze(0).unsqueeze(2).unsqueeze(3).repeat(1,1,2,2)-self.offset_summary)
 
             # Repeat the offsets for each order
             offsets = offsets.unsqueeze(2).unsqueeze(3).repeat(1,1,(self.orders[0]+1),(self.orders[1]+1),1,1).detach().requires_grad_(True)

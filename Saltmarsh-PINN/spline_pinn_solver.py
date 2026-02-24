@@ -72,21 +72,15 @@ class SplinePINNSolver:
         # return F.huber_loss(x, torch.zeros_like(x), reduction="none", delta=self.params.huber_delta)
         return x**2
     
-    def compute_batch_loss(self, old_hidden_state, new_hidden_state, sample_offsets, sample_h_cond, sample_h_mask, sample_uv_cond, sample_uv_mask):
+    def compute_batch_loss(self, h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt, sample_h_cond, sample_h_mask, sample_uv_cond, sample_uv_mask):
         """
         Compute the batch loss for the selected samples.
         The computed loss should have the shape (bs x 1 x num_samples) and eventually even (bs x 1)
-        sample-grids:
-            - sample_offsets (x,y,t) 		-> shape: bs x num_samples x 3:{x,y,t}
-            - sample_u_cond					-> shape: bs x 1 x num_samples
-            - sample_u_mask (boolean)		-> shape: bs x 1 x num_samples
-            - sample_v_cond					-> shape: bs x 1 x num_samples
-            - sample_v_mask (boolean)		-> shape: bs x 1 x num_samples
+        
+        The fields received as input to this function can have either of these shapes:
+        1. [batch_size, num_channels, num_samples]
+        2. [batch_size, num_channels, height, width]
         """
-
-        # Interpolate spline coefficients to obtain the necessary quantities
-        # These quantities have shape (bs x num_samples x num_channels)
-        h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt = self.dataset.interpolate_states_at(old_hidden_state, new_hidden_state, sample_offsets)
 
         # h-loss
         loss_h = torch.mean(self.loss_function(
@@ -233,6 +227,8 @@ class SplinePINNSolver:
             for i in range(self.params.n_batches_per_epoch):
 
                 # Ask for a batch from the dataset
+                # Alongside a batch, consisting of hidden_state, BCs and masks,
+                # the dataset also provides us with an unordered set of samples (sample_offsets), alongside the BCs and masks that were sampled at those locations.
                 old_hidden_state, h_cond, h_mask, uv_cond, uv_mask, sample_offsets, sample_h_cond, sample_h_mask, sample_uv_cond, sample_uv_mask = self.dataset.ask()
 
                 # Forward pass (and loss computation) in mixed precision when AMP is enabled
@@ -241,7 +237,39 @@ class SplinePINNSolver:
                     # Predict the new domain state by performing a forward pass through the network
                     new_hidden_state = self.net(old_hidden_state, h_cond, h_mask, uv_cond, uv_mask)
 
-                    loss_h, loss_u, loss_v, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, sample_offsets, sample_h_cond, sample_h_mask, sample_uv_cond, sample_uv_mask)
+                    # Use the unordered set of samples provided by the dataset to interpolate
+                    # the spline fields at those points
+                    # These quantities have shape (bs x num_samples x num_channels)
+                    h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt = self.dataset.interpolate_states_at(old_hidden_state, new_hidden_state, sample_offsets)
+
+                    # Compute the loss of this unordered set of samples
+                    loss_h, loss_u, loss_v, loss_bound = self.compute_batch_loss(h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt, sample_h_cond, sample_h_mask, sample_uv_cond, sample_uv_mask)
+
+                    # Now, also generate several (a configurable amount) of regular-interval images with a random offset that's identical in each sell
+                    # (this is the original method by Wandel et. al)
+                    for i in range(self.params.n_reg_interval_samples):
+
+                        # Find a random offset
+                        # This method ensures the offset will be not just any random value in [0,1]
+                        # But rather either 1/resfac, 2/resfac, ..., resfac/resfac
+                        # This allows for caching of kernels during interpolation
+                        reg_interval_offset = torch.floor(torch.rand(3) * self.params.resolution_factor)/self.params.resolution_factor
+
+                        print(f"Encountered reg_interval_offset {reg_interval_offset}")
+
+                        # Interpolate regular interval image
+                        # These quantities have shape (bs x num_samples x height x width)
+                        h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt = self.dataset.interpolate_states_at_regular_interval(old_hidden_state, new_hidden_state, reg_interval_offset)
+
+                        # Compute the loss of this loss image
+                        # Since this is a loss-image, we can directly use the h_cond, h_mask, uv_cond, uv_mask!
+                        img_loss_h, img_loss_u, img_loss_v, img_loss_bound = self.compute_batch_loss(h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt, h_cond, h_mask, uv_cond, uv_mask)
+
+                        # Add these terms to the loss
+                        loss_h = loss_h + img_loss_h
+                        loss_u = loss_u + img_loss_u
+                        loss_v = loss_v + img_loss_v
+                        loss_bound = loss_bound + img_loss_bound
 
                 if self.params.plot_loss:
                     # Compute total loss value

@@ -369,6 +369,57 @@ class Dataset:
     # Data related tasks
     #
 
+    def interpolate_states_at_regular_interval(self, old_hidden_states, new_hidden_states, offset):
+        """
+        :old_hidden_states: old hidden states (size: bs x (v_size+p_size) x w x h)
+        :new_hidden_states: new hidden states (size: bs x (v_size+p_size) x w x h)
+        :offset: offset in x / y / t direction (vector of size 3 containing values between 0 and 1)
+        :return: interpolated fields for:
+            :z: z field
+            :grad(z): gradient of z field
+            :laplace(z): laplacian of z field
+            :dz/dt: velocity of z field
+            :dz^2/dt^2: acceleration of z field
+        """
+
+        # z field: requires first derivative
+        old_h_group = self.variables["h"].interpolate_at_regular_interval(self.variables.extract_from(old_hidden_states, "h"), offset[:2], include_derivative=True)
+        new_h_group = self.variables["h"].interpolate_at_regular_interval(self.variables.extract_from(new_hidden_states, "h"), offset[:2], include_derivative=True)
+
+        old_h, old_grad_h = old_h_group[:, 0:1], old_h_group[:, 1:3]
+        new_h, new_grad_h = new_h_group[:, 0:1], new_h_group[:, 1:3]
+
+        # u field: requires first derivative + laplace
+        old_u_group = self.variables["u"].interpolate_at_regular_interval(self.variables.extract_from(old_hidden_states, "u"), offset[:2], include_derivative=True, include_laplacian=True)
+        new_u_group = self.variables["u"].interpolate_at_regular_interval(self.variables.extract_from(new_hidden_states, "u"), offset[:2], include_derivative=True, include_laplacian=True)
+
+        old_u, old_grad_u, old_laplace_u = old_u_group[:, 0:1], old_u_group[:, 1:3], old_u_group[:, 3:4]
+        new_u, new_grad_u, new_laplace_u = new_u_group[:, 0:1], new_u_group[:, 1:3], new_u_group[:, 3:4]
+
+        # v field: requires first derivative + laplace
+        old_v_group = self.variables["v"].interpolate_at_regular_interval(self.variables.extract_from(old_hidden_states, "v"), offset[:2], include_derivative=True, include_laplacian=True)
+        new_v_group = self.variables["v"].interpolate_at_regular_interval(self.variables.extract_from(new_hidden_states, "v"), offset[:2], include_derivative=True, include_laplacian=True)
+
+        old_v, old_grad_v, old_laplace_v = old_v_group[:, 0:1], old_v_group[:, 1:3], old_v_group[:, 3:4]
+        new_v, new_grad_v, new_laplace_v = new_v_group[:, 0:1], new_v_group[:, 1:3], new_v_group[:, 3:4]
+
+        # First order interpolation in time
+        h = (1-offset[2])*old_h + offset[2]*new_h
+        grad_h = (1-offset[2])*old_grad_h + offset[2]*new_grad_h
+        dh_dt = (new_h - old_h) / self.params.dt
+
+        u = (1-offset[2])*old_u + offset[2]*new_u
+        grad_u = (1-offset[2])*old_grad_u + offset[2]*new_grad_u
+        laplace_u = (1-offset[2])*old_laplace_u + offset[2]*new_laplace_u
+        du_dt = (new_u - old_u) / self.params.dt
+
+        v = (1-offset[2])*old_v + offset[2]*new_v
+        grad_v = (1-offset[2])*old_grad_v + offset[2]*new_grad_v
+        laplace_v = (1-offset[2])*old_laplace_v + offset[2]*new_laplace_v
+        dv_dt = (new_v - old_v) / self.params.dt
+        
+        return h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt
+
     def interpolate_states_at(self, old_hidden_states, new_hidden_states, offsets):
         """
         :old_hidden_states: old hidden states (size: bs x (v_size+p_size) x w x h)
