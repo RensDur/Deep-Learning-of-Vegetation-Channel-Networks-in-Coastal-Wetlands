@@ -245,6 +245,10 @@ class SplinePINNSolver:
                     # Compute the loss of this unordered set of samples
                     loss_h, loss_u, loss_v, loss_bound = self.compute_batch_loss(h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt, sample_h_cond, sample_h_mask, sample_uv_cond, sample_uv_mask)
 
+                    # As the regular interval loss calculation below can be used to create
+                    # debugging loss images, keep track of them separately
+                    img_loss_h = img_loss_u = img_loss_v = img_loss_bound = 0
+
                     # Now, also generate several (a configurable amount) of regular-interval images with a random offset that's identical in each sell
                     # (this is the original method by Wandel et. al)
                     for _ in range(self.params.n_reg_interval_samples):
@@ -261,13 +265,19 @@ class SplinePINNSolver:
 
                         # Compute the loss of this loss image
                         # Since this is a loss-image, we can directly use the h_cond, h_mask, uv_cond, uv_mask!
-                        img_loss_h, img_loss_u, img_loss_v, img_loss_bound = self.compute_batch_loss(h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt, h_cond, h_mask, uv_cond, uv_mask)
+                        reg_int_loss_h, reg_int_loss_u, reg_int_loss_v, reg_int_loss_bound = self.compute_batch_loss(h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt, h_cond, h_mask, uv_cond, uv_mask)
 
                         # Add these terms to the loss
-                        loss_h = loss_h + (img_loss_h / self.params.n_reg_interval_samples)
-                        loss_u = loss_u + (img_loss_u / self.params.n_reg_interval_samples)
-                        loss_v = loss_v + (img_loss_v / self.params.n_reg_interval_samples)
-                        loss_bound = loss_bound + (img_loss_bound / self.params.n_reg_interval_samples)
+                        img_loss_h = img_loss_h + reg_int_loss_h
+                        img_loss_u = img_loss_u + reg_int_loss_u
+                        img_loss_v = img_loss_v + reg_int_loss_v
+                        img_loss_bound = img_loss_bound + reg_int_loss_bound
+
+                    # Normalize the regular interval loss by the number of reg-int samples
+                    img_loss_h = img_loss_h / self.params.n_reg_interval_samples
+                    img_loss_u = img_loss_u / self.params.n_reg_interval_samples
+                    img_loss_v = img_loss_v / self.params.n_reg_interval_samples
+                    img_loss_bound = img_loss_bound / self.params.n_reg_interval_samples
 
                 if self.params.plot_loss:
                     # Compute total loss value
