@@ -36,6 +36,9 @@ class SplineVariable:
         # Prepare the required spline kernels for this variable
         self.offset_summary = torch.tensor([[[0,0],[1,0]],[[0,1],[1,1]]]).unsqueeze(0).permute(0,3,2,1).to(self.device)
 
+        # Caching kernels
+        self.kernel_buffer = {}
+
     def to(self, torch_device):
         self.device = torch_device
 
@@ -47,10 +50,70 @@ class SplineVariable:
 
     def hidden_size(self) -> int:
         return np.prod([i+1 for i in self.orders])
+
+    def interpolate_at_regular_interval(self, hidden_state, offset, include_derivative=False, include_laplacian=False):
+        """
+        Create an image (snapshot) of the spline field by interpolating at the same offset within each cell of the domain.
+        Every cell is surrounded by 4 support points. This method resembles the implementation by Wandel et. al. [TODO: CHECK REF.]
+        :hidden_state: Spline-weights - size: bs x (orders[0]+1) * (orders[1]+1) x H+1 x W+1
+        :offset: Offset at which to sample within each cell - size: 2:{x,y}
+        :return: Interpolated image with regular intervals between sampling points - size: bs x #channels x H x W
+        """
+
+        # The number of sample channels describes the number of values we interpolate per sample
+        # func_val + dx + dy + laplace = 4
+        num_sample_channels = 1 + \
+            (2 if include_derivative else 0) + \
+            (1 if include_laplacian else 0)
+
+        # ID this specific kernel by offset {x,y}, spline orders and whether or not derivatives or laplacian are included
+        offset_key = f"{offsets[0]} {offsets[1]}, orders: {self.orders}, deriv: {include_derivative}, laplace: {include_laplacian}"
+
+        if offset_key in self.kernel_buffer.keys():
+            sample_kernels = self.kernel_buffer[offset_key]
+        else:
+        
+            # The incoming offset is a local coordinate (dx, dy) describing a position between four support points
+            # Repeat the offset four times and organise them in a grid of shape [1,   2, 2, 2]
+            #                                                                   [_, x/y, <[0,0],[0,1],[1,0],[1,1]>]
+            # This gives an offset coordinate relative to each of the four corners in a cell.
+            offsets = (offsets.clone().unsqueeze(0).unsqueeze(2).unsqueeze(3).repeat(1,1,2,2)-self.offset_summary)
+
+            # Repeat the offsets for each order
+            offsets = offsets.unsqueeze(2).unsqueeze(3).repeat(1,1,(self.orders[0]+1),(self.orders[1]+1),1,1).detach().requires_grad_(True)
+
+            # Prepare the new kernels for these offsets
+            sample_kernels = torch.zeros(1, num_sample_channels, (self.orders[0]+1), (self.orders[1]+1), 2, 2).to(self.device)
+            for l in range(self.orders[0]+1):
+                for m in range(self.orders[1]+1):
+                    # Function value (directy from linear combination of splines)
+                    sample_kernels[0:1,0:1,l,m,:,:] = kernels.p_multidim(offsets[:,:,l,m],[self.orders[0],self.orders[1]],[l,m])
+
+            # First derivative (d/dx and d/dy)
+            if include_derivative:
+                sample_kernels[0:1,1:3] = operators.grad(sample_kernels[0:1,0:1,:,:,:,:],offsets,create_graph=True,retain_graph=True)
+
+            # Laplace -- Note: laplacian without first derivative is not supported (quicker computation)
+            if include_derivative and include_laplacian:
+                sample_kernels[0:1,3:4] = operators.div(sample_kernels[0:1,1:3], offsets, retain_graph=True)
+
+            sample_kernels = sample_kernels.reshape(1, num_sample_channels, (self.orders[0]+1)*(self.orders[1]+1), 2, 2).detach() # Group orders in one channel
+
+            #
+            # Save this kernel in cache
+            #
+            self.kernel_buffer[offset_key] = sample_kernels
+
+        output = F.conv2d(hidden_state, sample_kernels[0], padding=0)
+
+        return output
+
+
+
     
     def interpolate_at(self, hidden_state, sample_points, include_derivative=False, include_laplacian=False):
         """
-        :hidden_state: Spline-weights - size: bs x (orders[0]+1) * (orders[1]+1) x H x W
+        :hidden_state: Spline-weights - size: bs x (orders[0]+1) * (orders[1]+1) x H+1 x W+1
         :sample_points: Set of sampling points per environment in the batch - size: bs x N x 2
         :return: Interpolated values (function values, derivatives and laplacians optional) for this spline variable
                  shape: (bs x num_samples x num_sample_channels)
