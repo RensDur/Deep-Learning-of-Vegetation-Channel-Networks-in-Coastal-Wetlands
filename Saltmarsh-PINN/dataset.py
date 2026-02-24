@@ -384,8 +384,6 @@ class Dataset:
         old_h, old_grad_h = old_h_group[:, 0:1], old_h_group[:, 1:3]
         new_h, new_grad_h = new_h_group[:, 0:1], new_h_group[:, 1:3]
 
-        print(f"some shapes: old_h={old_h.shape}, old_grad_h={old_grad_h.shape}")
-
         # u field: requires first derivative + laplace
         old_u_group = self.variables["u"].interpolate_at(self.variables.extract_from(old_hidden_states, "u"), offsets[:,:2], include_derivative=True, include_laplacian=True)
         new_u_group = self.variables["u"].interpolate_at(self.variables.extract_from(new_hidden_states, "u"), offsets[:,:2], include_derivative=True, include_laplacian=True)
