@@ -254,9 +254,7 @@ class SplinePINNSolver:
                         # But rather either 1/resfac, 2/resfac, ..., resfac/resfac
                         # This allows for caching of kernels during interpolation
                         reg_interval_offset = torch.floor(torch.rand(3, device=self.device) * self.params.resolution_factor)/self.params.resolution_factor
-
-                        print(f"Encountered reg_interval_offset {reg_interval_offset}")
-
+                        
                         # Interpolate regular interval image
                         # These quantities have shape (bs x num_samples x height x width)
                         h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt = self.dataset.interpolate_states_at_regular_interval(old_hidden_state, new_hidden_state, reg_interval_offset)
