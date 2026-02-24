@@ -253,7 +253,7 @@ class SplinePINNSolver:
                         # This method ensures the offset will be not just any random value in [0,1]
                         # But rather either 1/resfac, 2/resfac, ..., resfac/resfac
                         # This allows for caching of kernels during interpolation
-                        reg_interval_offset = torch.floor(torch.rand(3) * self.params.resolution_factor)/self.params.resolution_factor
+                        reg_interval_offset = torch.floor(torch.rand(3, device=self.device) * self.params.resolution_factor)/self.params.resolution_factor
 
                         print(f"Encountered reg_interval_offset {reg_interval_offset}")
 
