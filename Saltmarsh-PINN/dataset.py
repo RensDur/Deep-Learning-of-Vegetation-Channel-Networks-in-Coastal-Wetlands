@@ -323,7 +323,10 @@ class Dataset:
         self.update(self.asked_indices)
 
         # Generate random sample offsets
-        sample_offsets = torch.rand(self.batch_size, 3, self.n_samples) * self.width # TODO: Here, we assume width==height!
+        sample_offsets = torch.rand(self.batch_size, 3, self.n_samples)
+        
+        # Scale sample offsets in x and y by the size of the domain
+        sample_offsets[:, 0:2, :] = sample_offsets[:, 0:2, :] * self.width # TODO: Assume width == height!
 
         # Sample at these offsets to obtain boundary conditions
         sample_h_cond, sample_h_mask, sample_uv_cond, sample_uv_mask = self.sample_conditions(self.asked_indices, sample_offsets)
