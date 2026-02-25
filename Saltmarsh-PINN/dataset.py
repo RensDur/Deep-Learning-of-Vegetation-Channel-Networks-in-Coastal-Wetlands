@@ -351,7 +351,7 @@ class Dataset:
                 sample_uv_cond.to(self.device), \
                 sample_uv_mask.to(self.device)
     
-    def tell(self, hidden_states, loss_tensors):
+    def tell(self, hidden_states, loss_tensors=None):
         """
         :loss_tensors: shape (batch_size, height, width)
         """
@@ -361,7 +361,8 @@ class Dataset:
         self.hidden_states[self.asked_indices] = hidden_states.detach().cpu().float()
 
         # Update the loss images per environment in the batch
-        self.loss_tensors[self.asked_indices] = (loss_tensors / torch.sum(loss_tensors, dim=(1,2))).detach().cpu().float()
+        if loss_tensors is not None:
+            self.loss_tensors[self.asked_indices] = (loss_tensors / torch.sum(loss_tensors, dim=(1,2))).detach().cpu().float()
 
         # Randomly reset environments
         self.t += 1
