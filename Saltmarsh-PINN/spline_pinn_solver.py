@@ -90,7 +90,7 @@ class SplinePINNSolver:
 
         if produce_loss_image:
             # If asked to return a loss image instead, only take the mean across the first two dimensions
-            dim = (0, 1)
+            dim = (1,)
 
         # h-loss
         loss_h = torch.mean(self.loss_function(
@@ -350,7 +350,7 @@ class SplinePINNSolver:
                 self.optimizer.step()
 
                 # Recycle the data
-                self.dataset.tell(new_hidden_state)
+                self.dataset.tell(new_hidden_state, loss_tensor)
 
                 #
                 # Plotting and logging
@@ -386,7 +386,7 @@ class SplinePINNSolver:
                     #
                     if self.params.plot_loss:
                         loss_total = float(loss_total.detach().cpu().numpy())
-                        loss_tensor = loss_tensor.detach().cpu().numpy()
+                        loss_tensor = torch.mean(loss_tensor, dim=0).detach().cpu().numpy()
                         loss_h = float(torch.mean(loss_h).detach().cpu().numpy())
                         loss_u = float(torch.mean(loss_u).detach().cpu().numpy())
                         loss_v = float(torch.mean(loss_v).detach().cpu().numpy())

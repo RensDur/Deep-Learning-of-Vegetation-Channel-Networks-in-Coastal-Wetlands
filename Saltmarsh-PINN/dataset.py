@@ -57,6 +57,11 @@ class Dataset:
         self.uv_mask = torch.zeros(self.dataset_size, 1, self.height, self.width)
         self.uv_cond = torch.zeros(self.dataset_size, 1, self.height, self.width)
 
+        # Loss image per environment in the dataset
+        # This acts as a Probability Density Function (PDF)
+        # In reset(), the values are set to 1/width*height
+        self.loss_tensors = torch.zeros(self.dataset_size, self.height, self.width)
+
         # Environment information
         self.types = [
             "rest-lake",
@@ -136,6 +141,9 @@ class Dataset:
         self.env_type[indices] = np.random.choice(self.types, indices.shape)
         self.env_seed[indices] = 2.0 * math.pi * torch.floor(1000 * torch.rand(indices.shape))
         self.env_time[indices] = torch.zeros(indices.shape)
+
+        # Reset loss images
+        self.loss_tensors[indices] = 1.0 / (self.width * self.height) # Loss tensors should represent a PDF
 
         # Group environments by their type [Groups are guaranteed to be non-empty]
         grouping = self.group_by_type(indices)
@@ -343,11 +351,17 @@ class Dataset:
                 sample_uv_cond.to(self.device), \
                 sample_uv_mask.to(self.device)
     
-    def tell(self, hidden_states):
+    def tell(self, hidden_states, loss_tensors):
+        """
+        :loss_tensors: shape (batch_size, height, width)
+        """
 
         # Update hidden states after moving them back to the CPU.
         # Cast to storage dtype so AMP (float16/bfloat16) outputs don't break in-place assign.
         self.hidden_states[self.asked_indices] = hidden_states.detach().cpu().float()
+
+        # Update the loss images per environment in the batch
+        self.loss_tensors[self.asked_indices] = (loss_tensors / torch.sum(loss_tensors, dim=(1,2))).detach().cpu().float()
 
         # Randomly reset environments
         self.t += 1
