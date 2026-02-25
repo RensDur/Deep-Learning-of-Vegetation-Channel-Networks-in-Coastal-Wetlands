@@ -191,22 +191,23 @@ class SplinePINNSolver:
         if self.params.plot_loss:
             plt.ion()
 
-            plot_fig, plot_axs = plt.subplots(1, 3, figsize=(20, 10))
+            plot_fig, plot_axs = plt.subplots(2, 3, figsize=(20, 10))
 
             # Plots
-            plot_axs[0].set(title="Loss image", xlabel="x", ylabel="y")
-            plot_axs[1].set(title="Total loss", xlabel="x", ylabel="y")
-            plot_axs[2].set(title="Loss terms", xlabel="x", ylabel="y")
+            plot_axs[0,0].set(title="Loss image", xlabel="x", ylabel="y")
+            plot_axs[0,1].set(title="Total loss", xlabel="x", ylabel="y")
+            plot_axs[0,2].set(title="Loss terms", xlabel="x", ylabel="y")
+            plot_axs[1,0].set(title="Loss samples (free)", xlabel="x", ylabel="y")
 
-            # plot_axs[0].grid()
-            # plot_axs[0].grid(which="minor", color="0.5")
-            # plot_axs[1].grid()
-            # plot_axs[1].grid(which="minor", color="0.5")
-            # plot_axs[2].grid()
-            # plot_axs[2].grid(which="minor", color="0.5")
+            # plot_axs[0,0].grid()
+            # plot_axs[0,0].grid(which="minor", color="0.5")
+            # plot_axs[0,1].grid()
+            # plot_axs[0,1].grid(which="minor", color="0.5")
+            # plot_axs[0,2].grid()
+            # plot_axs[0,2].grid(which="minor", color="0.5")
 
             # Leftmost plot shows loss image
-            plot_loss_image = plot_axs[0].imshow(np.zeros((self.params.height-2, self.params.width-2)), cmap="gray", vmin=0, vmax=1)
+            plot_loss_image = plot_axs[0,0].imshow(np.zeros((self.params.height-2, self.params.width-2)), cmap="gray", vmin=0, vmax=1)
 
             # Middle plot shows total loss over time
             plot_loss_total_data = np.array([])
@@ -217,14 +218,19 @@ class SplinePINNSolver:
             plot_loss_bound_data = np.array([])
             # plot_loss_reg_data = np.array([])
 
-            plot_loss_total_graph = plot_axs[1].plot(range(plot_loss_total_data.shape[0]), plot_loss_total_data)[0]
+            plot_loss_total_graph = plot_axs[0,1].plot(range(plot_loss_total_data.shape[0]), plot_loss_total_data)[0]
 
-            plot_loss_h_graph = plot_axs[2].plot(range(plot_loss_h_data.shape[0]), plot_loss_h_data, label="h-loss")[0]
-            plot_loss_momentum_graph = plot_axs[2].plot(range(plot_loss_momentum_data.shape[0]), plot_loss_momentum_data, label="u,v-loss")[0]
-            plot_loss_bound_graph = plot_axs[2].plot(range(plot_loss_bound_data.shape[0]), plot_loss_bound_data, label="bound-loss")[0]
-            # plot_loss_reg_graph = plot_axs[2].plot(range(plot_loss_reg_data.shape[0]), plot_loss_reg_data, label="reg-loss")[0]
+            plot_loss_h_graph = plot_axs[0,2].plot(range(plot_loss_h_data.shape[0]), plot_loss_h_data, label="h-loss")[0]
+            plot_loss_momentum_graph = plot_axs[0,2].plot(range(plot_loss_momentum_data.shape[0]), plot_loss_momentum_data, label="u,v-loss")[0]
+            plot_loss_bound_graph = plot_axs[0,2].plot(range(plot_loss_bound_data.shape[0]), plot_loss_bound_data, label="bound-loss")[0]
+            # plot_loss_reg_graph = plot_axs[0,2].plot(range(plot_loss_reg_data.shape[0]), plot_loss_reg_data, label="reg-loss")[0]
 
-            plot_axs[2].legend(handles=[plot_loss_h_graph, plot_loss_momentum_graph, plot_loss_bound_graph], loc="upper right")
+            plot_axs[0,2].legend(handles=[plot_loss_h_graph, plot_loss_momentum_graph, plot_loss_bound_graph], loc="upper right")
+
+            # Bottom-left plot shows scatter plot of the free samples
+            plot_loss_samples_data_x = np.array([0, 1])
+            plot_loss_samples_data_y = np.array([1, 2])
+            plot_loss_samples_graph = plot_axs[1,0].scatter(plot_loss_samples_data_x, plot_loss_samples_data_y)
 
             plt.show()
 
@@ -398,8 +404,8 @@ class SplinePINNSolver:
 
                         plot_loss_total_graph.set_xdata(range(plot_loss_total_data.shape[0]))
                         plot_loss_total_graph.set_ydata(plot_loss_total_data)
-                        plot_axs[1].set_xlim([0, plot_loss_total_data.shape[0]])
-                        plot_axs[1].set_ylim([np.min(plot_loss_total_data), np.max(plot_loss_total_data)])
+                        plot_axs[0,1].set_xlim([0, plot_loss_total_data.shape[0]])
+                        plot_axs[0,1].set_ylim([np.min(plot_loss_total_data), np.max(plot_loss_total_data)])
 
                         plot_loss_h_graph.set_xdata(range(plot_loss_h_data.shape[0]))
                         plot_loss_h_graph.set_ydata(plot_loss_h_data)
@@ -409,8 +415,15 @@ class SplinePINNSolver:
                         plot_loss_bound_graph.set_ydata(plot_loss_bound_data)
 
                         graph_limits = np.concatenate((plot_loss_h_data, plot_loss_momentum_data, plot_loss_bound_data))
-                        plot_axs[2].set_xlim([0, plot_loss_h_data.shape[0]])
-                        plot_axs[2].set_ylim([np.min(graph_limits), np.max(graph_limits)])
+                        plot_axs[0,2].set_xlim([0, plot_loss_h_data.shape[0]])
+                        plot_axs[0,2].set_ylim([np.min(graph_limits), np.max(graph_limits)])
+
+                        # Free samples
+                        plot_loss_samples_data = sample_offsets.detach().cpu().numpy()
+                        xy = plot_loss_samples_data[0].T[:, :2] # Grab and transpose the xy data
+                        plot_loss_samples_graph.set_offsets(xy)
+                        plot_axs[1,0].set_xlim([0, self.params.width])
+                        plot_axs[1,0].set_ylim([0, self.params.height])
 
                 if self.params.plot_loss:
                     # Always update the plot to allow interaction
