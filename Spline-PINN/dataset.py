@@ -74,9 +74,9 @@ class Dataset:
             "open-left",
             "open-up",
             "open-down",
-            "closed-center-oscillator",
-            "closed-multi-oscillator",
-            "closed-oscillator-reflection"
+            # "closed-center-oscillator",
+            # "closed-multi-oscillator",
+            # "closed-oscillator-reflection"
         ] if types is None else types
 
         print(f"Running with types: {self.types}")
