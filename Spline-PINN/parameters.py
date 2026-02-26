@@ -45,7 +45,7 @@ def params():
 	parser.add_argument('--plot_loss', default=False, type=str2bool, help='Plot loss-image alongside losses over time')
 	
 	# Network parameters
-	parser.add_argument('--net', default="SaltmarshUNet", type=str, help='network to train', choices=["Shortcut","Shortcut2","Shortcut2_residual","Shortcut4","Shortcut4_residual","Shortcut3","Fluid_model","Wave_model"])
+	parser.add_argument('--net', default="StackedSaltmarshUNet", type=str, help='network to train', choices=["Shortcut","Shortcut2","Shortcut2_residual","Shortcut4","Shortcut4_residual","Shortcut3","Fluid_model","Wave_model"])
 	parser.add_argument('--hidden_size', default=45, type=int, help='hidden size of network (default: 20)')
 	parser.add_argument('--orders_h', default=1, type=int, help='spline order for water layer thickness [h]')
 	parser.add_argument('--orders_u', default=1, type=int, help='spline order for horizontal momentum [u]')
