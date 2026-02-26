@@ -482,12 +482,12 @@ class Dataset:
         S = (1-offset[2])*old_S + offset[2]*new_S
         grad_S = (1-offset[2])*old_grad_S + offset[2]*new_grad_S
         laplace_S = (1-offset[2])*old_laplace_S + offset[2]*new_laplace_S
-        dS_dt = (new_S - old_S) / self.params.dt
+        dS_dt = (new_S - old_S) / (self.params.dt * self.params.morphological_acc_factor)
 
         B = (1-offset[2])*old_B + offset[2]*new_B
         grad_B = (1-offset[2])*old_grad_B + offset[2]*new_grad_B
         laplace_B = (1-offset[2])*old_laplace_B + offset[2]*new_laplace_B
-        dB_dt = (new_B - old_B) / self.params.dt
+        dB_dt = (new_B - old_B) / (self.params.dt * self.params.morphological_acc_factor)
         
         return h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt, S, grad_S, laplace_S, dS_dt, B, grad_B, laplace_B, dB_dt
     
