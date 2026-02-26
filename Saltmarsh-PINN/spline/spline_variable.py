@@ -38,6 +38,14 @@ class SplineVariable:
 
         # Caching kernels
         self.kernel_buffer = {}
+        self.kernel_buffer_superres = {}
+
+        # Immediately try to load the buffers for this variable
+        try:
+            self.load_buffers()
+            print(f"Loaded buffers for SplineVariable '{self.name}'")
+        except:
+            print(f"No buffers available for SplineVariable '{self.name}'")
 
     def to(self, torch_device):
         self.device = torch_device
@@ -45,11 +53,33 @@ class SplineVariable:
         # Move data to the new device
         self.offset_summary = self.offset_summary.to(self.device)
 
+        for k in self.kernel_buffer.keys():
+            self.kernel_buffer[k] = self.kernel_buffer[k].to(self.device)
+
+        for k in self.kernel_buffer_superres.keys():
+            self.kernel_buffer_superres[k] = self.kernel_buffer_superres[k].to(self.device)
+
     def get_name(self):
         return self.name
 
     def hidden_size(self) -> int:
         return np.prod([i+1 for i in self.orders])
+
+    def save_buffers(self):
+        os.makedirs("Logger/spline_kernel_buffers",exist_ok=True)
+        path = f"Logger/spline_kernel_buffers/kernel_buffers_{self.name}.dic"
+        with open(path,"wb") as file:
+            pickle.dump({"kernel_buffer":self.kernel_buffer,"kernel_buffer_superres":self.kernel_buffer_superres}, file)
+
+    def load_buffers(self):
+        path = f"Logger/spline_kernel_buffers/kernel_buffers_{self.name}.dic"
+        with open(path,"rb") as file:
+            buffers = pickle.load(file)
+            self.kernel_buffer = buffers["kernel_buffer"]
+            self.kernel_buffer_superres = buffers["kernel_buffer_superres"]
+
+        # Make sure these kernel buffers are all on the desired device
+        self.to(self.device)
 
     def interpolate_at_regular_interval(self, hidden_state, offset, include_derivative=False, include_laplacian=False):
         """
@@ -108,7 +138,52 @@ class SplineVariable:
 
         return output
 
+    def interpolate_superres_at(self, weights, resolution_factor, include_derivative=False, include_laplacian=False):
 
+        # The number of sample channels describes the number of values we interpolate per sample
+        # func_val + dx + dy + laplace = 4
+        num_sample_channels = 1 + \
+            (2 if include_derivative else 0) + \
+            (1 if include_laplacian else 0)
+
+        res_key = f"{resolution_factor}, orders: {self.orders}, deriv: {include_derivative}, laplace: {include_laplacian}"
+        
+        if res_key in self.kernel_buffer_superres.keys():
+            self.superres_kernels = self.kernel_buffer_superres[res_key]
+        else:
+            self.superres_kernels = torch.zeros(1,num_sample_channels,(self.orders[0]+1)*(self.orders[1]+1),2*resolution_factor,2*resolution_factor).to(self.device)
+
+            for i in range(resolution_factor):
+                for j in range(resolution_factor):
+                    offsets = torch.tensor([i/resolution_factor,j/resolution_factor], device=self.device).unsqueeze(0).unsqueeze(2).unsqueeze(3).repeat(1,1,2,2)-1 + self.offset_summary
+                    offsets = offsets.unsqueeze(2).unsqueeze(3).repeat(1,1,(self.orders[0]+1),(self.orders[1]+1),1,1).detach().requires_grad_(True)
+                    
+                    sub_kernels = torch.zeros(1,num_sample_channels,(self.orders[0]+1),(self.orders[1]+1),2,2, device=self.device)
+                    for l in range(self.orders[0]+1):
+                        for m in range(self.orders[1]+1):
+                            # Function value (directy from linear combination of splines)
+                            sub_kernels[0:1,0:1,l,m,:,:] = kernels.p_multidim(offsets[:,:,l,m],[self.orders[0],self.orders[1]],[l,m])
+
+                    
+                    # First derivative (d/dx and d/dy)
+                    if include_derivative:
+                        sub_kernels[0:1,1:3] = operators.grad(sub_kernels[0:1,0:1,:,:,:,:],offsets,create_graph=True,retain_graph=True)
+
+                    # Laplace -- Note: laplacian without first derivative is not supported (quicker computation)
+                    if include_derivative and include_laplacian:
+                        sub_kernels[0:1,3:4] = operators.div(sub_kernels[0:1,1:3], offsets, retain_graph=False)
+                    
+                    sub_kernels = sub_kernels.reshape(1,num_sample_channels,(self.orders[0]+1)*(self.orders[1]+1),2,2).detach()
+                    self.superres_kernels[:,:,:,i::resolution_factor,j::resolution_factor] = sub_kernels
+
+            # buffer kernels
+            self.superres_kernels = self.superres_kernels.permute(0,2,1,3,4)
+            self.kernel_buffer_superres[res_key] = self.superres_kernels
+            self.save_buffers()
+
+        output = F.conv_transpose2d(weights,self.superres_kernels[0],padding=0,stride=resolution_factor)
+
+        return output
 
     
     def interpolate_at(self, hidden_state, sample_points, include_derivative=False, include_laplacian=False):

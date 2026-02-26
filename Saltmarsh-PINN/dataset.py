@@ -435,6 +435,35 @@ class Dataset:
         
         return h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt
 
+    def interpolate_superres(self, hidden_states, resolution_factor):
+        """
+        :hidden_states: new hidden states (size: bs x (v_size+p_size) x w x h)
+        "resolution_factor": resolution factor for superres interpolation
+        :return: interpolated fields for:
+            :z: z field
+            :grad(z): gradient of z field
+            :laplace(z): laplacian of z field
+            :dz/dt: velocity of z field
+            :dz^2/dt^2: acceleration of z field
+        """
+
+        # h field: requires first derivative
+        h_group = self.variables["h"].interpolate_superres_at(self.variables.extract_from(hidden_states, "h"), resolution_factor)
+
+        h, grad_h = h_group[:, 0:1], h_group[:, 1:3]
+
+        # u field: requires first derivative + laplace
+        u_group = self.variables["u"].interpolate_superres_at(self.variables.extract_from(hidden_states, "u"), resolution_factor)
+
+        u, grad_u, laplace_u = u_group[:, 0:1], u_group[:, 1:3], u_group[:, 3:4]
+
+        # v field: requires first derivative + laplace
+        v_group = self.variables["v"].interpolate_superres_at(self.variables.extract_from(hidden_states, "v"), resolution_factor)
+
+        v, grad_v, laplace_v = v_group[:, 0:1], v_group[:, 1:3], v_group[:, 3:4]
+
+        return h, grad_h, u, grad_u, laplace_u, v, grad_v, laplace_v
+
     def interpolate_states_at(self, old_hidden_states, new_hidden_states, offsets):
         """
         :old_hidden_states: old hidden states (size: bs x (v_size+p_size) x w x h)

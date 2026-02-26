@@ -477,14 +477,18 @@ class SplinePINNSolver:
 
             # loss_h, loss_u, loss_v, loss_bound, loss_damp = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks)
 
+            print(f"hidden state size: {new_hidden_state.shape}")
+
             # Interpolate spline coefficients to obtain the necessary quantities
-            h, u, v = self.dataset.interpolate_states_highres(new_hidden_state, 200*self.params.resolution_factor, 200*self.params.resolution_factor)
+            h, grad_h, u, grad_u, laplace_u, v, grad_v, laplace_v = self.dataset.interpolate_superres(new_hidden_state, self.params.resolution_factor)
+
+            print(f"h.shape = {h.shape}")
 
             # Store the newly obtained result in the dataset
             self.dataset.tell(new_hidden_state)
 
             # Display water level thickness h
-            h = h[0, 0].clone()
+            h = h[0, 0, 2:-2, 2:-2].clone()
             # h = h - torch.min(h)
             # h = h / torch.max(h)
             h = h.detach().cpu().numpy()
