@@ -193,7 +193,12 @@ class SplinePINNSolver:
                 v - sample_uv_cond[:,:,1:-1,1:-1]
             ), dim)
 
-            loss_bound = loss_bound + loss_bound_open + loss_bound_closed
+            # Experiment condition: S may never become negative
+            loss_s_negative = torch.mean(self.loss_function(
+                torch.relu(-S) # Whenever S reaches below-zero values, they're flipped and ReLU-d so the network is penalized by negative values for S
+            ), dim)
+
+            loss_bound = loss_bound + loss_bound_open + loss_bound_closed + loss_s_negative
 
         # Multiply by the loss weights
         loss_h = loss_h * self.params.loss_h
