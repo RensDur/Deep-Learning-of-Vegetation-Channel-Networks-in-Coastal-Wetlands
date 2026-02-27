@@ -363,10 +363,8 @@ class SplinePINNSolver:
 
                 # For backprop using PCGrad, construct each loss term
                 pcgrad_losses = [
-                    loss_h,
-                    loss_momentum,
-                    loss_sediment,
-                    loss_vegetation,
+                    loss_objective_hydrodynamics,
+                    loss_objective_sediment_vegetation,
                     loss_bound
                 ]
 
