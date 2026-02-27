@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-folder = "saltmarsh-test-less-pcgrad-tasks"
+folder = "saltmarsh-feb-27-09-44-27"
 
 loss_bound_df = pd.read_csv(f"./{folder}/loss_bound.log")
 loss_h_df = pd.read_csv(f"./{folder}/loss_h.log")
@@ -20,6 +20,9 @@ df = pd.merge(loss_bound_df, loss_h_df, on="Index", how='inner')
 df = pd.merge(df, loss_momentum_df, on="Index", how='inner')
 df = pd.merge(df, loss_sediment_df, on="Index", how='inner')
 df = pd.merge(df, loss_vegetation_df, on="Index", how='inner')
+
+df.plot(x='Index', y=['loss_sediment', 'loss_vegetation'])
+plt.show()
 
 try:
 	df = pd.merge(df, loss_objective_hydrodynamics_df, on="Index", how='inner')

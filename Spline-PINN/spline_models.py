@@ -186,7 +186,7 @@ class SaltmarshUNet(nn.Module):
 
 		self.output_scalar = torch.ones(1, self.hidden_state_size, 1, 1)*2
 
-		self.output_scalar[:,spline_variables.get_slice_for("h"),:,:] = 0.1
+		self.output_scalar[:,spline_variables.get_slice_for("h"),:,:] = 0.02
 		self.output_scalar[:,spline_variables.get_singular_slice_for("u"),:,:] = 10
 		self.output_scalar[:,spline_variables.get_singular_slice_for("v"),:,:] = 10
 		self.output_scalar[:,spline_variables.get_singular_slice_for("S"),:,:] = 10
