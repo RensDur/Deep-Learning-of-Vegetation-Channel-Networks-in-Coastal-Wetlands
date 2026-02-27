@@ -194,7 +194,7 @@ class SplinePINNSolver:
             ), dim)
 
             # Experiment condition: S may never become negative
-            loss_s_negative = torch.mean(self.loss_function(
+            loss_s_negative = 1000 * torch.mean(self.loss_function(
                 torch.relu(-S) # Whenever S reaches below-zero values, they're flipped and ReLU-d so the network is penalized by negative values for S
             ), dim)
 
