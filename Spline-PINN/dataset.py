@@ -139,6 +139,9 @@ class Dataset:
         # Set all hidden coefficients to zero
         self.hidden_states[indices, :, :, :] = 0
 
+        # Place noise in the sediment layer
+        self.hidden_states[indices, self.variables.get_singular_slice_for("S"), :, :] = torch.rand_like(self.hidden_states[indices, self.variables.get_singular_slice_for("S"), :, :])
+
         # Random vegetation tussocks
         def place_random_vegetation_tussocks(group_indices):
             # vegetation_random = torch.rand_like(self.hidden_states[group_indices, self.variables.get_singular_slice_for("B"), :, :])
