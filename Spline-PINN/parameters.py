@@ -29,9 +29,9 @@ def params():
 
 	parser.add_argument('--loss_bound', default=20, type=float, help='loss factor for boundary conditions')
 	parser.add_argument('--loss_bound_uv', default=1, type=float, help='loss factor for boundary conditions flowvelocity')
-	parser.add_argument('--loss_h', default=100, type=float, help='loss factor for wave equation')
+	parser.add_argument('--loss_h', default=1, type=float, help='loss factor for wave equation')
 	parser.add_argument('--loss_momentum', default=1, type=float, help='loss factor to connect dz_dt and v')
-	parser.add_argument('--loss_sediment', default=1e5, type=float, help='loss factor for sedimentary bed elevation loss')
+	parser.add_argument('--loss_sediment', default=1, type=float, help='loss factor for sedimentary bed elevation loss')
 	parser.add_argument('--loss_vegetation', default=100, type=float, help='loss factor for vegetation stem density loss')
 	parser.add_argument('--border_weight', default=0, type=float, help='extra weight on fluid domain borders')
 	parser.add_argument('--huber_delta', default=10, type=float, help='Huber Loss: Square loss when |residual| <= threshold, linear outside the threshold')
@@ -59,8 +59,8 @@ def params():
     # Domain parameters
 	parser.add_argument('--Hin', default=1e-5, type=float, help="")
 	parser.add_argument('--Hc', default=1e-3, type=float, help="")
-	parser.add_argument('--H0', default=0.05, type=float, help="Initial water thickness")
-	parser.add_argument("--wave_size", default=0.025, type=float, help="Wave height for SWE")
+	parser.add_argument('--H0', default=1, type=float, help="Initial water thickness")
+	parser.add_argument("--wave_size", default=0.5, type=float, help="Wave height for SWE")
 	parser.add_argument("--epsilon", default=0.0001, type=float, help="Wave damping factor epsilon")
 	parser.add_argument("--k_epsilon", default=0.001, type=float, help="Wave damping factor k")
 	parser.add_argument("--f_epsilon", default=0.01, type=float, help="Wave damping factor f")

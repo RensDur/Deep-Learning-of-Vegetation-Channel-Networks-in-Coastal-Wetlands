@@ -66,7 +66,7 @@ class SplinePINNSolver:
         # return F.huber_loss(x, torch.zeros_like(x), reduction="none", delta=self.params.huber_delta)
         return x**2
     
-    def compute_batch_loss(self, old_hidden_state, new_hidden_state, grid_offsets, sample_uv_conds, sample_uv_masks, sample_S_conds, sample_S_masks, dim=[1,2,3]):
+    def compute_batch_loss(self, old_hidden_state, new_hidden_state, grid_offsets, sample_uv_conds, sample_uv_masks, sample_h_conds, sample_h_masks, sample_S_conds, sample_S_masks, dim=[1,2,3]):
 
         # Compute Physics Informed Loss image tensor
         loss_h = 0
@@ -83,15 +83,19 @@ class SplinePINNSolver:
             # For added clarity: The masks define where the BCs act, they're 1 everywhere on the boundary, 0 everywhere else
             sample_uv_cond = sample_uv_conds[j]
             sample_uv_mask = sample_uv_masks[j]
+            sample_h_cond = sample_h_conds[j]
+            sample_h_mask = sample_h_masks[j]
             sample_S_cond = sample_S_conds[j]
             sample_S_mask = sample_S_masks[j]
 
             sample_uv_domain_mask = 1-sample_uv_mask
+            sample_h_domain_mask = 1-sample_h_mask
             sample_S_domain_mask = 1-sample_S_mask
 
             # Put additional border_weight on domain boundaries:
             # Important: weighed by parameter 'border_weight'
             sample_uv_mask = (sample_uv_mask + sample_uv_mask*self.diffuse(sample_uv_domain_mask)*self.params.border_weight).detach()
+            sample_h_mask = (sample_h_mask + sample_h_mask*self.diffuse(sample_h_domain_mask)*self.params.border_weight).detach()
             sample_S_mask = (sample_S_mask + sample_S_mask*self.diffuse(sample_S_domain_mask)*self.params.border_weight).detach()
 
             # Interpolate spline coefficients to obtain the necessary quantities
@@ -109,6 +113,9 @@ class SplinePINNSolver:
 
             # Compute intermediate terms
             h_total = h + self.params.H0
+
+            if torch.min(h_total) <= 0:
+                print(f"ERR! >>> h_total hit levels below zero!")
 
             bed_roughness_coefficient_n = self.params.nb + (self.params.nv - self.params.nb) * (B / self.params.k)
             chezy_coefficient = (1.0 / bed_roughness_coefficient_n) * torch.pow(h_total, 1.0/6.0)
@@ -173,7 +180,11 @@ class SplinePINNSolver:
             #
 
             # No gradient in h, S or B
-            loss_bound_closed = torch.mean(sample_uv_mask[:,:,1:-1,1:-1] * self.loss_function(
+            loss_bound_closed = torch.mean(sample_h_mask[:,:,1:-1,1:-1] * self.loss_function(
+                h - sample_h_cond[:,:,1:-1,1:-1]
+            ), dim)
+            
+            loss_bound_closed = loss_bound_closed + torch.mean(sample_uv_mask[:,:,1:-1,1:-1] * self.loss_function(
                 grad_h
             ), dim)
 
@@ -194,18 +205,18 @@ class SplinePINNSolver:
             ), dim)
 
             # Experiment condition: S may never become negative
-            loss_s_negative = 1000 * torch.mean(self.loss_function(
-                torch.relu(-S) # Whenever S reaches below-zero values, they're flipped and ReLU-d so the network is penalized by negative values for S
-            ), dim)
+            # loss_s_negative = 1000 * torch.mean(self.loss_function(
+            #     torch.relu(-S) # Whenever S reaches below-zero values, they're flipped and ReLU-d so the network is penalized by negative values for S
+            # ), dim)
 
-            loss_bound = loss_bound + loss_bound_open + loss_bound_closed + loss_s_negative
+            loss_bound = loss_bound + loss_bound_open + loss_bound_closed #+ loss_s_negative
 
         # Multiply by the loss weights
         loss_h = loss_h * self.params.loss_h
         loss_u = loss_u * self.params.loss_momentum
         loss_v = loss_v * self.params.loss_momentum
-        loss_S = loss_S * self.params.loss_sediment
-        # loss_B = loss_B * self.params.loss_vegetation
+        loss_S = loss_S * self.params.loss_sediment * self.params.morphological_acc_factor
+        # loss_B = loss_B * self.params.loss_vegetation * self.params.morphological_acc_factor
         loss_bound = loss_bound * self.params.loss_bound
 
         # Normalize towards the number of samples taken
@@ -323,16 +334,16 @@ class SplinePINNSolver:
             for i in range(self.params.n_batches_per_epoch):
 
                 # Ask for a batch from the dataset
-                old_hidden_state, uv_cond, uv_mask, S_cond, S_mask, grid_offsets, sample_uv_conds, sample_uv_masks, sample_S_conds, sample_S_masks = self.dataset.ask()
+                old_hidden_state, uv_cond, uv_mask, h_cond, h_mask, S_cond, S_mask, grid_offsets, sample_uv_conds, sample_uv_masks, sample_h_conds, sample_h_masks, sample_S_conds, sample_S_masks = self.dataset.ask()
 
                 # Predict the new domain state by performing a forward pass through the network
-                new_hidden_state = self.net(old_hidden_state, uv_cond, uv_mask, S_cond, S_mask)
+                new_hidden_state = self.net(old_hidden_state, uv_cond, uv_mask, h_cond, h_mask, S_cond, S_mask)
 
                 dim = [1,2,3]
                 if self.params.plot_loss:
                     dim = [1]
 
-                loss_h, loss_u, loss_v, loss_S, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_uv_conds, sample_uv_masks, sample_S_conds, sample_S_masks, dim)
+                loss_h, loss_u, loss_v, loss_S, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_uv_conds, sample_uv_masks, sample_h_conds, sample_h_masks, sample_S_conds, sample_S_masks, dim)
 
                 if self.params.plot_loss:
                     # Combine the losses to create a loss_tensor image

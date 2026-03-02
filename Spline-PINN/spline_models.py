@@ -155,7 +155,7 @@ class ShallowWaterUNet(nn.Module):
 class SaltmarshUNet(nn.Module):
 	# inspired by UNet taken from: https://github.com/milesial/Pytorch-UNet/blob/master/unet/unet_model.py
 	
-	def __init__(self, spline_variables, hidden_size=64, interpolation_size=8, bilinear=True, input_size=4, residuals=False):
+	def __init__(self, spline_variables, hidden_size=64, interpolation_size=12, bilinear=True, input_size=6, residuals=False):
 		"""
 		:orders_v: order of spline for velocity potential (should be at least 2)
 		:orders_p: order of spline for pressure field
@@ -186,7 +186,7 @@ class SaltmarshUNet(nn.Module):
 
 		self.output_scalar = torch.ones(1, self.hidden_state_size, 1, 1)*2
 
-		self.output_scalar[:,spline_variables.get_slice_for("h"),:,:] = 0.02
+		self.output_scalar[:,spline_variables.get_singular_slice_for("h"),:,:] = 10
 		self.output_scalar[:,spline_variables.get_singular_slice_for("u"),:,:] = 10
 		self.output_scalar[:,spline_variables.get_singular_slice_for("v"),:,:] = 10
 		self.output_scalar[:,spline_variables.get_singular_slice_for("S"),:,:] = 10
@@ -197,14 +197,14 @@ class SaltmarshUNet(nn.Module):
 		self.output_scalar = self.output_scalar.to(torch_device)
 		return self
 	
-	def forward(self, hidden_state, uv_cond, uv_mask, S_cond, S_mask):
+	def forward(self, hidden_state, uv_cond, uv_mask, h_cond, h_mask, S_cond, S_mask):
 		"""
 		:hidden_state: old hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
 		:v_cond: velocity (dirichlet) conditions on boundaries (average value within cell): bs x 2 x w x h
 		:v_mask: mask for boundary conditions (average value within cell): bs x 1 x w x h
 		:return: new hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
 		"""
-		x = torch.cat([uv_cond, uv_mask, S_cond, S_mask],dim=1)
+		x = torch.cat([uv_cond, uv_mask, h_cond, h_mask, S_cond, S_mask],dim=1)
 		
 		x = self.interpol(x)
 		
@@ -223,6 +223,11 @@ class SaltmarshUNet(nn.Module):
 		
 		# residual connections
 		out[:,:,:,:] = self.output_scalar*torch.tanh((out[:,:,:,:]+hidden_state[:,:,:,:])/self.output_scalar)
+
+        # Substract the mean of every variable
+		out[:,self.spline_variables.get_singular_slice_for("h"),:,:] = out[:,self.spline_variables.get_singular_slice_for("h"),:,:] - torch.mean(out[:,self.spline_variables.get_singular_slice_for("h"),:,:],dim=(2,3)).unsqueeze(2).unsqueeze(3)
+		out[:,self.spline_variables.get_singular_slice_for("u"),:,:] = out[:,self.spline_variables.get_singular_slice_for("u"),:,:] - torch.mean(out[:,self.spline_variables.get_singular_slice_for("u"),:,:],dim=(2,3)).unsqueeze(2).unsqueeze(3)
+		out[:,self.spline_variables.get_singular_slice_for("v"),:,:] = out[:,self.spline_variables.get_singular_slice_for("v"),:,:] - torch.mean(out[:,self.spline_variables.get_singular_slice_for("v"),:,:],dim=(2,3)).unsqueeze(2).unsqueeze(3)
 
 		return out
 
