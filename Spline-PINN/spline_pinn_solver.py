@@ -114,8 +114,10 @@ class SplinePINNSolver:
             # Compute intermediate terms
             h_total = h + self.params.H0
 
-            if torch.min(h_total) <= 0:
-                print(f"ERR! >>> h_total hit levels below zero!")
+            # water levels can never reach negative levels, in those locations where it does, the hydrodynamics laws will not hold anymore
+            # therefore, we cannot evaluate the environment on how well it adheres to those laws in those places.
+            # We make a mask that's 1 everywhere there's enough water present to evaluate the system on its performance there.
+            h_total = F.relu(h_total - self.params.Hc) + self.params.Hc
 
             bed_roughness_coefficient_n = self.params.nb + (self.params.nv - self.params.nb) * (B / self.params.k)
             chezy_coefficient = (1.0 / bed_roughness_coefficient_n) * torch.pow(h_total, 1.0/6.0)
