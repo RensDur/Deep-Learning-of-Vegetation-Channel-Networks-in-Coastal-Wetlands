@@ -207,9 +207,9 @@ class SplinePINNSolver:
             ), dim)
 
             # Experiment condition: S may never become negative
-            # loss_s_negative = 1000 * torch.mean(self.loss_function(
-            #     torch.relu(-S) # Whenever S reaches below-zero values, they're flipped and ReLU-d so the network is penalized by negative values for S
-            # ), dim)
+            loss_s_negative = torch.mean(self.loss_function(
+                torch.relu(-S) # Whenever S reaches below-zero values, they're flipped and ReLU-d so the network is penalized by negative values for S
+            ), dim)
 
             loss_bound = loss_bound + loss_bound_open + loss_bound_closed #+ loss_s_negative
 
@@ -521,7 +521,7 @@ class SplinePINNSolver:
         print(f"Loaded {self.params.net}: {date_time}, index: {index}")
 
         # Open a visualization window
-        window.set_data_range(0,1)
+        window.set_data_range(0, 1)
 
         # Simulation loop
         while window.is_open():
@@ -542,8 +542,8 @@ class SplinePINNSolver:
 
             # Display water level thickness h
             h = S[0, 0].clone()
-            h = h - torch.min(h)
-            h = h / torch.max(h)
+            # h = h - torch.min(h)
+            # h = h / torch.max(h)
             h = h.detach().cpu().numpy()
 
             window.put_image(h)

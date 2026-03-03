@@ -42,9 +42,9 @@ class Dataset:
         # Variables in this dataset
         self.variables = SplineArray(
             SplineVariable("h", 1, requires_derivative=True),                           # h describes the zero-meaned surface height, on top of H0
-            SplineVariable("u", 2, requires_derivative=True, requires_laplacian=True),
-            SplineVariable("v", 2, requires_derivative=True, requires_laplacian=True),
-            SplineVariable("S", 2, requires_derivative=True, requires_laplacian=True),
+            SplineVariable("u", 1, requires_derivative=True, requires_laplacian=True),
+            SplineVariable("v", 1, requires_derivative=True, requires_laplacian=True),
+            SplineVariable("S", 1, requires_derivative=True, requires_laplacian=True),
             # SplineVariable("B", 2, requires_derivative=True, requires_laplacian=True),
             device=self.device
         )
@@ -140,7 +140,7 @@ class Dataset:
         self.hidden_states[indices, :, :, :] = 0
 
         # Place noise in the sediment layer
-        self.hidden_states[indices, self.variables.get_singular_slice_for("S"), :, :] = torch.rand_like(self.hidden_states[indices, self.variables.get_singular_slice_for("S"), :, :])
+        # self.hidden_states[indices, self.variables.get_singular_slice_for("S"), :, :] = torch.rand_like(self.hidden_states[indices, self.variables.get_singular_slice_for("S"), :, :])
 
         # Random vegetation tussocks
         def place_random_vegetation_tussocks(group_indices):
