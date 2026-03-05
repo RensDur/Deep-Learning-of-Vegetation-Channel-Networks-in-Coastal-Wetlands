@@ -138,7 +138,7 @@ class SplinePINNSolver:
 
             # h-loss
             loss_h = loss_h + torch.mean(self.loss_function(
-                dh_dt + (grad_u[:,1:2] + grad_v[:,0:1]) * (h + self.params.H0) + (grad_h[:,1:2]*u + grad_h[:,0:1]*v) + self.params.epsilon * h - self.params.Hin
+                dh_dt + (grad_u[:,1:2] + grad_v[:,0:1]) * (h + self.params.H0) + (grad_h[:,1:2]*u + grad_h[:,0:1]*v) + self.params.epsilon * h
             ), dim)
 
             # Momentum loss
