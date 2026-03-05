@@ -221,7 +221,7 @@ class Dataset:
                 self.v_mask_fullres[group_indices, :, self.padding_fullres:-self.padding_fullres, :-self.padding_fullres] = 0
 
                 # Velocity conditions
-                self.u_cond_fullres[group_indices, :, self.padding_fullres:-self.padding_fullres, -self.padding_fullres:] = 0.5
+                self.u_cond_fullres[group_indices, :, self.padding_fullres:-self.padding_fullres, -self.padding_fullres:] = -0.5
                 self.v_cond_fullres[group_indices, :, self.padding_fullres:-self.padding_fullres, -self.padding_fullres:] = 0
 
                 self.u_cond_fullres[group_indices] = self.u_cond_fullres[group_indices] * self.u_mask_fullres[group_indices]
@@ -245,8 +245,8 @@ class Dataset:
                 self.v_mask_fullres[group_indices, :, :-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
 
                 # Velocity conditions
-                self.u_cond_fullres[group_indices, :, -self.padding_fullres:, self.padding_fullres:-self.padding_fullres] = 0.5
-                self.v_cond_fullres[group_indices, :, -self.padding_fullres:, self.padding_fullres:-self.padding_fullres] = 0
+                self.u_cond_fullres[group_indices, :, -self.padding_fullres:, self.padding_fullres:-self.padding_fullres] = 0
+                self.v_cond_fullres[group_indices, :, -self.padding_fullres:, self.padding_fullres:-self.padding_fullres] = -0.5
 
                 self.u_cond_fullres[group_indices] = self.u_cond_fullres[group_indices] * self.u_mask_fullres[group_indices]
                 self.v_cond_fullres[group_indices] = self.v_cond_fullres[group_indices] * self.v_mask_fullres[group_indices]
@@ -269,8 +269,8 @@ class Dataset:
                 self.v_mask_fullres[group_indices, :, self.padding_fullres:, self.padding_fullres:-self.padding_fullres] = 0
 
                 # Velocity conditions
-                self.u_cond_fullres[group_indices, :, :self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0.5
-                self.v_cond_fullres[group_indices, :, :self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
+                self.u_cond_fullres[group_indices, :, :self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
+                self.v_cond_fullres[group_indices, :, :self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0.5
 
                 self.u_cond_fullres[group_indices] = self.u_cond_fullres[group_indices] * self.u_mask_fullres[group_indices]
                 self.v_cond_fullres[group_indices] = self.v_cond_fullres[group_indices] * self.v_mask_fullres[group_indices]

@@ -533,7 +533,7 @@ class SplinePINNSolver:
         print(f"Loaded {self.params.net}: {date_time}, index: {index}")
 
         # Open a visualization window
-        window.set_data_range(0, 1)
+        window.set_data_range(-1, 1)
 
         # Simulation loop
         while window.is_open():
@@ -553,7 +553,7 @@ class SplinePINNSolver:
             self.dataset.tell(new_hidden_state)
 
             # Display water level thickness h
-            h = v_cond[0, 0].clone()
+            h = S_mask[0, 0].clone()
             # h = h - torch.min(h)
             # h = h / torch.max(h)
             h = h.detach().cpu().numpy()
