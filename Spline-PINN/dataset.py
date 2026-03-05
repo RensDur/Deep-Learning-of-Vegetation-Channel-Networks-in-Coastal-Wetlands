@@ -58,17 +58,21 @@ class Dataset:
         )
 
         # Boundary conditions and masking
-        self.uv_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
-        self.uv_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
         self.h_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
         self.h_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.u_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.u_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.v_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.v_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
         self.S_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
         self.S_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
 
-        self.uv_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
-        self.uv_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.h_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.h_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
+        self.u_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
+        self.u_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
+        self.v_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
+        self.v_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.S_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.S_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
 
@@ -78,11 +82,6 @@ class Dataset:
             "open-left",
             "open-up",
             "open-down",
-            "rest-lake",
-            "oscillator",
-            "random-oscillator",
-            "multiple-random-oscillator",
-            "reflection",
         ] if types is None else types
 
         print(f"Running with types: {self.types}")
@@ -151,16 +150,19 @@ class Dataset:
 
             return
 
-        # BC: h holds around the entire frame
-        self.uv_mask_fullres[indices] = 1
-        self.uv_mask_fullres[indices, :, self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
-
-        # Velocity condition zero
-        self.uv_cond_fullres[indices] = 0
-
         # h condition is initially unset
         self.h_mask_fullres[indices] = 0
         self.h_cond_fullres[indices] = 0
+
+        # BC: h holds around the entire frame
+        self.u_mask_fullres[indices] = 1
+        self.u_mask_fullres[indices, :, self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
+        self.v_mask_fullres[indices] = 1
+        self.v_mask_fullres[indices, :, self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
+
+        # Velocity condition zero
+        self.u_cond_fullres[indices] = 0
+        self.v_cond_fullres[indices] = 0
 
         # S condition is initially unset
         self.S_mask_fullres[indices] = 0
@@ -189,8 +191,17 @@ class Dataset:
                 place_random_vegetation_tussocks(group_indices)
                 
                 # Rebuild the frame, leaving the right side of the domain open
-                self.uv_mask_fullres[group_indices] = 1
-                self.uv_mask_fullres[group_indices, :, self.padding_fullres:-self.padding_fullres, self.padding_fullres:] = 0
+                self.u_mask_fullres[group_indices] = 1
+                self.u_mask_fullres[group_indices, :, self.padding_fullres:-self.padding_fullres, self.padding_fullres:] = 0
+                self.v_mask_fullres[group_indices] = 1
+                self.v_mask_fullres[group_indices, :, self.padding_fullres:-self.padding_fullres, self.padding_fullres:] = 0
+
+                # Velocity conditions
+                self.u_cond_fullres[group_indices, :, self.padding_fullres:-self.padding_fullres, :self.padding_fullres] = 0.5
+                self.v_cond_fullres[group_indices, :, self.padding_fullres:-self.padding_fullres, :self.padding_fullres] = 0
+
+                self.u_cond_fullres[group_indices] = self.u_cond_fullres[group_indices] * self.u_mask_fullres[group_indices]
+                self.v_cond_fullres[group_indices] = self.v_cond_fullres[group_indices] * self.v_mask_fullres[group_indices]
 
                 # At the open boundary, impose S=0 condition
                 self.S_mask_fullres[group_indices, :, :, -self.padding_fullres:] = 1
@@ -204,8 +215,17 @@ class Dataset:
                 place_random_vegetation_tussocks(group_indices)
                 
                 # Rebuild the frame, leaving the left side of the domain open
-                self.uv_mask_fullres[group_indices] = 1
-                self.uv_mask_fullres[group_indices, :, self.padding_fullres:-self.padding_fullres, :-self.padding_fullres] = 0
+                self.u_mask_fullres[group_indices] = 1
+                self.u_mask_fullres[group_indices, :, self.padding_fullres:-self.padding_fullres, :-self.padding_fullres] = 0
+                self.v_mask_fullres[group_indices] = 1
+                self.v_mask_fullres[group_indices, :, self.padding_fullres:-self.padding_fullres, :-self.padding_fullres] = 0
+
+                # Velocity conditions
+                self.u_cond_fullres[group_indices, :, self.padding_fullres:-self.padding_fullres, -self.padding_fullres:] = 0.5
+                self.v_cond_fullres[group_indices, :, self.padding_fullres:-self.padding_fullres, -self.padding_fullres:] = 0
+
+                self.u_cond_fullres[group_indices] = self.u_cond_fullres[group_indices] * self.u_mask_fullres[group_indices]
+                self.v_cond_fullres[group_indices] = self.v_cond_fullres[group_indices] * self.v_mask_fullres[group_indices]
 
                 # At the open boundary, impose S=0 condition
                 self.S_mask_fullres[group_indices, :, :, :self.padding_fullres] = 1
@@ -219,8 +239,17 @@ class Dataset:
                 place_random_vegetation_tussocks(group_indices)
                 
                 # Rebuild the frame, leaving the up side of the domain open
-                self.uv_mask_fullres[group_indices] = 1
-                self.uv_mask_fullres[group_indices, :, :-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
+                self.u_mask_fullres[group_indices] = 1
+                self.u_mask_fullres[group_indices, :, :-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
+                self.v_mask_fullres[group_indices] = 1
+                self.v_mask_fullres[group_indices, :, :-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
+
+                # Velocity conditions
+                self.u_cond_fullres[group_indices, :, -self.padding_fullres:, self.padding_fullres:-self.padding_fullres] = 0.5
+                self.v_cond_fullres[group_indices, :, -self.padding_fullres:, self.padding_fullres:-self.padding_fullres] = 0
+
+                self.u_cond_fullres[group_indices] = self.u_cond_fullres[group_indices] * self.u_mask_fullres[group_indices]
+                self.v_cond_fullres[group_indices] = self.v_cond_fullres[group_indices] * self.v_mask_fullres[group_indices]
 
                 # At the open boundary, impose S=0 condition
                 self.S_mask_fullres[group_indices, :, :self.padding_fullres, :] = 1
@@ -234,87 +263,22 @@ class Dataset:
                 place_random_vegetation_tussocks(group_indices)
                 
                 # Rebuild the frame, leaving the up side of the domain open
-                self.uv_mask_fullres[group_indices] = 1
-                self.uv_mask_fullres[group_indices, :, self.padding_fullres:, self.padding_fullres:-self.padding_fullres] = 0
+                self.u_mask_fullres[group_indices] = 1
+                self.u_mask_fullres[group_indices, :, self.padding_fullres:, self.padding_fullres:-self.padding_fullres] = 0
+                self.v_mask_fullres[group_indices] = 1
+                self.v_mask_fullres[group_indices, :, self.padding_fullres:, self.padding_fullres:-self.padding_fullres] = 0
+
+                # Velocity conditions
+                self.u_cond_fullres[group_indices, :, :self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0.5
+                self.v_cond_fullres[group_indices, :, :self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
+
+                self.u_cond_fullres[group_indices] = self.u_cond_fullres[group_indices] * self.u_mask_fullres[group_indices]
+                self.v_cond_fullres[group_indices] = self.v_cond_fullres[group_indices] * self.v_mask_fullres[group_indices]
 
                 # At the open boundary, impose S=0 condition
                 self.S_mask_fullres[group_indices, :, -self.padding_fullres:, :] = 1
 
-            #
-            # CLOSED ENVIRONMENTS TO ACCELERATE LEARNING OF SHALLOW WATER DYNAMICS
-            #
-
-            #
-            # LAKE AT REST
-            #
-            if typename == "rest-lake":
-                pass
-
-            #
-            # OSCILLATOR
-            #
-            if typename == "oscillator":
-
-                # obstabcles (oscillators)
-                for x in [0]:#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
-                    for y in [0]:#[-45,-15,15,45]:
-                        self.h_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
-                        self.uv_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
-
-                # Set the masks and conditions
-                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
-
-            #
-            # RANDOMLY PLACED OSCILLATOR
-            #
-            if typename == "random-oscillator":
-                # obstabcles (oscillators)
-                for x in np.random.choice(range(-45, 46), 1):#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
-                    for y in np.random.choice(range(-45, 46), 1):#[-45,-15,15,45]:
-                        self.h_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
-                        self.uv_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
-
-                # Set the masks and conditions
-                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
-
-            #
-            # RANDOMLY PLACED OSCILLATOR
-            #
-            if typename == "multiple-random-oscillator":
-                # obstabcles (oscillators)
-                for x in np.random.choice(range(-45, 46, 5), 2):#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
-                    for y in np.random.choice(range(-45, 46, 5), 2):#[-45,-15,15,45]:
-                        self.h_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
-                        self.uv_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
-
-                # Set the masks and conditions
-                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
-
-            #
-            # REFLECTION
-            #
-            if typename == "reflection":
-
-                # obstabcles (oscillators)
-                for x in [-10]:#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
-                    for y in [60]:#[-45,-15,15,45]:
-                        self.h_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
-                        self.uv_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
-
-                # Set the masks and conditions
-                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
-
-                # We install a barrier starting in the top-center going towards the middle of the domain of thickness 10
-                barrier_thickness = 10 * self.resolution_factor
-                self.uv_mask_fullres[group_indices,:, 0:(self.height_fullres//2), (self.width_fullres//2-barrier_thickness//2):(self.width_fullres//2+barrier_thickness//2)+1] = 1
-
-                # Set the masks and conditions
-                self.uv_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
-                self.uv_cond_fullres[group_indices] = self.uv_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+            
 
 
 
@@ -332,10 +296,12 @@ class Dataset:
         #     self.uv_mask_fullres[indices] = 1-F.conv2d(1-self.uv_mask_fullres[indices], conv_kernel, padding=1)
     
         # Average pooling to create downsampled versions of the BCs
-        self.uv_cond[indices] = F.avg_pool2d(self.uv_cond_fullres[indices],self.resolution_factor)
-        self.uv_mask[indices] = F.avg_pool2d(self.uv_mask_fullres[indices],self.resolution_factor)
         self.h_cond[indices] = F.avg_pool2d(self.h_cond_fullres[indices],self.resolution_factor)
         self.h_mask[indices] = F.avg_pool2d(self.h_mask_fullres[indices],self.resolution_factor)
+        self.u_cond[indices] = F.avg_pool2d(self.u_cond_fullres[indices],self.resolution_factor)
+        self.u_mask[indices] = F.avg_pool2d(self.u_mask_fullres[indices],self.resolution_factor)
+        self.v_cond[indices] = F.avg_pool2d(self.v_cond_fullres[indices],self.resolution_factor)
+        self.v_mask[indices] = F.avg_pool2d(self.v_mask_fullres[indices],self.resolution_factor)
         self.S_cond[indices] = F.avg_pool2d(self.S_cond_fullres[indices],self.resolution_factor)
         self.S_mask[indices] = F.avg_pool2d(self.S_mask_fullres[indices],self.resolution_factor)
 
@@ -359,21 +325,18 @@ class Dataset:
             group_indices is guaranteed to be non-empty
             """
 
-            #
-            # OSCILLATOR
-            #
-            if typename == "oscillator" or typename == "random-oscillator" or typename == "multiple-random-oscillator" or typename == "reflection":
-                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+            pass
 
         for typename in grouping.keys():
             reset_all_of_type(typename, grouping[typename])
     
         # Average pooling to create downsampled versions of the BCs
-        self.uv_cond[indices] = F.avg_pool2d(self.uv_cond_fullres[indices],self.resolution_factor)
-        self.uv_mask[indices] = F.avg_pool2d(self.uv_mask_fullres[indices],self.resolution_factor)
         self.h_cond[indices] = F.avg_pool2d(self.h_cond_fullres[indices],self.resolution_factor)
         self.h_mask[indices] = F.avg_pool2d(self.h_mask_fullres[indices],self.resolution_factor)
+        self.u_cond[indices] = F.avg_pool2d(self.u_cond_fullres[indices],self.resolution_factor)
+        self.u_mask[indices] = F.avg_pool2d(self.u_mask_fullres[indices],self.resolution_factor)
+        self.v_cond[indices] = F.avg_pool2d(self.v_cond_fullres[indices],self.resolution_factor)
+        self.v_mask[indices] = F.avg_pool2d(self.v_mask_fullres[indices],self.resolution_factor)
         self.S_cond[indices] = F.avg_pool2d(self.S_cond_fullres[indices],self.resolution_factor)
         self.S_mask[indices] = F.avg_pool2d(self.S_mask_fullres[indices],self.resolution_factor)
         
@@ -408,10 +371,12 @@ class Dataset:
 
         # Compute grid offsets and sample BCs
         grid_offsets = []
-        sample_uv_cond = []
-        sample_uv_mask = []
         sample_h_cond = []
         sample_h_mask = []
+        sample_u_cond = []
+        sample_u_mask = []
+        sample_v_cond = []
+        sample_v_mask = []
         sample_S_cond = []
         sample_S_mask = []
 
@@ -425,36 +390,44 @@ class Dataset:
             x_offset = min(int(self.resolution_factor*offset[0]),self.resolution_factor-1)
             y_offset = min(int(self.resolution_factor*offset[1]),self.resolution_factor-1)
 
-            sample_uv_cond.append(self.uv_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
-            sample_uv_mask.append(self.uv_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
             sample_h_cond.append(self.h_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
             sample_h_mask.append(self.h_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
+            sample_u_cond.append(self.u_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
+            sample_u_mask.append(self.u_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
+            sample_v_cond.append(self.v_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
+            sample_v_mask.append(self.v_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
             sample_S_cond.append(self.S_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
             sample_S_mask.append(self.S_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
 
         # Move all data to the desired device
         for i in range(self.n_samples):
             grid_offsets[i] = grid_offsets[i].to(self.device)
-            sample_uv_cond[i] = sample_uv_cond[i].to(self.device)
-            sample_uv_mask[i] = sample_uv_mask[i].to(self.device)
             sample_h_cond[i] = sample_h_cond[i].to(self.device)
             sample_h_mask[i] = sample_h_mask[i].to(self.device)
+            sample_u_cond[i] = sample_u_cond[i].to(self.device)
+            sample_u_mask[i] = sample_u_mask[i].to(self.device)
+            sample_v_cond[i] = sample_v_cond[i].to(self.device)
+            sample_v_mask[i] = sample_v_mask[i].to(self.device)
             sample_S_cond[i] = sample_S_cond[i].to(self.device)
             sample_S_mask[i] = sample_S_mask[i].to(self.device)
 
         # Return the hidden states and boundary conditions after moving them to the desired device
         return self.hidden_states[self.asked_indices].to(self.device), \
-                self.uv_cond[self.asked_indices].to(self.device), \
-                self.uv_mask[self.asked_indices].to(self.device), \
                 self.h_cond[self.asked_indices].to(self.device), \
                 self.h_mask[self.asked_indices].to(self.device), \
+                self.u_cond[self.asked_indices].to(self.device), \
+                self.u_mask[self.asked_indices].to(self.device), \
+                self.v_cond[self.asked_indices].to(self.device), \
+                self.v_mask[self.asked_indices].to(self.device), \
                 self.S_cond[self.asked_indices].to(self.device), \
                 self.S_mask[self.asked_indices].to(self.device), \
                 grid_offsets, \
-                sample_uv_cond, \
-                sample_uv_mask, \
                 sample_h_cond, \
                 sample_h_mask, \
+                sample_u_cond, \
+                sample_u_mask, \
+                sample_v_cond, \
+                sample_v_mask, \
                 sample_S_cond, \
                 sample_S_mask
     
