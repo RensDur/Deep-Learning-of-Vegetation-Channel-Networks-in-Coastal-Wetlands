@@ -225,7 +225,7 @@ class SaltmarshUNet(nn.Module):
 		out[:,:,:,:] = self.output_scalar*torch.tanh((out[:,:,:,:]+hidden_state[:,:,:,:])/self.output_scalar)
 
         # Substract the mean of every variable
-		out[:,self.spline_variables.get_singular_slice_for("h"),:,:] = out[:,self.spline_variables.get_singular_slice_for("h"),:,:] - torch.mean(out[:,self.spline_variables.get_singular_slice_for("h"),:,:],dim=(2,3)).unsqueeze(2).unsqueeze(3)
+		# out[:,self.spline_variables.get_singular_slice_for("h"),:,:] = out[:,self.spline_variables.get_singular_slice_for("h"),:,:] - torch.mean(out[:,self.spline_variables.get_singular_slice_for("h"),:,:],dim=(2,3)).unsqueeze(2).unsqueeze(3)
 		# out[:,self.spline_variables.get_singular_slice_for("u"),:,:] = out[:,self.spline_variables.get_singular_slice_for("u"),:,:] - torch.mean(out[:,self.spline_variables.get_singular_slice_for("u"),:,:],dim=(2,3)).unsqueeze(2).unsqueeze(3)
 		# out[:,self.spline_variables.get_singular_slice_for("v"),:,:] = out[:,self.spline_variables.get_singular_slice_for("v"),:,:] - torch.mean(out[:,self.spline_variables.get_singular_slice_for("v"),:,:],dim=(2,3)).unsqueeze(2).unsqueeze(3)
 
