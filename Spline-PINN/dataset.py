@@ -234,15 +234,24 @@ class Dataset:
                 dam_width = 10
                 dam_height = 30
 
-                # No gradient in h around obstacle
-                self.grad_h_mask_fullres[group_indices, 1, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
+                for x in [0]:
+                    for y in [0]:
 
-                # Zero flow velocity around obstacle
-                self.u_mask_fullres[group_indices, :, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
-                self.v_mask_fullres[group_indices, :, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
+                        ymin = (self.height_fullres//2)-(dam_height//2)+y
+                        ymax = (self.height_fullres//2)+(dam_height//2)+y
 
-                # No gradient in S around obstacle
-                self.grad_S_mask_fullres[group_indices, 1, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
+                        xmin = (self.width_fullres//2)-(dam_width//2)+x
+                        xmax = (self.width_fullres//2)+(dam_width//2)+x
+
+                        # No gradient in h around obstacle
+                        self.grad_h_mask_fullres[group_indices, 1, ymin:ymax, xmin:xmax] = 1
+
+                        # Zero flow velocity around obstacle
+                        self.u_mask_fullres[group_indices, :, ymin:ymax, xmin:xmax] = 1
+                        self.v_mask_fullres[group_indices, :, ymin:ymax, xmin:xmax] = 1
+
+                        # No gradient in S around obstacle
+                        self.grad_S_mask_fullres[group_indices, 1, ymin:ymax, xmin:xmax] = 1
 
             #
             # OPEN BOUNDARY AT LEFT EDGE
@@ -277,15 +286,24 @@ class Dataset:
                 dam_width = 10
                 dam_height = 30
 
-                # No gradient in h around obstacle
-                self.grad_h_mask_fullres[group_indices, 1, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
+                for x in [0]:
+                    for y in [0]:
 
-                # Zero flow velocity around obstacle
-                self.u_mask_fullres[group_indices, :, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
-                self.v_mask_fullres[group_indices, :, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
+                        ymin = (self.height_fullres//2)-(dam_height//2)+y
+                        ymax = (self.height_fullres//2)+(dam_height//2)+y
 
-                # No gradient in S around obstacle
-                self.grad_S_mask_fullres[group_indices, 1, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
+                        xmin = (self.width_fullres//2)-(dam_width//2)+x
+                        xmax = (self.width_fullres//2)+(dam_width//2)+x
+
+                        # No gradient in h around obstacle
+                        self.grad_h_mask_fullres[group_indices, 1, ymin:ymax, xmin:xmax] = 1
+
+                        # Zero flow velocity around obstacle
+                        self.u_mask_fullres[group_indices, :, ymin:ymax, xmin:xmax] = 1
+                        self.v_mask_fullres[group_indices, :, ymin:ymax, xmin:xmax] = 1
+
+                        # No gradient in S around obstacle
+                        self.grad_S_mask_fullres[group_indices, 1, ymin:ymax, xmin:xmax] = 1
 
             #
             # OPEN BOUNDARY AT UP EDGE
@@ -320,15 +338,24 @@ class Dataset:
                 dam_width = 30
                 dam_height = 10
 
-                # No gradient in h around obstacle
-                self.grad_h_mask_fullres[group_indices, 0, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
+                for x in [0]:
+                    for y in [0]:
 
-                # Zero flow velocity around obstacle
-                self.u_mask_fullres[group_indices, :, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
-                self.v_mask_fullres[group_indices, :, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
+                        ymin = (self.height_fullres//2)-(dam_height//2)+y
+                        ymax = (self.height_fullres//2)+(dam_height//2)+y
 
-                # No gradient in S around obstacle
-                self.grad_S_mask_fullres[group_indices, 0, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
+                        xmin = (self.width_fullres//2)-(dam_width//2)+x
+                        xmax = (self.width_fullres//2)+(dam_width//2)+x
+
+                        # No gradient in h around obstacle
+                        self.grad_h_mask_fullres[group_indices, 0, ymin:ymax, xmin:xmax] = 1
+
+                        # Zero flow velocity around obstacle
+                        self.u_mask_fullres[group_indices, :, ymin:ymax, xmin:xmax] = 1
+                        self.v_mask_fullres[group_indices, :, ymin:ymax, xmin:xmax] = 1
+
+                        # No gradient in S around obstacle
+                        self.grad_S_mask_fullres[group_indices, 0, ymin:ymax, xmin:xmax] = 1
 
             #
             # OPEN BOUNDARY AT DOWN EDGE
@@ -363,15 +390,24 @@ class Dataset:
                 dam_width = 30
                 dam_height = 10
 
-                # No gradient in h around obstacle
-                self.grad_h_mask_fullres[group_indices, 0, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
+                for x in [0]:
+                    for y in [0]:
 
-                # Zero flow velocity around obstacle
-                self.u_mask_fullres[group_indices, :, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
-                self.v_mask_fullres[group_indices, :, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
+                        ymin = (self.height_fullres//2)-(dam_height//2)+y
+                        ymax = (self.height_fullres//2)+(dam_height//2)+y
 
-                # No gradient in S around obstacle
-                self.grad_S_mask_fullres[group_indices, 0, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
+                        xmin = (self.width_fullres//2)-(dam_width//2)+x
+                        xmax = (self.width_fullres//2)+(dam_width//2)+x
+
+                        # No gradient in h around obstacle
+                        self.grad_h_mask_fullres[group_indices, 0, ymin:ymax, xmin:xmax] = 1
+
+                        # Zero flow velocity around obstacle
+                        self.u_mask_fullres[group_indices, :, ymin:ymax, xmin:xmax] = 1
+                        self.v_mask_fullres[group_indices, :, ymin:ymax, xmin:xmax] = 1
+
+                        # No gradient in S around obstacle
+                        self.grad_S_mask_fullres[group_indices, 0, ymin:ymax, xmin:xmax] = 1
 
 
             #
@@ -433,7 +469,7 @@ class Dataset:
             #
             # OPEN BOUNDARY AT LEFT EDGE
             #
-            if typename == "open-left":
+            if typename == "open-left-random":
 
                 # Place random vegetation tussocks
                 place_random_vegetation_tussocks(group_indices)
@@ -463,20 +499,29 @@ class Dataset:
                 dam_width = 10
                 dam_height = 30
 
-                # No gradient in h around obstacle
-                self.grad_h_mask_fullres[group_indices, 1, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
+                for x in np.random.choice(range(-45, 46), 1):
+                    for y in np.random.choice(range(-45, 46), 1):
 
-                # Zero flow velocity around obstacle
-                self.u_mask_fullres[group_indices, :, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
-                self.v_mask_fullres[group_indices, :, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
+                        ymin = (self.height_fullres//2)-(dam_height//2)+y
+                        ymax = (self.height_fullres//2)+(dam_height//2)+y
 
-                # No gradient in S around obstacle
-                self.grad_S_mask_fullres[group_indices, 1, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
+                        xmin = (self.width_fullres//2)-(dam_width//2)+x
+                        xmax = (self.width_fullres//2)+(dam_width//2)+x
+
+                        # No gradient in h around obstacle
+                        self.grad_h_mask_fullres[group_indices, 1, ymin:ymax, xmin:xmax] = 1
+
+                        # Zero flow velocity around obstacle
+                        self.u_mask_fullres[group_indices, :, ymin:ymax, xmin:xmax] = 1
+                        self.v_mask_fullres[group_indices, :, ymin:ymax, xmin:xmax] = 1
+
+                        # No gradient in S around obstacle
+                        self.grad_S_mask_fullres[group_indices, 1, ymin:ymax, xmin:xmax] = 1
 
             #
             # OPEN BOUNDARY AT UP EDGE
             #
-            if typename == "open-up":
+            if typename == "open-up-random":
 
                 # Place random vegetation tussocks
                 place_random_vegetation_tussocks(group_indices)
@@ -506,20 +551,29 @@ class Dataset:
                 dam_width = 30
                 dam_height = 10
 
-                # No gradient in h around obstacle
-                self.grad_h_mask_fullres[group_indices, 0, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
+                for x in np.random.choice(range(-45, 46), 1):
+                    for y in np.random.choice(range(-45, 46), 1):
 
-                # Zero flow velocity around obstacle
-                self.u_mask_fullres[group_indices, :, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
-                self.v_mask_fullres[group_indices, :, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
+                        ymin = (self.height_fullres//2)-(dam_height//2)+y
+                        ymax = (self.height_fullres//2)+(dam_height//2)+y
 
-                # No gradient in S around obstacle
-                self.grad_S_mask_fullres[group_indices, 0, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
+                        xmin = (self.width_fullres//2)-(dam_width//2)+x
+                        xmax = (self.width_fullres//2)+(dam_width//2)+x
+
+                        # No gradient in h around obstacle
+                        self.grad_h_mask_fullres[group_indices, 0, ymin:ymax, xmin:xmax] = 1
+
+                        # Zero flow velocity around obstacle
+                        self.u_mask_fullres[group_indices, :, ymin:ymax, xmin:xmax] = 1
+                        self.v_mask_fullres[group_indices, :, ymin:ymax, xmin:xmax] = 1
+
+                        # No gradient in S around obstacle
+                        self.grad_S_mask_fullres[group_indices, 0, ymin:ymax, xmin:xmax] = 1
 
             #
             # OPEN BOUNDARY AT DOWN EDGE
             #
-            if typename == "open-down":
+            if typename == "open-down-random":
 
                 # Place random vegetation tussocks
                 place_random_vegetation_tussocks(group_indices)
@@ -549,15 +603,237 @@ class Dataset:
                 dam_width = 30
                 dam_height = 10
 
-                # No gradient in h around obstacle
-                self.grad_h_mask_fullres[group_indices, 0, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
+                for x in np.random.choice(range(-45, 46), 1):
+                    for y in np.random.choice(range(-45, 46), 1):
 
-                # Zero flow velocity around obstacle
-                self.u_mask_fullres[group_indices, :, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
-                self.v_mask_fullres[group_indices, :, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
+                        ymin = (self.height_fullres//2)-(dam_height//2)+y
+                        ymax = (self.height_fullres//2)+(dam_height//2)+y
 
-                # No gradient in S around obstacle
-                self.grad_S_mask_fullres[group_indices, 0, (self.height_fullres//2)-(dam_height//2):(self.height_fullres//2)+(dam_height//2), (self.width_fullres//2)-(dam_width//2):(self.width_fullres//2)+(dam_width//2)] = 1
+                        xmin = (self.width_fullres//2)-(dam_width//2)+x
+                        xmax = (self.width_fullres//2)+(dam_width//2)+x
+
+                        # No gradient in h around obstacle
+                        self.grad_h_mask_fullres[group_indices, 0, ymin:ymax, xmin:xmax] = 1
+
+                        # Zero flow velocity around obstacle
+                        self.u_mask_fullres[group_indices, :, ymin:ymax, xmin:xmax] = 1
+                        self.v_mask_fullres[group_indices, :, ymin:ymax, xmin:xmax] = 1
+
+                        # No gradient in S around obstacle
+                        self.grad_S_mask_fullres[group_indices, 0, ymin:ymax, xmin:xmax] = 1
+
+
+            #
+            # MULTIPLE RANDOM BARRIER PLACEMENTS
+            # LEFT / RIGHT / UP / DOWN
+            #
+            #
+            # OPEN BOUNDARY AT RIGHT EDGE
+            #
+            if typename == "open-right-multiple":
+
+                # Place random vegetation tussocks
+                place_random_vegetation_tussocks(group_indices)
+
+                # Top and bottom are closed boundaries
+                self.grad_h_mask_fullres[indices, 0] = 1
+                self.grad_h_mask_fullres[indices, 0, self.padding_fullres:-self.padding_fullres, :] = 0
+
+                # u, v mask also holds on the left of the domain, for water inflow
+                self.u_mask_fullres[indices] = 1
+                self.u_mask_fullres[indices, :, :, self.padding_fullres:] = 0
+                self.v_mask_fullres[indices] = 1
+                self.v_mask_fullres[indices, :, self.padding_fullres:-self.padding_fullres, self.padding_fullres:] = 0
+                
+                # Water inflow on the left of the domain
+                self.u_cond_fullres[group_indices, :, :, :self.padding_fullres] = 0.5
+                self.u_cond_fullres[group_indices] = self.u_cond_fullres[group_indices] * self.u_mask_fullres[group_indices]
+
+                # Erosion and deposition of sediment are in balance at the open outflow boundary, S=0
+                # self.S_mask_fullres[indices, :, self.padding_fullres:-self.padding_fullres, -self.padding_fullres:] = 1
+
+                # Top and bottom are closed: no sediment gradient in y-direction
+                self.grad_S_mask_fullres[indices, 0] = 1
+                self.grad_S_mask_fullres[indices, 0, self.padding_fullres:-self.padding_fullres, :] = 0
+
+                # Place a series of dams
+                dam_width = 10
+                dam_height = 30
+
+                for x in np.random.choice(range(-45, 46), 1):
+                    for y in np.random.choice(range(-45, 46), 1):
+
+                        ymin = (self.height_fullres//2)-(dam_height//2)+y
+                        ymax = (self.height_fullres//2)+(dam_height//2)+y
+
+                        xmin = (self.width_fullres//2)-(dam_width//2)+x
+                        xmax = (self.width_fullres//2)+(dam_width//2)+x
+
+                        # No gradient in h around obstacle
+                        self.grad_h_mask_fullres[group_indices, 1, ymin:ymax, xmin:xmax] = 1
+
+                        # Zero flow velocity around obstacle
+                        self.u_mask_fullres[group_indices, :, ymin:ymax, xmin:xmax] = 1
+                        self.v_mask_fullres[group_indices, :, ymin:ymax, xmin:xmax] = 1
+
+                        # No gradient in S around obstacle
+                        self.grad_S_mask_fullres[group_indices, 1, ymin:ymax, xmin:xmax] = 1
+
+            #
+            # OPEN BOUNDARY AT LEFT EDGE
+            #
+            if typename == "open-left-multiple":
+
+                # Place random vegetation tussocks
+                place_random_vegetation_tussocks(group_indices)
+
+                # Top and bottom are closed boundaries
+                self.grad_h_mask_fullres[indices, 0] = 1
+                self.grad_h_mask_fullres[indices, 0, self.padding_fullres:-self.padding_fullres, :] = 0
+
+                # u, v mask also holds on the right of the domain, for water inflow
+                self.u_mask_fullres[indices] = 1
+                self.u_mask_fullres[indices, :, :, :-self.padding_fullres] = 0
+                self.v_mask_fullres[indices] = 1
+                self.v_mask_fullres[indices, :, self.padding_fullres:-self.padding_fullres, :-self.padding_fullres] = 0
+                
+                # Water inflow on the right of the domain
+                self.u_cond_fullres[group_indices, :, :, -self.padding_fullres:] = -0.5
+                self.u_cond_fullres[group_indices] = self.u_cond_fullres[group_indices] * self.u_mask_fullres[group_indices]
+
+                # Erosion and deposition of sediment are in balance at the open outflow boundary, S=0
+                # self.S_mask_fullres[indices, :, self.padding_fullres:-self.padding_fullres, -self.padding_fullres:] = 1
+
+                # Top and bottom are closed: no sediment gradient in y-direction
+                self.grad_S_mask_fullres[indices, 0] = 1
+                self.grad_S_mask_fullres[indices, 0, self.padding_fullres:-self.padding_fullres, :] = 0
+
+                # Place a series of dams
+                dam_width = 10
+                dam_height = 30
+
+                for x in np.random.choice(range(-45, 46), 1):
+                    for y in np.random.choice(range(-45, 46), 1):
+
+                        ymin = (self.height_fullres//2)-(dam_height//2)+y
+                        ymax = (self.height_fullres//2)+(dam_height//2)+y
+
+                        xmin = (self.width_fullres//2)-(dam_width//2)+x
+                        xmax = (self.width_fullres//2)+(dam_width//2)+x
+
+                        # No gradient in h around obstacle
+                        self.grad_h_mask_fullres[group_indices, 1, ymin:ymax, xmin:xmax] = 1
+
+                        # Zero flow velocity around obstacle
+                        self.u_mask_fullres[group_indices, :, ymin:ymax, xmin:xmax] = 1
+                        self.v_mask_fullres[group_indices, :, ymin:ymax, xmin:xmax] = 1
+
+                        # No gradient in S around obstacle
+                        self.grad_S_mask_fullres[group_indices, 1, ymin:ymax, xmin:xmax] = 1
+
+            #
+            # OPEN BOUNDARY AT UP EDGE
+            #
+            if typename == "open-up-multiple":
+
+                # Place random vegetation tussocks
+                place_random_vegetation_tussocks(group_indices)
+
+                # Left and right sides are closed boundaries
+                self.grad_h_mask_fullres[indices, 1] = 1
+                self.grad_h_mask_fullres[indices, 1, :, self.padding_fullres:-self.padding_fullres] = 0
+
+                # u, v mask also holds on the right of the domain, for water inflow
+                self.u_mask_fullres[indices] = 1
+                self.u_mask_fullres[indices, :, :-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
+                self.v_mask_fullres[indices] = 1
+                self.v_mask_fullres[indices, :, :-self.padding_fullres, :] = 0
+                
+                # Water inflow from the botto of the domain
+                self.v_cond_fullres[group_indices, :, -self.padding_fullres:, :] = -0.5
+                self.v_cond_fullres[group_indices] = self.v_cond_fullres[group_indices] * self.v_mask_fullres[group_indices]
+
+                # Erosion and deposition of sediment are in balance at the open outflow boundary, S=0
+                # self.S_mask_fullres[indices, :, self.padding_fullres:-self.padding_fullres, -self.padding_fullres:] = 1
+
+                # Top and bottom are closed: no sediment gradient in y-direction
+                self.grad_S_mask_fullres[indices, 1] = 1
+                self.grad_S_mask_fullres[indices, 1, :, self.padding_fullres:-self.padding_fullres] = 0
+
+                # Place a series of dams
+                dam_width = 30
+                dam_height = 10
+
+                for x in np.random.choice(range(-45, 46), 1):
+                    for y in np.random.choice(range(-45, 46), 1):
+
+                        ymin = (self.height_fullres//2)-(dam_height//2)+y
+                        ymax = (self.height_fullres//2)+(dam_height//2)+y
+
+                        xmin = (self.width_fullres//2)-(dam_width//2)+x
+                        xmax = (self.width_fullres//2)+(dam_width//2)+x
+
+                        # No gradient in h around obstacle
+                        self.grad_h_mask_fullres[group_indices, 0, ymin:ymax, xmin:xmax] = 1
+
+                        # Zero flow velocity around obstacle
+                        self.u_mask_fullres[group_indices, :, ymin:ymax, xmin:xmax] = 1
+                        self.v_mask_fullres[group_indices, :, ymin:ymax, xmin:xmax] = 1
+
+                        # No gradient in S around obstacle
+                        self.grad_S_mask_fullres[group_indices, 0, ymin:ymax, xmin:xmax] = 1
+
+            #
+            # OPEN BOUNDARY AT DOWN EDGE
+            #
+            if typename == "open-down-multiple":
+
+                # Place random vegetation tussocks
+                place_random_vegetation_tussocks(group_indices)
+
+                # Left and right sides are closed boundaries
+                self.grad_h_mask_fullres[indices, 1] = 1
+                self.grad_h_mask_fullres[indices, 1, :, self.padding_fullres:-self.padding_fullres] = 0
+
+                # u, v mask also holds on the right of the domain, for water inflow
+                self.u_mask_fullres[indices] = 1
+                self.u_mask_fullres[indices, :, self.padding_fullres:, self.padding_fullres:-self.padding_fullres] = 0
+                self.v_mask_fullres[indices] = 1
+                self.v_mask_fullres[indices, :, self.padding_fullres:, :] = 0
+                
+                # Water inflow from the botto of the domain
+                self.v_cond_fullres[group_indices, :, :self.padding_fullres, :] = 0.5
+                self.v_cond_fullres[group_indices] = self.v_cond_fullres[group_indices] * self.v_mask_fullres[group_indices]
+
+                # Erosion and deposition of sediment are in balance at the open outflow boundary, S=0
+                # self.S_mask_fullres[indices, :, self.padding_fullres:-self.padding_fullres, -self.padding_fullres:] = 1
+
+                # Top and bottom are closed: no sediment gradient in y-direction
+                self.grad_S_mask_fullres[indices, 1] = 1
+                self.grad_S_mask_fullres[indices, 1, :, self.padding_fullres:-self.padding_fullres] = 0
+
+                # Place a series of dams
+                dam_width = 30
+                dam_height = 10
+
+                for x in np.random.choice(range(-45, 46), 1):
+                    for y in np.random.choice(range(-45, 46), 1):
+
+                        ymin = (self.height_fullres//2)-(dam_height//2)+y
+                        ymax = (self.height_fullres//2)+(dam_height//2)+y
+
+                        xmin = (self.width_fullres//2)-(dam_width//2)+x
+                        xmax = (self.width_fullres//2)+(dam_width//2)+x
+
+                        # No gradient in h around obstacle
+                        self.grad_h_mask_fullres[group_indices, 0, ymin:ymax, xmin:xmax] = 1
+
+                        # Zero flow velocity around obstacle
+                        self.u_mask_fullres[group_indices, :, ymin:ymax, xmin:xmax] = 1
+                        self.v_mask_fullres[group_indices, :, ymin:ymax, xmin:xmax] = 1
+
+                        # No gradient in S around obstacle
+                        self.grad_S_mask_fullres[group_indices, 0, ymin:ymax, xmin:xmax] = 1
 
 
 
