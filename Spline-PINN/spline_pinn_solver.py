@@ -66,7 +66,7 @@ class SplinePINNSolver:
         # return F.huber_loss(x, torch.zeros_like(x), reduction="none", delta=self.params.huber_delta)
         return x**2
     
-    def compute_batch_loss(self, old_hidden_state, new_hidden_state, grid_offsets, sample_h_conds, sample_h_masks, sample_u_conds, sample_u_masks, sample_v_conds, sample_v_masks, sample_S_conds, sample_S_masks, dim=[1,2,3]):
+    def compute_batch_loss(self, old_hidden_state, new_hidden_state, grid_offsets, sample_grad_h_conds, sample_grad_h_masks, sample_u_conds, sample_u_masks, sample_v_conds, sample_v_masks, sample_S_conds, sample_S_masks, sample_grad_S_conds, sample_grad_S_masks, dim=[1,2,3]):
 
         # Compute Physics Informed Loss image tensor
         loss_h = 0
@@ -81,26 +81,30 @@ class SplinePINNSolver:
             offset = torch.floor(sample*self.params.resolution_factor)/self.params.resolution_factor
 
             # For added clarity: The masks define where the BCs act, they're 1 everywhere on the boundary, 0 everywhere else
-            sample_h_cond = sample_h_conds[j]
-            sample_h_mask = sample_h_masks[j]
+            sample_grad_h_cond = sample_grad_h_conds[j]
+            sample_grad_h_mask = sample_grad_h_masks[j]
             sample_u_cond = sample_u_conds[j]
             sample_u_mask = sample_u_masks[j]
             sample_v_cond = sample_v_conds[j]
             sample_v_mask = sample_v_masks[j]
             sample_S_cond = sample_S_conds[j]
             sample_S_mask = sample_S_masks[j]
+            sample_grad_S_cond = sample_grad_S_conds[j]
+            sample_grad_S_mask = sample_grad_S_masks[j]
 
-            sample_h_domain_mask = 1-sample_h_mask
+            sample_grad_h_domain_mask = 1-sample_grad_h_mask
             sample_u_domain_mask = 1-sample_u_mask
             sample_v_domain_mask = 1-sample_v_mask
             sample_S_domain_mask = 1-sample_S_mask
+            sample_grad_S_domain_mask = 1-sample_grad_S_mask
 
             # Put additional border_weight on domain boundaries:
             # Important: weighed by parameter 'border_weight'
-            sample_h_mask = (sample_h_mask + sample_h_mask*self.diffuse(sample_h_domain_mask)*self.params.border_weight).detach()
-            sample_u_mask = (sample_u_mask + sample_u_mask*self.diffuse(sample_u_domain_mask)*self.params.border_weight).detach()
-            sample_v_mask = (sample_v_mask + sample_v_mask*self.diffuse(sample_v_domain_mask)*self.params.border_weight).detach()
-            sample_S_mask = (sample_S_mask + sample_S_mask*self.diffuse(sample_S_domain_mask)*self.params.border_weight).detach()
+            # sample_grad_h_mask = (sample_grad_h_mask + sample_grad_h_mask*self.diffuse(sample_grad_h_domain_mask)*self.params.border_weight).detach()
+            # sample_u_mask = (sample_u_mask + sample_u_mask*self.diffuse(sample_u_domain_mask)*self.params.border_weight).detach()
+            # sample_v_mask = (sample_v_mask + sample_v_mask*self.diffuse(sample_v_domain_mask)*self.params.border_weight).detach()
+            # sample_S_mask = (sample_S_mask + sample_S_mask*self.diffuse(sample_S_domain_mask)*self.params.border_weight).detach()
+            # sample_grad_S_mask = (sample_grad_S_mask + sample_grad_S_mask*self.diffuse(sample_grad_S_domain_mask)*self.params.border_weight).detach()
 
             # Interpolate spline coefficients to obtain the necessary quantities
             h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt, S, grad_S, laplace_S, dS_dt = self.dataset.interpolate_states(old_hidden_state, new_hidden_state, offset)
@@ -163,59 +167,27 @@ class SplinePINNSolver:
             # ), dim)
 
             #
-            # Boundary loss at the open boundary
+            # Boundary loss
             #
 
-            # Sedimentary bed elevation (S) boundary condition loss
-            loss_bound_open = torch.mean(sample_S_mask[:,:,1:-1,1:-1] * self.loss_function( # TODO: Temporary test: make S-cond loss more prominent
-                S - sample_S_cond[:,:,1:-1,1:-1]
+            loss_bound_grad_h = torch.mean(sample_grad_h_mask[:,:,1:-1,1:-1] * self.loss_function(
+                grad_h - sample_grad_h_cond[:,:,1:-1,1:-1]
             ), dim)
 
-            # At the open boundary, there's no gradient in h...
-            loss_bound_open = loss_bound_open + torch.mean(sample_S_mask[:,:,1:-1,1:-1] * self.loss_function(
-                grad_h
-            ), dim)
-
-            # ... and no gradient in B
-            # loss_bound_open = loss_bound_open + torch.mean(sample_S_mask[:,:,1:-1,1:-1] * self.loss_function(
-            #     grad_B / self.params.k # TODO: Temporary test: normalize B-loss by carrying capacity k
-            # ), dim)
-
-            #
-            # Boundary loss at the closed boundary
-            #
-
-            # No gradient in h, S or B
-            loss_bound_closed = torch.mean(sample_h_mask[:,:,1:-1,1:-1] * self.loss_function(
-                h - sample_h_cond[:,:,1:-1,1:-1]
-            ), dim)
-            
-            loss_bound_closed = loss_bound_closed + torch.mean(sample_u_mask[:,:,1:-1,1:-1] * self.loss_function(
-                grad_h
-            ), dim)
-
-            loss_bound_closed = loss_bound_closed + torch.mean(sample_u_mask[:,:,1:-1,1:-1] * self.loss_function(
-                grad_S
-            ), dim)
-            
-            loss_bound_closed = loss_bound_closed + torch.mean(sample_v_mask[:,:,1:-1,1:-1] * self.loss_function(
-                grad_h
-            ), dim)
-
-            loss_bound_closed = loss_bound_closed + torch.mean(sample_v_mask[:,:,1:-1,1:-1] * self.loss_function(
-                grad_S
-            ), dim)
-
-            # loss_bound_closed = loss_bound_closed + torch.mean(sample_uv_mask[:,:,1:-1,1:-1] * self.loss_function(
-            #     grad_B / self.params.k # TODO: Temporary test: normalize B-loss by carrying capacity k
-            # ), dim)
-
-            loss_bound_closed = loss_bound_closed + torch.mean(sample_u_mask[:,:,1:-1,1:-1] * self.loss_function(
+            loss_bound_u = torch.mean(sample_u_mask[:,:,1:-1,1:-1] * self.loss_function(
                 u - sample_u_cond[:,:,1:-1,1:-1]
             ), dim)
 
-            loss_bound_closed = loss_bound_closed + torch.mean(sample_v_mask[:,:,1:-1,1:-1] * self.loss_function(
+            loss_bound_v = torch.mean(sample_v_mask[:,:,1:-1,1:-1] * self.loss_function(
                 v - sample_v_cond[:,:,1:-1,1:-1]
+            ), dim)
+
+            loss_bound_S = torch.mean(sample_S_mask[:,:,1:-1,1:-1] * self.loss_function(
+                S - sample_S_cond[:,:,1:-1,1:-1]
+            ), dim)
+
+            loss_bound_grad_S = torch.mean(sample_grad_S_mask[:,:,1:-1,1:-1] * self.loss_function(
+                grad_S - sample_grad_S_cond[:,:,1:-1,1:-1]
             ), dim)
 
             # Experiment condition: S may never become negative
@@ -223,7 +195,7 @@ class SplinePINNSolver:
                 torch.relu(-S) # Whenever S reaches below-zero values, they're flipped and ReLU-d so the network is penalized by negative values for S
             ), dim)
 
-            loss_bound = loss_bound + loss_bound_open + loss_bound_closed #+ loss_s_negative
+            loss_bound = loss_bound + (loss_bound_grad_h + loss_bound_u + loss_bound_v + loss_bound_S + loss_bound_grad_S)
 
         # Multiply by the loss weights
         loss_h = loss_h * self.params.loss_h
@@ -348,16 +320,16 @@ class SplinePINNSolver:
             for i in range(self.params.n_batches_per_epoch):
 
                 # Ask for a batch from the dataset
-                old_hidden_state, h_cond, h_mask, u_cond, u_mask, v_cond, v_mask, S_cond, S_mask, grid_offsets, sample_h_conds, sample_h_masks, sample_u_conds, sample_u_masks, sample_v_conds, sample_v_masks, sample_S_conds, sample_S_masks = self.dataset.ask()
+                old_hidden_state, grad_h_cond, grad_h_mask, u_cond, u_mask, v_cond, v_mask, S_cond, S_mask, grad_S_cond, grad_S_mask, grid_offsets, sample_grad_h_conds, sample_grad_h_masks, sample_u_conds, sample_u_masks, sample_v_conds, sample_v_masks, sample_S_conds, sample_S_masks, sample_grad_S_conds, sample_grad_S_masks = self.dataset.ask()
 
                 # Predict the new domain state by performing a forward pass through the network
-                new_hidden_state = self.net(old_hidden_state, h_cond, h_mask, u_cond, u_mask, v_cond, v_mask, S_cond, S_mask)
+                new_hidden_state = self.net(old_hidden_state, grad_h_cond, grad_h_mask, u_cond, u_mask, v_cond, v_mask, S_cond, S_mask, grad_S_cond, grad_S_mask)
 
                 dim = [1,2,3]
                 if self.params.plot_loss:
                     dim = [1]
 
-                loss_h, loss_u, loss_v, loss_S, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_h_conds, sample_h_masks, sample_u_conds, sample_u_masks, sample_v_conds, sample_v_masks, sample_S_conds, sample_S_masks, dim)
+                loss_h, loss_u, loss_v, loss_S, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_grad_h_conds, sample_grad_h_masks, sample_u_conds, sample_u_masks, sample_v_conds, sample_v_masks, sample_S_conds, sample_S_masks, sample_grad_S_conds, sample_grad_S_masks, dim)
 
                 if self.params.plot_loss:
                     # Combine the losses to create a loss_tensor image
@@ -539,10 +511,10 @@ class SplinePINNSolver:
         while window.is_open():
 
             # Ask for a batch from the dataset
-            old_hidden_state, h_cond, h_mask, u_cond, u_mask, v_cond, v_mask, S_cond, S_mask, grid_offsets, sample_h_conds, sample_h_masks, sample_u_conds, sample_u_masks, sample_v_conds, sample_v_masks, sample_S_conds, sample_S_masks = self.dataset.ask()
+            old_hidden_state, grad_h_cond, grad_h_mask, u_cond, u_mask, v_cond, v_mask, S_cond, S_mask, grad_S_cond, grad_S_mask, grid_offsets, sample_grad_h_conds, sample_grad_h_masks, sample_u_conds, sample_u_masks, sample_v_conds, sample_v_masks, sample_S_conds, sample_S_masks, sample_grad_S_conds, sample_grad_S_masks = self.dataset.ask()
 
             # Predict the new domain state by performing a forward pass through the network
-            new_hidden_state = self.net(old_hidden_state, h_cond, h_mask, u_cond, u_mask, v_cond, v_mask, S_cond, S_mask)
+            new_hidden_state = self.net(old_hidden_state, grad_h_cond, grad_h_mask, u_cond, u_mask, v_cond, v_mask, S_cond, S_mask, grad_S_cond, grad_S_mask)
 
             # loss_h, loss_u, loss_v, loss_bound, loss_damp = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_uv_conds, sample_uv_masks, sample_h_conds, sample_h_masks, sample_S_conds, sample_S_masks)
 
