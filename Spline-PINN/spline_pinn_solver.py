@@ -195,7 +195,12 @@ class SplinePINNSolver:
                 torch.relu(-S) # Whenever S reaches below-zero values, they're flipped and ReLU-d so the network is penalized by negative values for S
             ), dim)
 
-            loss_bound = loss_bound + (loss_bound_grad_h + loss_bound_u + loss_bound_v + loss_bound_S + loss_bound_grad_S + loss_s_negative)
+            # Water levels can likewise never be negative
+            loss_h_negative = torch.mean(self.loss_function(
+                torch.relu(-(h + self.params.H0)) # Whenever h reaches below-zero values, they're flipped and ReLU-d so the network is penalized by negative values for h
+            ), dim)
+
+            loss_bound = loss_bound + (loss_bound_grad_h + loss_bound_u + loss_bound_v + loss_bound_S + loss_bound_grad_S + loss_s_negative + loss_h_negative)
 
         # Multiply by the loss weights
         loss_h = loss_h * self.params.loss_h
