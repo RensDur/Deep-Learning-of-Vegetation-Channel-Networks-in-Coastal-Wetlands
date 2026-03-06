@@ -660,8 +660,8 @@ class Dataset:
                 dam_width = 10
                 dam_height = 30
 
-                for x in np.random.choice(range(-45, 46), 1):
-                    for y in np.random.choice(range(-45, 46), 1):
+                for x in np.random.choice(range(-45, 46), 2):
+                    for y in np.random.choice(range(-45, 46), 2):
 
                         ymin = (self.height_fullres//2)-(dam_height//2)+y
                         ymax = (self.height_fullres//2)+(dam_height//2)+y
@@ -712,8 +712,8 @@ class Dataset:
                 dam_width = 10
                 dam_height = 30
 
-                for x in np.random.choice(range(-45, 46), 1):
-                    for y in np.random.choice(range(-45, 46), 1):
+                for x in np.random.choice(range(-45, 46), 2):
+                    for y in np.random.choice(range(-45, 46), 2):
 
                         ymin = (self.height_fullres//2)-(dam_height//2)+y
                         ymax = (self.height_fullres//2)+(dam_height//2)+y
@@ -764,8 +764,8 @@ class Dataset:
                 dam_width = 30
                 dam_height = 10
 
-                for x in np.random.choice(range(-45, 46), 1):
-                    for y in np.random.choice(range(-45, 46), 1):
+                for x in np.random.choice(range(-45, 46), 2):
+                    for y in np.random.choice(range(-45, 46), 2):
 
                         ymin = (self.height_fullres//2)-(dam_height//2)+y
                         ymax = (self.height_fullres//2)+(dam_height//2)+y
@@ -816,8 +816,8 @@ class Dataset:
                 dam_width = 30
                 dam_height = 10
 
-                for x in np.random.choice(range(-45, 46), 1):
-                    for y in np.random.choice(range(-45, 46), 1):
+                for x in np.random.choice(range(-45, 46), 2):
+                    for y in np.random.choice(range(-45, 46), 2):
 
                         ymin = (self.height_fullres//2)-(dam_height//2)+y
                         ymax = (self.height_fullres//2)+(dam_height//2)+y
