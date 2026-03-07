@@ -81,7 +81,7 @@ def params():
 	parser.add_argument('--Qq', default=0.02, type=float, help="Water layer thickness at which vegetation growth is halved")
 	parser.add_argument('--EB', default=1e-5, type=float, help="Vegetation erosion rate")
 	parser.add_argument('--DB', default=6e-9, type=float, help="Vegetation diffusivity")
-	parser.add_argument('--morphological_acc_factor', default=44712, type=float, help="Morphological acceleration factor, required for S and B")
+	parser.add_argument('--morphological_acc_factor', default=1, type=float, help="Morphological acceleration factor, required for S and B")
 	parser.add_argument('--pEst', default=0.002, type=float, help="Probability of vegetation seedling establishment")
 	parser.add_argument('--dt', default=1, type=float, help='timestep of fluid integrator')
 	
