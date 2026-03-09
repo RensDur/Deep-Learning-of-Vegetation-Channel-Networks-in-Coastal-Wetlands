@@ -1,9 +1,14 @@
 import torch
+import numpy as np
 from window import Window
 from numerical import Solver
 
 
 def main():
+
+    # Initialize randomization seeds
+    torch.manual_seed(1)
+    np.random.seed(6)
 
     width = 200
     height = 200
@@ -19,6 +24,22 @@ def main():
     win.set_data_range(0, 1)
 
     solver = Solver(width, height, torch_device)
+
+    #
+    # Simulation loop
+    #
+
+    with torch.no_grad():
+        while win.is_open():
+
+            # Run a simulation step
+            solver.step()
+
+            # Show the result
+            h, u, v, s = solver.get()
+
+            win.put_image(h)
+            win.update()
 
 
 

@@ -47,7 +47,7 @@ class Solver:
         """
         h, u, v, s = self.dataset.get()
 
-        return h.cpu().numpy(), u.cpu().numpy(), v.cpu().numpy(), s.cpu().numpy()
+        return h.detach().cpu().numpy(), u.detach().cpu().numpy(), v.detach().cpu().numpy(), s.detach().cpu().numpy()
 
 
     def step(self):

@@ -17,7 +17,7 @@ class Dataset:
 
 
     def get(self):
-        return h, u, v, s
+        return self.h, self.u, self.v, self.s
 
     def put(self, h_new, u_new, v_new, s_new):
         self.h = h_new
