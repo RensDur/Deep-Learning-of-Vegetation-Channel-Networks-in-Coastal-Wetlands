@@ -10,8 +10,8 @@ def main():
     torch.manual_seed(1)
     np.random.seed(6)
 
-    width = 200
-    height = 200
+    width = 100
+    height = 100
 
     torch_device = torch.device("cpu")
 
@@ -21,7 +21,7 @@ def main():
     print(f"Using torch device: {torch_device}")
     
     win = Window("h", width, height)
-    win.set_data_range(0, 1)
+    win.set_data_range(-0.1, 0.1)
 
     solver = Solver(width, height, torch_device)
 
@@ -33,12 +33,13 @@ def main():
         while win.is_open():
 
             # Run a simulation step
-            solver.step()
+            for _ in range(100):
+                solver.step()
 
             # Show the result
-            h, u, v, s = solver.get()
+            h, hu, hv, s = solver.get()
 
-            win.put_image(h)
+            win.put_image(hu[0, 0])
             win.update()
 
 
