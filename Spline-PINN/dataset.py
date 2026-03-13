@@ -44,6 +44,7 @@ class Dataset:
             SplineVariable("h", 1, requires_derivative=True),                           # h describes the zero-meaned surface height, on top of H0
             SplineVariable("hu", 2, requires_derivative=True),
             SplineVariable("hv", 2, requires_derivative=True),
+            SplineVariable("s", 1, requires_derivative=True),
             device=self.device
         )
 
@@ -60,11 +61,15 @@ class Dataset:
         self.h_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
         self.uv_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
         self.uv_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.s_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.s_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
 
         self.h_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.h_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.uv_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.uv_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
+        self.s_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
+        self.s_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
 
         # Environment information
         self.types = [
@@ -140,6 +145,10 @@ class Dataset:
 
         # Velocity condition zero
         self.uv_cond_fullres[indices] = 0
+
+        # Isolation stage test: S BC=0
+        self.s_mask_fullres[indices] = 1
+        self.s_cond_fullres[indices] = 0
 
         # Randomly choose a new type for each environment
         self.env_type[indices] = np.random.choice(self.types, indices.shape)
@@ -245,6 +254,8 @@ class Dataset:
         self.h_mask[indices] = F.avg_pool2d(self.h_mask_fullres[indices],self.resolution_factor)
         self.uv_cond[indices] = F.avg_pool2d(self.uv_cond_fullres[indices],self.resolution_factor)
         self.uv_mask[indices] = F.avg_pool2d(self.uv_mask_fullres[indices],self.resolution_factor)
+        self.s_cond[indices] = F.avg_pool2d(self.s_cond_fullres[indices],self.resolution_factor)
+        self.s_mask[indices] = F.avg_pool2d(self.s_mask_fullres[indices],self.resolution_factor)
 
 
 
@@ -281,6 +292,8 @@ class Dataset:
         self.h_mask[indices] = F.avg_pool2d(self.h_mask_fullres[indices],self.resolution_factor)
         self.uv_cond[indices] = F.avg_pool2d(self.uv_cond_fullres[indices],self.resolution_factor)
         self.uv_mask[indices] = F.avg_pool2d(self.uv_mask_fullres[indices],self.resolution_factor)
+        self.s_cond[indices] = F.avg_pool2d(self.s_cond_fullres[indices],self.resolution_factor)
+        self.s_mask[indices] = F.avg_pool2d(self.s_mask_fullres[indices],self.resolution_factor)
         
         # Update the time for each environment
         self.env_time[indices] = self.env_time[indices] + math.pi / 10.0
@@ -317,6 +330,8 @@ class Dataset:
         sample_h_mask = []
         sample_uv_cond = []
         sample_uv_mask = []
+        sample_s_cond = []
+        sample_s_mask = []
 
         for _ in range(self.n_samples):
 
@@ -331,6 +346,8 @@ class Dataset:
             sample_h_mask.append(self.h_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
             sample_uv_cond.append(self.uv_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
             sample_uv_mask.append(self.uv_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
+            sample_s_cond.append(self.s_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
+            sample_s_mask.append(self.s_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
 
         # Move all data to the desired device
         for i in range(self.n_samples):
@@ -339,6 +356,8 @@ class Dataset:
             sample_h_mask[i] = sample_h_mask[i].to(self.device)
             sample_uv_cond[i] = sample_uv_cond[i].to(self.device)
             sample_uv_mask[i] = sample_uv_mask[i].to(self.device)
+            sample_s_cond[i] = sample_s_cond[i].to(self.device)
+            sample_s_mask[i] = sample_s_mask[i].to(self.device)
 
         # Return the hidden states and boundary conditions after moving them to the desired device
         return self.hidden_states[self.asked_indices].to(self.device), \
@@ -346,11 +365,15 @@ class Dataset:
                 self.h_mask[self.asked_indices].to(self.device), \
                 self.uv_cond[self.asked_indices].to(self.device), \
                 self.uv_mask[self.asked_indices].to(self.device), \
+                self.s_cond[self.asked_indices].to(self.device), \
+                self.s_mask[self.asked_indices].to(self.device), \
                 grid_offsets, \
                 sample_h_cond, \
                 sample_h_mask, \
                 sample_uv_cond, \
-                sample_uv_mask
+                sample_uv_mask, \
+                sample_s_cond, \
+                sample_s_mask
     
     def tell(self, hidden_states):
 
@@ -406,6 +429,10 @@ class Dataset:
         old_hv, old_grad_hv, _ = self.variables["hv"].interpolate_at(self.variables.extract_from(old_hidden_states, "hv"), offset[:2])
         new_hv, new_grad_hv, _ = self.variables["hv"].interpolate_at(self.variables.extract_from(new_hidden_states, "hv"), offset[:2])
 
+        # s field: requires first derivative
+        old_s, old_grad_s, _ = self.variables["s"].interpolate_at(self.variables.extract_from(old_hidden_states, "s"), offset[:2])
+        new_s, new_grad_s, _ = self.variables["s"].interpolate_at(self.variables.extract_from(new_hidden_states, "s"), offset[:2])
+
         # First order interpolation in time
         h = (1-offset[2])*old_h + offset[2]*new_h
         grad_h = (1-offset[2])*old_grad_h + offset[2]*new_grad_h
@@ -418,8 +445,12 @@ class Dataset:
         hv = (1-offset[2])*old_hv + offset[2]*new_hv
         grad_hv = (1-offset[2])*old_grad_hv + offset[2]*new_grad_hv
         dhv_dt = (new_hv - old_hv) / self.params.dt
+
+        s = (1-offset[2])*old_s + offset[2]*new_s
+        grad_s = (1-offset[2])*old_grad_s + offset[2]*new_grad_s
+        ds_dt = (new_s - old_s) / self.params.dt
         
-        return h, grad_h, dh_dt, hu, grad_hu, dhu_dt, hv, grad_hv, dhv_dt
+        return h, grad_h, dh_dt, hu, grad_hu, dhu_dt, hv, grad_hv, dhv_dt, s, grad_s, ds_dt
     
 
     def interpolate_superres(self, hidden_states, resolution_factor):
