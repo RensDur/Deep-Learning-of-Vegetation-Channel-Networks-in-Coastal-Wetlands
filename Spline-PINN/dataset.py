@@ -42,8 +42,8 @@ class Dataset:
         # Variables in this dataset
         self.variables = SplineArray(
             SplineVariable("h", 1, requires_derivative=True),                           # h describes the zero-meaned surface height, on top of H0
-            SplineVariable("u", 2, requires_derivative=True, requires_laplacian=True),
-            SplineVariable("v", 2, requires_derivative=True, requires_laplacian=True),
+            SplineVariable("hu", 2, requires_derivative=True),
+            SplineVariable("hv", 2, requires_derivative=True),
             device=self.device
         )
 
@@ -399,29 +399,27 @@ class Dataset:
         new_h, new_grad_h, _ = self.variables["h"].interpolate_at(self.variables.extract_from(new_hidden_states, "h"), offset[:2])
 
         # u field: requires first derivative + laplace
-        old_u, old_grad_u, old_laplace_u = self.variables["u"].interpolate_at(self.variables.extract_from(old_hidden_states, "u"), offset[:2])
-        new_u, new_grad_u, new_laplace_u = self.variables["u"].interpolate_at(self.variables.extract_from(new_hidden_states, "u"), offset[:2])
+        old_hu, old_grad_hu, _ = self.variables["hu"].interpolate_at(self.variables.extract_from(old_hidden_states, "hu"), offset[:2])
+        new_hu, new_grad_hu, _ = self.variables["hu"].interpolate_at(self.variables.extract_from(new_hidden_states, "hu"), offset[:2])
 
         # v field: requires first derivative + laplace
-        old_v, old_grad_v, old_laplace_v = self.variables["v"].interpolate_at(self.variables.extract_from(old_hidden_states, "v"), offset[:2])
-        new_v, new_grad_v, new_laplace_v = self.variables["v"].interpolate_at(self.variables.extract_from(new_hidden_states, "v"), offset[:2])
+        old_hv, old_grad_hv, _ = self.variables["hv"].interpolate_at(self.variables.extract_from(old_hidden_states, "hv"), offset[:2])
+        new_hv, new_grad_hv, _ = self.variables["hv"].interpolate_at(self.variables.extract_from(new_hidden_states, "hv"), offset[:2])
 
         # First order interpolation in time
         h = (1-offset[2])*old_h + offset[2]*new_h
         grad_h = (1-offset[2])*old_grad_h + offset[2]*new_grad_h
         dh_dt = (new_h - old_h) / self.params.dt
 
-        u = (1-offset[2])*old_u + offset[2]*new_u
-        grad_u = (1-offset[2])*old_grad_u + offset[2]*new_grad_u
-        laplace_u = (1-offset[2])*old_laplace_u + offset[2]*new_laplace_u
-        du_dt = (new_u - old_u) / self.params.dt
+        hu = (1-offset[2])*old_hu + offset[2]*new_hu
+        grad_hu = (1-offset[2])*old_grad_hu + offset[2]*new_grad_hu
+        dhu_dt = (new_hu - old_hu) / self.params.dt
 
-        v = (1-offset[2])*old_v + offset[2]*new_v
-        grad_v = (1-offset[2])*old_grad_v + offset[2]*new_grad_v
-        laplace_v = (1-offset[2])*old_laplace_v + offset[2]*new_laplace_v
-        dv_dt = (new_v - old_v) / self.params.dt
+        hv = (1-offset[2])*old_hv + offset[2]*new_hv
+        grad_hv = (1-offset[2])*old_grad_hv + offset[2]*new_grad_hv
+        dhv_dt = (new_hv - old_hv) / self.params.dt
         
-        return h, grad_h, dh_dt, u, grad_u, laplace_u, du_dt, v, grad_v, laplace_v, dv_dt
+        return h, grad_h, dh_dt, hu, grad_hu, dhu_dt, hv, grad_hv, dhv_dt
     
 
     def interpolate_superres(self, hidden_states, resolution_factor):
@@ -440,9 +438,9 @@ class Dataset:
         h, grad_h, _ = self.variables["h"].interpolate_superres_at(self.variables.extract_from(hidden_states, "h"), resolution_factor)
 
         # u field: requires first derivative + laplace
-        u, grad_u, laplace_u = self.variables["u"].interpolate_superres_at(self.variables.extract_from(hidden_states, "u"), resolution_factor)
+        hu, grad_hu, _ = self.variables["hu"].interpolate_superres_at(self.variables.extract_from(hidden_states, "hu"), resolution_factor)
 
         # v field: requires first derivative + laplace
-        v, grad_v, laplace_v = self.variables["v"].interpolate_superres_at(self.variables.extract_from(hidden_states, "v"), resolution_factor)
+        hv, grad_hv, _ = self.variables["hv"].interpolate_superres_at(self.variables.extract_from(hidden_states, "hv"), resolution_factor)
 
-        return h, grad_h, u, grad_u, laplace_u, v, grad_v, laplace_v
+        return h, grad_h, hu, grad_hu, hv, grad_hv
