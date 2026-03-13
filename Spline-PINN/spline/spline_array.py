@@ -28,7 +28,7 @@ class SplineArray:
 			
 			start += v.hidden_size()
 
-		return None
+		raise Exception(f"No SplineVariable with name {varname}")
 	
 	def get_singular_slice_for(self, varname, offset=0):
 		start = 0
@@ -39,7 +39,7 @@ class SplineArray:
 			
 			start += v.hidden_size()
 
-		return None
+		raise Exception(f"No SplineVariable with name {varname}")
 	
 	def extract_from(self, hidden_states, varname):
 		return hidden_states[:, self.get_slice_for(varname)]

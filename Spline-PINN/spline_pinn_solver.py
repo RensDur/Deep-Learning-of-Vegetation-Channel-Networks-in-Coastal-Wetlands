@@ -103,6 +103,7 @@ class SplinePINNSolver:
 
             # Add mean water level height
             h = h + self.params.H0
+            h = F.relu(h - self.params.Hc) + self.params.Hc
 
             #
             # Derive u and v
@@ -130,7 +131,8 @@ class SplinePINNSolver:
             chezy = (1.0 / n) * torch.pow(h, 1.0 / 6.0)
 
             # Bed friction components
-            tau_precalc = (self.params.grav / torch.pow(chezy, 2)) * torch.pow(torch.pow(u, 2) + torch.pow(v, 2), 0.5)
+            # Add really small value to u2+v2 to prevent dividing by zero in backprop (deriv of sqroot is 1/sqrt)
+            tau_precalc = (self.params.grav / torch.pow(chezy, 2)) * torch.pow(torch.pow(u, 2) + torch.pow(v, 2) + 1e-12, 0.5)
             tau_bx_per_rho = tau_precalc * u
             tau_by_per_rho = tau_precalc * v
             tau_b_per_rho  = (self.params.grav / torch.pow(chezy, 2)) * (torch.pow(u, 2) + torch.pow(v, 2))
@@ -209,6 +211,8 @@ class SplinePINNSolver:
         #
         self.optimizer = Adam(self.net.parameters(), lr=self.params.lr)
         self.optimizer = PCGrad(self.optimizer)
+
+        torch.autograd.set_detect_anomaly(True)
 
         #
         # Logger

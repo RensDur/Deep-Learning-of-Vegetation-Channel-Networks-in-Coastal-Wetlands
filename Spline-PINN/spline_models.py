@@ -106,9 +106,9 @@ class ShallowWaterUNet(nn.Module):
 
 		self.output_scalar = torch.ones(1, self.hidden_state_size, 1, 1)*2
 
-		self.output_scalar[:,spline_variables.get_singular_slice_for("h"),:,:] = 10
-		self.output_scalar[:,spline_variables.get_singular_slice_for("u"),:,:] = 10
-		self.output_scalar[:,spline_variables.get_singular_slice_for("v"),:,:] = 10
+		self.output_scalar[:,spline_variables.get_singular_slice_for("h"),:,:] = 2
+		self.output_scalar[:,spline_variables.get_singular_slice_for("hu"),:,:] = 10
+		self.output_scalar[:,spline_variables.get_singular_slice_for("hv"),:,:] = 10
 
 	def to(self, torch_device):
 		super(ShallowWaterUNet, self).to(torch_device)
@@ -144,8 +144,8 @@ class ShallowWaterUNet(nn.Module):
 		
 		# Substract the mean of every variable
 		out[:,self.spline_variables.get_singular_slice_for("h"),:,:] = out[:,self.spline_variables.get_singular_slice_for("h"),:,:] - torch.mean(out[:,self.spline_variables.get_singular_slice_for("h"),:,:],dim=(2,3)).unsqueeze(2).unsqueeze(3)
-		out[:,self.spline_variables.get_singular_slice_for("u"),:,:] = out[:,self.spline_variables.get_singular_slice_for("u"),:,:] - torch.mean(out[:,self.spline_variables.get_singular_slice_for("u"),:,:],dim=(2,3)).unsqueeze(2).unsqueeze(3)
-		out[:,self.spline_variables.get_singular_slice_for("v"),:,:] = out[:,self.spline_variables.get_singular_slice_for("v"),:,:] - torch.mean(out[:,self.spline_variables.get_singular_slice_for("v"),:,:],dim=(2,3)).unsqueeze(2).unsqueeze(3)
+		out[:,self.spline_variables.get_singular_slice_for("hu"),:,:] = out[:,self.spline_variables.get_singular_slice_for("hu"),:,:] - torch.mean(out[:,self.spline_variables.get_singular_slice_for("hu"),:,:],dim=(2,3)).unsqueeze(2).unsqueeze(3)
+		out[:,self.spline_variables.get_singular_slice_for("hv"),:,:] = out[:,self.spline_variables.get_singular_slice_for("hv"),:,:] - torch.mean(out[:,self.spline_variables.get_singular_slice_for("hv"),:,:],dim=(2,3)).unsqueeze(2).unsqueeze(3)
 
 		return out
 
