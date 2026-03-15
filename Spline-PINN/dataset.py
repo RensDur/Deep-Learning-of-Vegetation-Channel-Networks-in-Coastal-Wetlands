@@ -296,7 +296,7 @@ class Dataset:
         self.s_mask[indices] = F.avg_pool2d(self.s_mask_fullres[indices],self.resolution_factor)
         
         # Update the time for each environment
-        self.env_time[indices] = self.env_time[indices] + math.pi / 10.0
+        self.env_time[indices] = self.env_time[indices] + math.pi / 7.0
         
 
     def ask(self):
@@ -474,4 +474,7 @@ class Dataset:
         # v field: requires first derivative + laplace
         hv, grad_hv, _ = self.variables["hv"].interpolate_superres_at(self.variables.extract_from(hidden_states, "hv"), resolution_factor)
 
-        return h, grad_h, hu, grad_hu, hv, grad_hv
+        # s field: requires first derivative + laplace
+        s, grad_s, _ = self.variables["s"].interpolate_superres_at(self.variables.extract_from(hidden_states, "s"), resolution_factor)
+
+        return h, grad_h, hu, grad_hu, hv, grad_hv, s, grad_s
