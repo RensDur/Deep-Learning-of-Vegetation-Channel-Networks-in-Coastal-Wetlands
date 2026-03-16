@@ -152,11 +152,11 @@ class SplinePINNSolver:
 
             # Momentum loss
             loss_u = loss_u + torch.mean(self.loss_function(
-                dhu_dt + self.params.grav*h*grad_h[:,1:2] + hu*(du_dx + dv_dy) + u*grad_hu[:,1:2] + v*grad_hu[:,0:1] + tau_bx_per_rho
+                dhu_dt + self.params.grav*h*(grad_s[:,1:2] + grad_h[:,1:2]) + hu*(du_dx + dv_dy) + u*grad_hu[:,1:2] + v*grad_hu[:,0:1] + tau_bx_per_rho
             ), dim)
 
             loss_v = loss_v + torch.mean(self.loss_function(
-                dhv_dt + self.params.grav*h*grad_h[:,0:1] + hv*(du_dx + dv_dy) + u*grad_hv[:,1:2] + v*grad_hv[:,0:1] + tau_by_per_rho
+                dhv_dt + self.params.grav*h*(grad_s[:,0:1] + grad_h[:,0:1]) + hv*(du_dx + dv_dy) + u*grad_hv[:,1:2] + v*grad_hv[:,0:1] + tau_by_per_rho
             ), dim)
 
             # h boundary condition loss
