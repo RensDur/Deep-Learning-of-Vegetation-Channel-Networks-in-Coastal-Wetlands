@@ -77,7 +77,12 @@ class Dataset:
             "oscillator",
             "random-oscillator",
             "multiple-random-oscillator",
+            "four-corners-oscillator",
             "reflection",
+            "top-edge-oscillator",
+            "bottom-edge-oscillator",
+            "left-edge-oscillator",
+            "right-edge-oscillator"
             # "multiple-oscillators"
         ] if types is None else types
 
@@ -214,6 +219,20 @@ class Dataset:
                 self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
             #
+            # EVENLY SPACED FOUR CORNERS
+            #
+            if typename == "four-corners-oscillator":
+                # obstabcles (oscillators)
+                for x in [-50, 50]:
+                    for y in [-50, 50]:
+                        self.h_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
+                        self.uv_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
+
+                # Set the masks and conditions
+                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
+                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+
+            #
             # REFLECTION
             #
             if typename == "reflection":
@@ -235,6 +254,42 @@ class Dataset:
                 # Set the masks and conditions
                 self.uv_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
                 self.uv_cond_fullres[group_indices] = self.uv_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+
+            #
+            # EDGE OSCILLATORS
+            #
+            if typename == "top-edge-oscillator":
+                self.h_mask_fullres[group_indices,:,:self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 1
+                self.uv_mask_fullres[group_indices,:,:self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 1
+
+                # Set the masks and conditions
+                self.h_cond_fullres[group_indices,:,:,:] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
+                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+
+            if typename == "bottom-edge-oscillator":
+                self.h_mask_fullres[group_indices,:,-self.padding_fullres:,self.padding_fullres:-self.padding_fullres] = 1
+                self.uv_mask_fullres[group_indices,:,-self.padding_fullres:,self.padding_fullres:-self.padding_fullres] = 1
+
+                # Set the masks and conditions
+                self.h_cond_fullres[group_indices,:,:,:] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
+                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+
+            if typename == "left-edge-oscillator":
+                self.h_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,:self.padding_fullres] = 1
+                self.uv_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,:self.padding_fullres] = 1
+
+                # Set the masks and conditions
+                self.h_cond_fullres[group_indices,:,:,:] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
+                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+
+            if typename == "right-edge-oscillator":
+                self.h_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
+                self.uv_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
+
+                # Set the masks and conditions
+                self.h_cond_fullres[group_indices,:,:,:] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
+                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+
 
         for typename in grouping.keys():
             reset_all_of_type(typename, grouping[typename])
@@ -280,8 +335,12 @@ class Dataset:
             #
             # OSCILLATOR
             #
-            if typename == "oscillator" or typename == "random-oscillator" or typename == "multiple-random-oscillator" or typename == "reflection":
+            if typename == "oscillator" or typename == "random-oscillator" or typename == "multiple-random-oscillator" or typename == "four-corners-oscillator" or typename == "reflection":
                 self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
+                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+
+            if typename == "top-edge-oscillator" or typename == "bottom-edge-oscillator" or typename == "left-edge-oscillator" or typename == "right-edge-oscillator":
+                self.h_cond_fullres[group_indices,:,:,:] = self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
                 self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
         for typename in grouping.keys():
