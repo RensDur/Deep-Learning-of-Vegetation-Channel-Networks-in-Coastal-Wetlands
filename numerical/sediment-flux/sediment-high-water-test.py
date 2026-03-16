@@ -111,7 +111,7 @@ with torch.no_grad():
         hv[:, :, :, 0] = hv[:, :, :, 1]
 
         # Right boundary
-        hu[:, :, :, -1] = -hu[:, :, :, -2]
+        hu[:, :, :, -1] = 2*hu[:, :, :, -2] - hu[:, :, :, -3]
         hv[:, :, :, -1] = hv[:, :, :, -2]
 
         # Top
@@ -148,7 +148,10 @@ with torch.no_grad():
         s = s + ds_dt * dt * 44712
 
         # Boundary conditions on s
-        s[:, :, :, -10:] = 0
+        s[:, :, :, 0] = s[:, :, :, 1]
+        s[:, :, :, -1] = 0
+        s[:, :, 0, :] = s[:, :, 1, :]
+        s[:, :, -1, :] = s[:, :, -2, :]
 
         current_t += dt
 
