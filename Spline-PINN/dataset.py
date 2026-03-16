@@ -44,7 +44,7 @@ class Dataset:
             SplineVariable("h", 1, requires_derivative=True),                           # h describes the zero-meaned surface height, on top of H0
             SplineVariable("hu", 2, requires_derivative=True),
             SplineVariable("hv", 2, requires_derivative=True),
-            SplineVariable("s", 1, requires_derivative=True),
+            SplineVariable("s", 1, requires_derivative=True, requires_laplacian=True),
             device=self.device
         )
 
@@ -71,6 +71,9 @@ class Dataset:
         self.s_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.s_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
 
+        # Water inflow per environment
+        self.h_in = torch.zeros(self.dataset_size, 1, self.width, self.height)
+
         # Environment information
         self.types = [
             "rest-lake",
@@ -82,7 +85,11 @@ class Dataset:
             "top-edge-oscillator",
             "bottom-edge-oscillator",
             "left-edge-oscillator",
-            "right-edge-oscillator"
+            "right-edge-oscillator",
+            "top-open-outflow",
+            "bottom-open-outflow",
+            "right-open-outflow",
+            "left-open-outflow",
             # "multiple-oscillators"
         ] if types is None else types
 
@@ -151,8 +158,8 @@ class Dataset:
         # Velocity condition zero
         self.uv_cond_fullres[indices] = 0
 
-        # Isolation stage test: S BC=0
-        self.s_mask_fullres[indices] = 1
+        # S condition zero
+        self.s_mask_fullres[indices] = 0
         self.s_cond_fullres[indices] = 0
 
         # Randomly choose a new type for each environment
@@ -290,6 +297,41 @@ class Dataset:
                 self.h_cond_fullres[group_indices,:,:,:] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
                 self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
+            #
+            # OPEN OUTFLOW BOUNDARIES
+            #
+            if typename == "top-open-outflow":
+                # Water flowing into the environment
+                self.h_in[group_indices,:,:,:] = self.params.Hin
+
+                # Open boundary: Remove the closed boundary and add S=0
+                self.uv_mask_fullres[group_indices,:,:self.padding_fullres,:] = 0
+                self.s_mask_fullres[group_indices,:,:self.padding_fullres,:] = 1
+
+            if typename == "bottom-open-outflow":
+                # Water flowing into the environment
+                self.h_in[group_indices,:,:,:] = self.params.Hin
+
+                # Open boundary: Remove the closed boundary and add S=0
+                self.uv_mask_fullres[group_indices,:,-self.padding_fullres:,:] = 0
+                self.s_mask_fullres[group_indices,:,-self.padding_fullres:,:] = 1
+
+            if typename == "right-open-outflow":
+                # Water flowing into the environment
+                self.h_in[group_indices,:,:,:] = self.params.Hin
+
+                # Open boundary: Remove the closed boundary and add S=0
+                self.uv_mask_fullres[group_indices,:,:,-self.padding_fullres:] = 0
+                self.s_mask_fullres[group_indices,:,:,-self.padding_fullres:] = 1
+
+            if typename == "left-open-outflow":
+                # Water flowing into the environment
+                self.h_in[group_indices,:,:,:] = self.params.Hin
+
+                # Open boundary: Remove the closed boundary and add S=0
+                self.uv_mask_fullres[group_indices,:,:,:self.padding_fullres] = 0
+                self.s_mask_fullres[group_indices,:,:,:self.padding_fullres] = 1
+
 
         for typename in grouping.keys():
             reset_all_of_type(typename, grouping[typename])
@@ -420,6 +462,7 @@ class Dataset:
 
         # Return the hidden states and boundary conditions after moving them to the desired device
         return self.hidden_states[self.asked_indices].to(self.device), \
+                self.h_in[self.asked_indices].to(self.device), \
                 self.h_cond[self.asked_indices].to(self.device), \
                 self.h_mask[self.asked_indices].to(self.device), \
                 self.uv_cond[self.asked_indices].to(self.device), \
@@ -489,8 +532,8 @@ class Dataset:
         new_hv, new_grad_hv, _ = self.variables["hv"].interpolate_at(self.variables.extract_from(new_hidden_states, "hv"), offset[:2])
 
         # s field: requires first derivative
-        old_s, old_grad_s, _ = self.variables["s"].interpolate_at(self.variables.extract_from(old_hidden_states, "s"), offset[:2])
-        new_s, new_grad_s, _ = self.variables["s"].interpolate_at(self.variables.extract_from(new_hidden_states, "s"), offset[:2])
+        old_s, old_grad_s, old_laplacian_s = self.variables["s"].interpolate_at(self.variables.extract_from(old_hidden_states, "s"), offset[:2])
+        new_s, new_grad_s, new_laplacian_s = self.variables["s"].interpolate_at(self.variables.extract_from(new_hidden_states, "s"), offset[:2])
 
         # First order interpolation in time
         h = (1-offset[2])*old_h + offset[2]*new_h
@@ -507,9 +550,10 @@ class Dataset:
 
         s = (1-offset[2])*old_s + offset[2]*new_s
         grad_s = (1-offset[2])*old_grad_s + offset[2]*new_grad_s
-        ds_dt = (new_s - old_s) / self.params.dt
+        laplacian_s = (1-offset[2])*old_laplacian_s + offset[2]*new_laplacian_s
+        ds_dt = (new_s - old_s) / (self.params.dt * self.params.morphological_acc_factor)
         
-        return h, grad_h, dh_dt, hu, grad_hu, dhu_dt, hv, grad_hv, dhv_dt, s, grad_s, ds_dt
+        return h, grad_h, dh_dt, hu, grad_hu, dhu_dt, hv, grad_hv, dhv_dt, s, grad_s, laplacian_s, ds_dt
     
 
     def interpolate_superres(self, hidden_states, resolution_factor):
