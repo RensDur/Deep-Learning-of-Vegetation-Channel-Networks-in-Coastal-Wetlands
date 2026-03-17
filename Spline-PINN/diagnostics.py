@@ -7,7 +7,7 @@ from numerical_solver import NumericalSolver
 import parameters
 import matplotlib.pyplot as plt
 import multiprocessing
-
+from window import Window
 
 
 
@@ -57,12 +57,17 @@ def main():
     # We let the numerical simulator make a configurable number of steps to reach the same timestep as the pinn (params.dt)
     num_resolution = 10
     num_timestep = params.dt / num_resolution
+    
+
+    # Open a window
+    win = Window("Error visualisation", 200, 200)
+    win.set_data_range(0, 1)
 
     #
     # MAIN LOOP
     #
 
-    while True:
+    while win.is_open():
 
         # Perform one iteration of 'params.dt' using the pinn
         # This brings the system from 'old_hidden_state' to 'new_hidden_state' with timstep 'params.dt'
@@ -75,19 +80,26 @@ def main():
         for i in range(num_resolution):
 
             # Perform a numerical step
-            num_dh_dt, num_dh_dtu, num_dh_dtv, num_ds_dt = num_solver.step(h, grad_h, hu, grad_hu, hv, grad_hv, s, grad_s, laplacian_s, num_timestep, h_in, h_cond, h_mask, uv_cond, uv_mask, s_cond, s_mask)
+            num_dh_dt, num_dhu_dt, num_dhv_dt, num_ds_dt = num_solver.step(h, grad_h, hu, grad_hu, hv, grad_hv, s, grad_s, laplacian_s, num_timestep, h_in, h_cond, h_mask, uv_cond, uv_mask, s_cond, s_mask)
 
             # Compute the spline pinn equivalent
             # And also automatically update h, grad_h, hu, grad_hu, hv, grad_hv, s, grad_s, laplacian_s to the next timestep
             h, grad_h, dh_dt, hu, grad_hu, dhu_dt, hv, grad_hv, dhv_dt, s, grad_s, laplacian_s, ds_dt = dataset.interpolate_superres_timestep(old_hidden_state, new_hidden_state, params.resolution_factor, (i+1)*num_timestep)
 
             # Compute the error
-            mse_h = torch.mean(torch.pow(dh_dt - num_dh_dt, 2.0))
-            mse_hu = torch.mean(torch.pow(dhu_dt - num_dhu_dt, 2.0))
-            mse_hv = torch.mean(torch.pow(dhv_dt - num_dhv_dt, 2.0))
-            mse_s = torch.mean(torch.pow(ds_dt - num_ds_dt, 2.0))
+            mse_h = torch.pow(dh_dt - num_dh_dt, 2.0)
+            mse_hu = torch.pow(dhu_dt - num_dhu_dt, 2.0)
+            mse_hv = torch.pow(dhv_dt - num_dhv_dt, 2.0)
+            mse_s = torch.pow(ds_dt - num_ds_dt, 2.0)
 
-            
+            h = mse_h[0, 0].detach().cpu()
+            h -= torch.min(h)
+            h /= torch.max(h)
+
+            win.put_image(h)
+            win.update()
+
+
 
 
 
