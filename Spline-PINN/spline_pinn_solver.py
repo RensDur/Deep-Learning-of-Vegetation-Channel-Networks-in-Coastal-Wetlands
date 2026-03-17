@@ -232,7 +232,7 @@ class SplinePINNSolver:
         self.dataset.tell(new_hidden_state)
 
         # Return the old and new hidden states
-        return old_hidden_state, new_hidden_state
+        return old_hidden_state, new_hidden_state, h_in, h_cond, h_mask, uv_cond, uv_mask, s_cond, s_mask
 
 
     def visualize(self, window):

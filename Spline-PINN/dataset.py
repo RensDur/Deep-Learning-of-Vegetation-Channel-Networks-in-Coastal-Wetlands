@@ -578,6 +578,55 @@ class Dataset:
         hv, grad_hv, _ = self.variables["hv"].interpolate_superres_at(self.variables.extract_from(hidden_states, "hv"), resolution_factor)
 
         # s field: requires first derivative + laplace
-        s, grad_s, _ = self.variables["s"].interpolate_superres_at(self.variables.extract_from(hidden_states, "s"), resolution_factor)
+        s, grad_s, laplacian_s = self.variables["s"].interpolate_superres_at(self.variables.extract_from(hidden_states, "s"), resolution_factor)
 
-        return h, grad_h, hu, grad_hu, hv, grad_hv, s, grad_s
+        return h, grad_h, hu, grad_hu, hv, grad_hv, s, grad_s, laplacian_s
+
+    def interpolate_superres_timestep(self, old_hidden_states, new_hidden_states, resolution_factor, timestep):
+        """
+        :old_hidden_states: old hidden states (size: bs x (v_size+p_size) x w x h)
+        :new_hidden_states: new hidden states (size: bs x (v_size+p_size) x w x h)
+        :offset: offset in x / y / t direction (vector of size 3 containing values between 0 and 1)
+        :return: interpolated fields for:
+            :z: z field
+            :grad(z): gradient of z field
+            :laplace(z): laplacian of z field
+            :dz/dt: velocity of z field
+            :dz^2/dt^2: acceleration of z field
+        """
+
+        # z field: requires first derivative
+        old_h, old_grad_h, _ = self.variables["h"].interpolate_superres_at(self.variables.extract_from(old_hidden_states, "h"), resolution_factor)
+        new_h, new_grad_h, _ = self.variables["h"].interpolate_superres_at(self.variables.extract_from(new_hidden_states, "h"), resolution_factor)
+
+        # u field: requires first derivative + laplace
+        old_hu, old_grad_hu, _ = self.variables["hu"].interpolate_superres_at(self.variables.extract_from(old_hidden_states, "hu"), resolution_factor)
+        new_hu, new_grad_hu, _ = self.variables["hu"].interpolate_superres_at(self.variables.extract_from(new_hidden_states, "hu"), resolution_factor)
+
+        # v field: requires first derivative + laplace
+        old_hv, old_grad_hv, _ = self.variables["hv"].interpolate_superres_at(self.variables.extract_from(old_hidden_states, "hv"), resolution_factor)
+        new_hv, new_grad_hv, _ = self.variables["hv"].interpolate_superres_at(self.variables.extract_from(new_hidden_states, "hv"), resolution_factor)
+
+        # s field: requires first derivative
+        old_s, old_grad_s, old_laplacian_s = self.variables["s"].interpolate_superres_at(self.variables.extract_from(old_hidden_states, "s"), resolution_factor)
+        new_s, new_grad_s, new_laplacian_s = self.variables["s"].interpolate_superres_at(self.variables.extract_from(new_hidden_states, "s"), resolution_factor)
+
+        # First order interpolation in time
+        h = (1-timestep)*old_h + timestep*new_h
+        grad_h = (1-timestep)*old_grad_h + timestep*new_grad_h
+        dh_dt = (new_h - old_h) / self.params.dt
+
+        hu = (1-timestep)*old_hu + timestep*new_hu
+        grad_hu = (1-timestep)*old_grad_hu + timestep*new_grad_hu
+        dhu_dt = (new_hu - old_hu) / self.params.dt
+
+        hv = (1-timestep)*old_hv + timestep*new_hv
+        grad_hv = (1-timestep)*old_grad_hv + timestep*new_grad_hv
+        dhv_dt = (new_hv - old_hv) / self.params.dt
+
+        s = (1-timestep)*old_s + timestep*new_s
+        grad_s = (1-timestep)*old_grad_s + timestep*new_grad_s
+        laplacian_s = (1-timestep)*old_laplacian_s + timestep*new_laplacian_s
+        ds_dt = (new_s - old_s) / (self.params.dt * self.params.morphological_acc_factor)
+        
+        return h, grad_h, dh_dt, hu, grad_hu, dhu_dt, hv, grad_hv, dhv_dt, s, grad_s, laplacian_s, ds_dt
