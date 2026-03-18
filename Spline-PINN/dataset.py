@@ -90,6 +90,10 @@ class Dataset:
             "bottom-open-outflow",
             "right-open-outflow",
             "left-open-outflow",
+            "top-open-outflow-obstacle",
+            "bottom-open-outflow-obstacle",
+            "right-open-outflow-obstacle",
+            "left-open-outflow-obstacle",
             # "multiple-oscillators"
         ] if types is None else types
 
@@ -331,6 +335,61 @@ class Dataset:
                 # Open boundary: Remove the closed boundary and add S=0
                 self.uv_mask_fullres[group_indices,:,:,:self.padding_fullres] = 0
                 self.s_mask_fullres[group_indices,:,:,:self.padding_fullres] = 1
+
+            #
+            # OPEN OUTFLOW BOUNDARIES WITH A RANDOMLY PLACED OBSTACLE
+            #
+            if typename == "top-open-outflow-obstacle":
+                # Water flowing into the environment
+                self.h_in[group_indices,:,:,:] = self.params.Hin
+
+                # Open boundary: Remove the closed boundary and add S=0
+                self.uv_mask_fullres[group_indices,:,:self.padding_fullres,:] = 0
+                self.s_mask_fullres[group_indices,:,:self.padding_fullres,:] = 1
+
+                # obstabcle (pillars)
+                for x in np.random.choice(range(-45, 46), 1):#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
+                    for y in np.random.choice(range(-45, 46), 1):#[-45,-15,15,45]:
+                        self.uv_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
+
+            if typename == "bottom-open-outflow-obstacle":
+                # Water flowing into the environment
+                self.h_in[group_indices,:,:,:] = self.params.Hin
+
+                # Open boundary: Remove the closed boundary and add S=0
+                self.uv_mask_fullres[group_indices,:,-self.padding_fullres:,:] = 0
+                self.s_mask_fullres[group_indices,:,-self.padding_fullres:,:] = 1
+
+                # obstabcle (pillars)
+                for x in np.random.choice(range(-45, 46), 1):#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
+                    for y in np.random.choice(range(-45, 46), 1):#[-45,-15,15,45]:
+                        self.uv_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
+
+            if typename == "right-open-outflow-obstacle":
+                # Water flowing into the environment
+                self.h_in[group_indices,:,:,:] = self.params.Hin
+
+                # Open boundary: Remove the closed boundary and add S=0
+                self.uv_mask_fullres[group_indices,:,:,-self.padding_fullres:] = 0
+                self.s_mask_fullres[group_indices,:,:,-self.padding_fullres:] = 1
+
+                # obstabcle (pillars)
+                for x in np.random.choice(range(-45, 46), 1):#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
+                    for y in np.random.choice(range(-45, 46), 1):#[-45,-15,15,45]:
+                        self.uv_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
+
+            if typename == "left-open-outflow-obstacle":
+                # Water flowing into the environment
+                self.h_in[group_indices,:,:,:] = self.params.Hin
+
+                # Open boundary: Remove the closed boundary and add S=0
+                self.uv_mask_fullres[group_indices,:,:,:self.padding_fullres] = 0
+                self.s_mask_fullres[group_indices,:,:,:self.padding_fullres] = 1
+
+                # obstabcle (pillars)
+                for x in np.random.choice(range(-45, 46), 1):#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
+                    for y in np.random.choice(range(-45, 46), 1):#[-45,-15,15,45]:
+                        self.uv_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
 
 
         for typename in grouping.keys():
