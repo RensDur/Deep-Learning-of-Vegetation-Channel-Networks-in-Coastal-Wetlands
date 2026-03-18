@@ -514,16 +514,16 @@ class SplinePINNSolver:
         print(f"Loaded {self.params.net}: {date_time}, index: {index}")
 
         # Open a visualization window
-        window.set_data_range(-0.5, 0.5)
+        window.set_data_range(0,1)
 
         # Simulation loop
         while window.is_open():
 
             # Ask for a batch from the dataset
-            old_hidden_state, h_cond, h_mask, uv_cond, uv_mask, s_cond, s_mask, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks, sample_s_conds, sample_s_masks = self.dataset.ask()
+            old_hidden_state, h_in, h_cond, h_mask, uv_cond, uv_mask, s_cond, s_mask, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks, sample_s_conds, sample_s_masks = self.dataset.ask()
 
             # Predict the new domain state by performing a forward pass through the network
-            new_hidden_state = self.net(old_hidden_state, h_cond, h_mask, uv_cond, uv_mask, s_cond, s_mask)
+            new_hidden_state = self.net(old_hidden_state, h_in, h_cond, h_mask, uv_cond, uv_mask, s_cond, s_mask)
 
             # loss_h, loss_u, loss_v, loss_bound, loss_damp = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks)
 
@@ -534,7 +534,7 @@ class SplinePINNSolver:
             self.dataset.tell(new_hidden_state)
 
             # Display water level thickness h
-            h = h[0, 0].clone()
+            h = s[0, 0].clone()
             # h = h - torch.min(h)
             # h = h / torch.max(h)
             h = h.detach().cpu().numpy()
