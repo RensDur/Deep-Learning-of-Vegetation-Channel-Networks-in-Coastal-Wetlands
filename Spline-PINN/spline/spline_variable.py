@@ -131,7 +131,7 @@ class SplineVariable:
             offsets = (offsets.clone().unsqueeze(0).unsqueeze(2).unsqueeze(3).unsqueeze(4).repeat(1,1,2,2,2)-self.offset_summary)
 
             # Repeat the offsets for each order
-            offsets = offsets.unsqueeze(2).unsqueeze(3).unsqueeze(4).unsqueeze(5).repeat(1,1,(self.orders[0]+1), (self.orders[1]+1), (self.orders[2]+1),1,1,1).detach().requires_grad_(True)
+            offsets = offsets.unsqueeze(2).unsqueeze(3).unsqueeze(4).repeat(1,1,(self.orders[0]+1), (self.orders[1]+1), (self.orders[2]+1),1,1,1).detach().requires_grad_(True)
             
             # Prepare the new kernels for these offsets
             self.kernels = torch.zeros(1, self.kernel_size, (self.orders[0]+1), (self.orders[1]+1), (self.orders[2]+1), 2, 2, 2).to(self.device)
@@ -155,7 +155,7 @@ class SplineVariable:
             self.kernel_buffer[offset_key] = self.kernels
             self.save_buffers()
 
-        output = F.conv2d(weights,self.kernels[0],padding=0)
+        output = F.conv3d(weights,self.kernels[0],padding=0).squeeze(2) # By squeeze(2), we squeeze the time dimension to end up with an output of shape (batch_size, C, H, W)
 
         return output[:, 0:1], \
                 output[:, 1:4] if self.requires_derivative else None, \
