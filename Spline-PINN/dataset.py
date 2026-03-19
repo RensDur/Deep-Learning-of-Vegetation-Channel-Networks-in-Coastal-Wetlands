@@ -578,39 +578,48 @@ class Dataset:
             :dz^2/dt^2: acceleration of z field
         """
 
-        # z field: requires first derivative
-        old_h, old_grad_h, _ = self.variables["h"].interpolate_at(self.variables.extract_from(old_hidden_states, "h"), offset[:2])
-        new_h, new_grad_h, _ = self.variables["h"].interpolate_at(self.variables.extract_from(new_hidden_states, "h"), offset[:2])
+        # h field: requires first derivative
+        h, grad_h, _ = self.variables["h"].interpolate_at(
+            self.variables.extract_from(old_hidden_states, "h"),
+            self.variables.extract_from(new_hidden_states, "h"),
+            offset
+        )
 
-        # u field: requires first derivative + laplace
-        old_hu, old_grad_hu, _ = self.variables["hu"].interpolate_at(self.variables.extract_from(old_hidden_states, "hu"), offset[:2])
-        new_hu, new_grad_hu, _ = self.variables["hu"].interpolate_at(self.variables.extract_from(new_hidden_states, "hu"), offset[:2])
+        # hu field: requires first derivative
+        hu, grad_hu, _ = self.variables["hu"].interpolate_at(
+            self.variables.extract_from(old_hidden_states, "hu"),
+            self.variables.extract_from(new_hidden_states, "hu"),
+            offset
+        )
 
-        # v field: requires first derivative + laplace
-        old_hv, old_grad_hv, _ = self.variables["hv"].interpolate_at(self.variables.extract_from(old_hidden_states, "hv"), offset[:2])
-        new_hv, new_grad_hv, _ = self.variables["hv"].interpolate_at(self.variables.extract_from(new_hidden_states, "hv"), offset[:2])
+        # hv field: requires first derivative
+        hv, grad_hv, _ = self.variables["hv"].interpolate_at(
+            self.variables.extract_from(old_hidden_states, "hv"),
+            self.variables.extract_from(new_hidden_states, "hv"),
+            offset
+        )
 
         # s field: requires first derivative
-        old_s, old_grad_s, old_laplacian_s = self.variables["s"].interpolate_at(self.variables.extract_from(old_hidden_states, "s"), offset[:2])
-        new_s, new_grad_s, new_laplacian_s = self.variables["s"].interpolate_at(self.variables.extract_from(new_hidden_states, "s"), offset[:2])
+        s, grad_s, laplacian_s = self.variables["s"].interpolate_at(
+            self.variables.extract_from(old_hidden_states, "s"),
+            self.variables.extract_from(new_hidden_states, "s"),
+            offset
+        )
 
-        # First order interpolation in time
-        h = (1-offset[2])*old_h + offset[2]*new_h
-        grad_h = (1-offset[2])*old_grad_h + offset[2]*new_grad_h
-        dh_dt = (new_h - old_h) / self.params.dt
+        #
+        # Extract the time derivative and spatial derivatives
+        #
+        dh_dt = grad_h[:, 0:1]
+        grad_h = grad_h[:, 1:3]
 
-        hu = (1-offset[2])*old_hu + offset[2]*new_hu
-        grad_hu = (1-offset[2])*old_grad_hu + offset[2]*new_grad_hu
-        dhu_dt = (new_hu - old_hu) / self.params.dt
+        dhu_dt = grad_hu[:, 0:1]
+        grad_hu = grad_hu[:, 1:3]
 
-        hv = (1-offset[2])*old_hv + offset[2]*new_hv
-        grad_hv = (1-offset[2])*old_grad_hv + offset[2]*new_grad_hv
-        dhv_dt = (new_hv - old_hv) / self.params.dt
+        dhv_dt = grad_hv[:, 0:1]
+        grad_hv = grad_hv[:, 1:3]
 
-        s = (1-offset[2])*old_s + offset[2]*new_s
-        grad_s = (1-offset[2])*old_grad_s + offset[2]*new_grad_s
-        laplacian_s = (1-offset[2])*old_laplacian_s + offset[2]*new_laplacian_s
-        ds_dt = (new_s - old_s) / (self.params.dt * self.params.morphological_acc_factor)
+        ds_dt = grad_s[:, 0:1]
+        grad_s = grad_s[:, 1:3]
         
         return h, grad_h, dh_dt, hu, grad_hu, dhu_dt, hv, grad_hv, dhv_dt, s, grad_s, laplacian_s, ds_dt
     
