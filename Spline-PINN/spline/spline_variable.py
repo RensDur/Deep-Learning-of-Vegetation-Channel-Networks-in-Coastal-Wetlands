@@ -173,7 +173,7 @@ class SplineVariable:
 
             for i in range(resolution_factor):
                 for j in range(resolution_factor):
-                    offsets = torch.tensor([1.0, i/resolution_factor,j/resolution_factor], device=self.device).unsqueeze(0).unsqueeze(2).unsqueeze(3).unsqueeze(4).repeat(1,1,2,2,2)-1 + self.offset_summary
+                    offsets = torch.tensor([0.5, i/resolution_factor,j/resolution_factor], device=self.device).unsqueeze(0).unsqueeze(2).unsqueeze(3).unsqueeze(4).repeat(1,1,2,2,2)-1 + self.offset_summary
                     offsets = offsets.unsqueeze(2).unsqueeze(3).unsqueeze(4).repeat(1,1,(self.orders[0]+1),(self.orders[1]+1),(self.orders[2]+1),1,1,1).detach().requires_grad_(True)
                     
                     sub_kernels = torch.zeros(1,self.kernel_size,(self.orders[0]+1),(self.orders[1]+1),(self.orders[2]+1),2,2,2, device=self.device)
