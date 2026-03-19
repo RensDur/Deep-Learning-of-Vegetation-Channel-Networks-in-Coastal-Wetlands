@@ -44,7 +44,7 @@ class Dataset:
             SplineVariable("h", 1, requires_derivative=True),                           # h describes the zero-meaned surface height, on top of H0
             SplineVariable("hu", 2, requires_derivative=True),
             SplineVariable("hv", 2, requires_derivative=True),
-            SplineVariable("s", 1, requires_derivative=True, requires_laplacian=True),
+            # SplineVariable("s", 1, requires_derivative=True, requires_laplacian=True),
             device=self.device
         )
 
@@ -86,10 +86,10 @@ class Dataset:
             "bottom-edge-oscillator",
             "left-edge-oscillator",
             "right-edge-oscillator",
-            "top-open-outflow",
-            "bottom-open-outflow",
-            "right-open-outflow",
-            "left-open-outflow",
+            # "top-open-outflow",
+            # "bottom-open-outflow",
+            # "right-open-outflow",
+            # "left-open-outflow",
             # "top-open-outflow-obstacle",
             # "bottom-open-outflow-obstacle",
             # "right-open-outflow-obstacle",
@@ -521,20 +521,15 @@ class Dataset:
 
         # Return the hidden states and boundary conditions after moving them to the desired device
         return self.hidden_states[self.asked_indices].to(self.device), \
-                self.h_in[self.asked_indices].to(self.device), \
                 self.h_cond[self.asked_indices].to(self.device), \
                 self.h_mask[self.asked_indices].to(self.device), \
                 self.uv_cond[self.asked_indices].to(self.device), \
                 self.uv_mask[self.asked_indices].to(self.device), \
-                self.s_cond[self.asked_indices].to(self.device), \
-                self.s_mask[self.asked_indices].to(self.device), \
                 grid_offsets, \
                 sample_h_cond, \
                 sample_h_mask, \
                 sample_uv_cond, \
-                sample_uv_mask, \
-                sample_s_cond, \
-                sample_s_mask
+                sample_uv_mask,
     
     def tell(self, hidden_states):
 
@@ -600,11 +595,11 @@ class Dataset:
         )
 
         # s field: requires first derivative
-        s, grad_s, laplacian_s = self.variables["s"].interpolate_at(
-            self.variables.extract_from(old_hidden_states, "s"),
-            self.variables.extract_from(new_hidden_states, "s"),
-            offset
-        )
+        # s, grad_s, laplacian_s = self.variables["s"].interpolate_at(
+        #     self.variables.extract_from(old_hidden_states, "s"),
+        #     self.variables.extract_from(new_hidden_states, "s"),
+        #     offset
+        # )
 
         #
         # Extract the time derivative and spatial derivatives
@@ -618,10 +613,10 @@ class Dataset:
         dhv_dt = grad_hv[:, 0:1]
         grad_hv = grad_hv[:, 1:3]
 
-        ds_dt = grad_s[:, 0:1]
-        grad_s = grad_s[:, 1:3]
+        # ds_dt = grad_s[:, 0:1]
+        # grad_s = grad_s[:, 1:3]
         
-        return h, grad_h, dh_dt, hu, grad_hu, dhu_dt, hv, grad_hv, dhv_dt, s, grad_s, laplacian_s, ds_dt
+        return h, grad_h, dh_dt, hu, grad_hu, dhu_dt, hv, grad_hv, dhv_dt
     
 
     def interpolate_superres(self, hidden_states, resolution_factor):
