@@ -90,10 +90,10 @@ class Dataset:
             "bottom-open-outflow",
             "right-open-outflow",
             "left-open-outflow",
-            "top-open-outflow-obstacle",
-            "bottom-open-outflow-obstacle",
-            "right-open-outflow-obstacle",
-            "left-open-outflow-obstacle",
+            # "top-open-outflow-obstacle",
+            # "bottom-open-outflow-obstacle",
+            # "right-open-outflow-obstacle",
+            # "left-open-outflow-obstacle",
             # "multiple-oscillators"
         ] if types is None else types
 
