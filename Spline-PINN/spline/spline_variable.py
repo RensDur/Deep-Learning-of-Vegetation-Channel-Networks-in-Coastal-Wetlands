@@ -117,7 +117,7 @@ class SplineVariable:
         # construct kernel matrix for 2x2 convolution based on offset:
         # => number of input channels = (orders[0]+1) * (orders[1]+1)
         # => number of output channels = 1 + 2 + 4 + 2 (a_z,v=rot(a_z),grad(v_x),grad(v_y),laplace(v_x),laplace(v_y)
-        offset_key = f"{offsets[0]} {offsets[1]} {offsets[2]}, orders: {self.orders}"
+        offset_key = f"{offsets[0]} {offsets[1]} {offsets[2]}, orders: {self.orders}, requires_derivative: {self.requires_derivative}, requires_laplacian: {self.requires_laplacian}"
 
         if offset_key in self.kernel_buffer.keys():
             self.kernels = self.kernel_buffer[offset_key]
@@ -169,41 +169,42 @@ class SplineVariable:
         if res_key in self.kernel_buffer_superres.keys():
             self.superres_kernels = self.kernel_buffer_superres[res_key]
         else:
-            self.superres_kernels = torch.zeros(1,self.kernel_size,(self.orders[0]+1)*(self.orders[1]+1),2*resolution_factor,2*resolution_factor).to(self.device)
+            self.superres_kernels = torch.zeros(1,self.kernel_size,(self.orders[0]+1)*(self.orders[1]+1)*(self.orders[2]+1),2,2*resolution_factor,2*resolution_factor).to(self.device)
 
             for i in range(resolution_factor):
                 for j in range(resolution_factor):
-                    offsets = torch.tensor([i/resolution_factor,j/resolution_factor], device=self.device).unsqueeze(0).unsqueeze(2).unsqueeze(3).repeat(1,1,2,2)-1 + self.offset_summary
-                    offsets = offsets.unsqueeze(2).unsqueeze(3).repeat(1,1,(self.orders[0]+1),(self.orders[1]+1),1,1).detach().requires_grad_(True)
+                    offsets = torch.tensor([1.0, i/resolution_factor,j/resolution_factor], device=self.device).unsqueeze(0).unsqueeze(2).unsqueeze(3).unsqueeze(4).repeat(1,1,2,2,2)-1 + self.offset_summary
+                    offsets = offsets.unsqueeze(2).unsqueeze(3).unsqueeze(4).repeat(1,1,(self.orders[0]+1),(self.orders[1]+1),(self.orders[2]+1),1,1,1).detach().requires_grad_(True)
                     
-                    sub_kernels = torch.zeros(1,self.kernel_size,(self.orders[0]+1),(self.orders[1]+1),2,2, device=self.device)
-                    for l in range(self.orders[0]+1):
-                        for m in range(self.orders[1]+1):
-                            # Function value (directy from linear combination of splines)
-                            sub_kernels[0:1,0:1,l,m,:,:] = kernels.p_multidim(offsets[:,:,l,m],[self.orders[0],self.orders[1]],[l,m])
+                    sub_kernels = torch.zeros(1,self.kernel_size,(self.orders[0]+1),(self.orders[1]+1),(self.orders[2]+1),2,2,2, device=self.device)
+                    for k in range(self.orders[0]+1):
+                        for l in range(self.orders[1]+1):
+                            for m in range(self.orders[2]+1):
+                                # Function value (directy from linear combination of splines)
+                                sub_kernels[0:1,0:1,k,l,m,:,:,:] = kernels.p_multidim(offsets[:,:,k,l,m],[self.orders[0],self.orders[1],self.orders[2]],[k,l,m])
 
                     
                     # First derivative (d/dx and d/dy)
                     if self.requires_derivative:
-                        sub_kernels[0:1,1:3] = operators.grad(sub_kernels[0:1,0:1,:,:,:,:],offsets,create_graph=True,retain_graph=True)
+                        sub_kernels[0:1,1:4] = operators.grad(sub_kernels[0:1,0:1,:,:,:,:,:,:],offsets,create_graph=True,retain_graph=True)
 
                     # Laplace -- Note: laplacian without first derivative is not supported (quicker computation)
                     if self.requires_laplacian:
-                        sub_kernels[0:1,3:4] = operators.div(sub_kernels[0:1,1:3], offsets, retain_graph=False)
+                        sub_kernels[0:1,4:5] = operators.div(sub_kernels[0:1,2:4], offsets, retain_graph=False)
                     
-                    sub_kernels = sub_kernels.reshape(1,self.kernel_size,(self.orders[0]+1)*(self.orders[1]+1),2,2).detach()
-                    self.superres_kernels[:,:,:,i::resolution_factor,j::resolution_factor] = sub_kernels
+                    sub_kernels = sub_kernels.reshape(1,self.kernel_size,(self.orders[0]+1)*(self.orders[1]+1)*(self.orders[2]+1),2,2,2).detach()
+                    self.superres_kernels[:,:,:,:,i::resolution_factor,j::resolution_factor] = sub_kernels
 
             # buffer kernels
-            self.superres_kernels = self.superres_kernels.permute(0,2,1,3,4)
+            self.superres_kernels = self.superres_kernels.permute(0,2,1,3,4,5)
             self.kernel_buffer_superres[res_key] = self.superres_kernels
             self.save_buffers()
 
-        output = F.conv_transpose2d(weights,self.superres_kernels[0],padding=0,stride=resolution_factor)
+        output = F.conv_transpose3d(weights,self.superres_kernels[0],padding=0,stride=(1, resolution_factor, resolution_factor))
 
         return output[:, 0:1], \
-                output[:, 1:3] if self.requires_derivative else None, \
-                output[:, 3:4] if self.requires_laplacian else None
+                output[:, 1:4] if self.requires_derivative else None, \
+                output[:, 4:5] if self.requires_laplacian else None
         
     
 
