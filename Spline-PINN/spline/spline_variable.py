@@ -27,7 +27,7 @@ class SplineVariable:
         self.name = name
 
         # Spline order = (degree polynomial) + 1
-        self.orders = [order, order]
+        self.orders = [order, order, order]
 
         # Torch device
         self.device = device
@@ -36,10 +36,28 @@ class SplineVariable:
         self.requires_derivative = requires_derivative or requires_laplacian # Requiring laplacian without requiring first.deriv. is unsupported.
         self.requires_laplacian = requires_laplacian
         self.kernel_size = 1 \
-            + (2 if self.requires_derivative else 0) \
+            + (3 if self.requires_derivative else 0) \
             + (1 if self.requires_laplacian else 0)
 
-        self.offset_summary = torch.tensor([[[0,0],[1,0]],[[0,1],[1,1]]]).unsqueeze(0).permute(0,3,2,1).to(self.device)
+        self.offset_summary = torch.tensor( [[[[[0, 0],         # T-COORDINATES
+                                                [0, 0]],
+
+                                               [[1, 1],
+                                                [1, 1]]],
+
+
+                                              [[[0, 0],         # Y-COORDINATES
+                                                [1, 1]],
+
+                                               [[0, 0],
+                                                [1, 1]]],
+
+
+                                              [[[0, 1],         # X-COORDINATES
+                                                [0, 1]],
+
+                                               [[0, 1],
+                                                [0, 1]]]]]).to(self.device)
         self.kernel_buffer = {}
         self.kernel_buffer_superres = {}
 
@@ -99,7 +117,7 @@ class SplineVariable:
         # construct kernel matrix for 2x2 convolution based on offset:
         # => number of input channels = (orders[0]+1) * (orders[1]+1)
         # => number of output channels = 1 + 2 + 4 + 2 (a_z,v=rot(a_z),grad(v_x),grad(v_y),laplace(v_x),laplace(v_y)
-        offset_key = f"{offsets[0]} {offsets[1]}, orders: {self.orders}"
+        offset_key = f"{offsets[0]} {offsets[1]} {offsets[2]}, orders: {self.orders}"
 
         if offset_key in self.kernel_buffer.keys():
             self.kernels = self.kernel_buffer[offset_key]
@@ -108,28 +126,30 @@ class SplineVariable:
             # The incoming offset is a local coordinate (dx, dy) describing a position between four support points
             # Repeat the offset four times and organise them in a grid of shape [1,   2, 2, 2]
             #                                                                   [_, x/y, <[0,0],[0,1],[1,0],[1,1]>]
+            #                                                                   [_, x/y/t, <[0,0,0],[0,0,1],[0,1,0],...,[1,1,1]>]
             # This gives an offset coordinate relative to each of the four corners in a cell.
-            offsets = (offsets.clone().unsqueeze(0).unsqueeze(2).unsqueeze(3).repeat(1,1,2,2)-self.offset_summary)
+            offsets = (offsets.clone().unsqueeze(0).unsqueeze(2).unsqueeze(3).unsqueeze(4).repeat(1,1,2,2,2)-self.offset_summary)
 
             # Repeat the offsets for each order
-            offsets = offsets.unsqueeze(2).unsqueeze(3).repeat(1,1,(self.orders[0]+1),(self.orders[1]+1),1,1).detach().requires_grad_(True)
+            offsets = offsets.unsqueeze(2).unsqueeze(3).unsqueeze(4).unsqueeze(5).repeat(1,1,(self.orders[0]+1), (self.orders[1]+1), (self.orders[2]+1),1,1,1).detach().requires_grad_(True)
             
             # Prepare the new kernels for these offsets
-            self.kernels = torch.zeros(1, self.kernel_size, (self.orders[0]+1), (self.orders[1]+1), 2, 2).to(self.device)
-            for l in range(self.orders[0]+1):
-                for m in range(self.orders[1]+1):
-                    # Function value (directy from linear combination of splines)
-                    self.kernels[0:1,0:1,l,m,:,:] = kernels.p_multidim(offsets[:,:,l,m],[self.orders[0],self.orders[1]],[l,m])
+            self.kernels = torch.zeros(1, self.kernel_size, (self.orders[0]+1), (self.orders[1]+1), (self.orders[2]+1), 2, 2, 2).to(self.device)
+            for k in range(self.orders[0]+1): # Time order
+                for l in range(self.orders[1]+1): # Space order (y)
+                    for m in range(self.orders[2]+1): # Space order (x)
+                        # Function value (directy from linear combination of splines)
+                        self.kernels[0:1,0:1,k,l,m,:,:,:] = kernels.p_multidim(offsets[:,:,k,l,m],[self.orders[0],self.orders[1],self.orders[2]],[k,l,m])
             
-            # First derivative (d/dx and d/dy)
+            # First derivative (d/dt | d/dy | d/dx)
             if self.requires_derivative:
-                self.kernels[0:1,1:3] = operators.grad(self.kernels[0:1,0:1,:,:,:,:],offsets,create_graph=True,retain_graph=True)
+                self.kernels[0:1,1:4] = operators.grad(self.kernels[0:1,0:1,:,:,:,:,:,:],offsets,create_graph=True,retain_graph=True)
 
             # Laplace -- Note: laplacian without first derivative is not supported (quicker computation)
             if self.requires_laplacian:
-                self.kernels[0:1,3:4] = operators.div(self.kernels[0:1,1:3], offsets, retain_graph=True)
+                self.kernels[0:1,4:5] = operators.div(self.kernels[0:1,2:4], offsets, retain_graph=True)
             
-            self.kernels = self.kernels.reshape(1, self.kernel_size, (self.orders[0]+1)*(self.orders[1]+1), 2, 2).detach() # Group orders in one channel
+            self.kernels = self.kernels.reshape(1, self.kernel_size, (self.orders[0]+1)*(self.orders[1]+1)*(self.orders[2]+1), 2, 2, 2).detach() # Group orders in one channel
             
             # buffer self.kernels
             self.kernel_buffer[offset_key] = self.kernels
@@ -138,8 +158,8 @@ class SplineVariable:
         output = F.conv2d(weights,self.kernels[0],padding=0)
 
         return output[:, 0:1], \
-                output[:, 1:3] if self.requires_derivative else None, \
-                output[:, 3:4] if self.requires_laplacian else None
+                output[:, 1:4] if self.requires_derivative else None, \
+                output[:, 4:5] if self.requires_laplacian else None
     
 
     def interpolate_superres_at(self, weights, resolution_factor):
