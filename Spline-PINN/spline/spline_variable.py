@@ -102,7 +102,7 @@ class SplineVariable:
         # Make sure these kernel buffers are all on the desired device
         self.to(self.device)
     
-    def interpolate_at(self, weights, offsets):
+    def interpolate_at(self, old_hidden_state, new_hidden_state, offsets):
         """
         Idea: return derivatives of splines directly, implement with convolutions
         :weights: size: bs x (orders[0]+1) * (orders[1]+1) x w x h
@@ -155,6 +155,9 @@ class SplineVariable:
             self.kernel_buffer[offset_key] = self.kernels
             self.save_buffers()
 
+        # The weights for this convolution are now the two hidden states from different points in time stacked on top of eachother
+        weights = torch.stack([old_hidden_state, new_hidden_state], dim=2)
+
         output = F.conv3d(weights,self.kernels[0],padding=0).squeeze(2) # By squeeze(2), we squeeze the time dimension to end up with an output of shape (batch_size, C, H, W)
 
         return output[:, 0:1], \
@@ -184,7 +187,7 @@ class SplineVariable:
                                 sub_kernels[0:1,0:1,k,l,m,:,:,:] = kernels.p_multidim(offsets[:,:,k,l,m],[self.orders[0],self.orders[1],self.orders[2]],[k,l,m])
 
                     
-                    # First derivative (d/dx and d/dy)
+                    # First derivative (d/dt, d/dx and d/dy)
                     if self.requires_derivative:
                         sub_kernels[0:1,1:4] = operators.grad(sub_kernels[0:1,0:1,:,:,:,:,:,:],offsets,create_graph=True,retain_graph=True)
 
@@ -200,11 +203,15 @@ class SplineVariable:
             self.kernel_buffer_superres[res_key] = self.superres_kernels
             self.save_buffers()
 
-        output = F.conv_transpose3d(weights,self.superres_kernels[0],padding=0,stride=(1, resolution_factor, resolution_factor))
+        output = F.conv_transpose3d(torch.stack([weights, weights], dim=2),self.superres_kernels[0],padding=0,stride=(1, resolution_factor, resolution_factor))
+        
+        # The transposed convolution creates two additional time-layers:
+        # [0] - Dominated by the old hidden state
+        # [1] - Mixed the two hidden states
+        # [2] - Dominated by the new hidden state
+        output = output[:, :, 1, :, :]
 
         return output[:, 0:1], \
                 output[:, 1:4] if self.requires_derivative else None, \
                 output[:, 4:5] if self.requires_laplacian else None
         
-    
-
