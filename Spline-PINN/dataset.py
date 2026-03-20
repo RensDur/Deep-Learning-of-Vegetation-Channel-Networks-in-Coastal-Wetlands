@@ -422,7 +422,7 @@ class Dataset:
         self.s_mask[indices] = F.avg_pool2d(self.s_mask_fullres[indices],self.resolution_factor)
         
         # Update the time for each environment
-        self.env_time[indices] = self.env_time[indices] + math.pi / 7.0
+        self.env_time[indices] = self.env_time[indices] + math.pi / 100.0
         
 
     def ask(self):
