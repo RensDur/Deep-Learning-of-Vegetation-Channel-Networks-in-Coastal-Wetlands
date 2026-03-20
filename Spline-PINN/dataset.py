@@ -307,7 +307,7 @@ class Dataset:
             if typename == "top-open-outflow":
                 
                 # Zero sediment BC at the outflow boundary
-                self.s_mask_fullres[group_indices,:,:self.padding_fullres,:] = 1
+                self.s_mask_fullres[group_indices,:,:self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 1
 
                 # Oscillating vertical flow on the open boundary
                 self.hv_mask_fullres[group_indices,:,:self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 1
@@ -317,7 +317,7 @@ class Dataset:
             if typename == "bottom-open-outflow":
                 
                 # Zero sediment BC at the outflow boundary
-                self.s_mask_fullres[group_indices,:,-self.padding_fullres:,:] = 1
+                self.s_mask_fullres[group_indices,:,-self.padding_fullres:,self.padding_fullres:-self.padding_fullres] = 1
 
                 # Oscillating vertical flow on the open boundary
                 self.hv_mask_fullres[group_indices,:,-self.padding_fullres:,self.padding_fullres:-self.padding_fullres] = 1
@@ -326,7 +326,7 @@ class Dataset:
             if typename == "right-open-outflow":
                 
                 # Zero sediment BC at the outflow boundary
-                self.s_mask_fullres[group_indices,:,-self.padding_fullres:,:] = 1
+                self.s_mask_fullres[group_indices,:,-self.padding_fullres:,self.padding_fullres:-self.padding_fullres] = 1
 
                 # Oscillating vertical flow on the open boundary
                 self.hu_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
@@ -335,7 +335,7 @@ class Dataset:
             if typename == "left-open-outflow":
                 
                 # Zero sediment BC at the outflow boundary
-                self.s_mask_fullres[group_indices,:,:self.padding_fullres,:] = 1
+                self.s_mask_fullres[group_indices,:,:self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 1
 
                 # Oscillating vertical flow on the open boundary
                 self.hu_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,:self.padding_fullres] = 1
@@ -454,8 +454,10 @@ class Dataset:
         grid_offsets = []
         sample_h_cond = []
         sample_h_mask = []
-        sample_uv_cond = []
-        sample_uv_mask = []
+        sample_hu_cond = []
+        sample_hu_mask = []
+        sample_hv_cond = []
+        sample_hv_mask = []
         sample_s_cond = []
         sample_s_mask = []
 
@@ -470,8 +472,10 @@ class Dataset:
 
             sample_h_cond.append(self.h_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
             sample_h_mask.append(self.h_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
-            sample_uv_cond.append(self.uv_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
-            sample_uv_mask.append(self.uv_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
+            sample_hu_cond.append(self.hu_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
+            sample_hu_mask.append(self.hu_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
+            sample_hv_cond.append(self.hv_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
+            sample_hv_mask.append(self.hv_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
             sample_s_cond.append(self.s_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
             sample_s_mask.append(self.s_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
 
@@ -480,8 +484,10 @@ class Dataset:
             grid_offsets[i] = grid_offsets[i].to(self.device)
             sample_h_cond[i] = sample_h_cond[i].to(self.device)
             sample_h_mask[i] = sample_h_mask[i].to(self.device)
-            sample_uv_cond[i] = sample_uv_cond[i].to(self.device)
-            sample_uv_mask[i] = sample_uv_mask[i].to(self.device)
+            sample_hu_cond[i] = sample_hu_cond[i].to(self.device)
+            sample_hu_mask[i] = sample_hu_mask[i].to(self.device)
+            sample_hv_cond[i] = sample_hv_cond[i].to(self.device)
+            sample_hv_mask[i] = sample_hv_mask[i].to(self.device)
             sample_s_cond[i] = sample_s_cond[i].to(self.device)
             sample_s_mask[i] = sample_s_mask[i].to(self.device)
 
@@ -489,15 +495,19 @@ class Dataset:
         return self.hidden_states[self.asked_indices].to(self.device), \
                 self.h_cond[self.asked_indices].to(self.device), \
                 self.h_mask[self.asked_indices].to(self.device), \
-                self.uv_cond[self.asked_indices].to(self.device), \
-                self.uv_mask[self.asked_indices].to(self.device), \
+                self.hu_cond[self.asked_indices].to(self.device), \
+                self.hu_mask[self.asked_indices].to(self.device), \
+                self.hv_cond[self.asked_indices].to(self.device), \
+                self.hv_mask[self.asked_indices].to(self.device), \
                 self.s_cond[self.asked_indices].to(self.device), \
                 self.s_mask[self.asked_indices].to(self.device), \
                 grid_offsets, \
                 sample_h_cond, \
                 sample_h_mask, \
-                sample_uv_cond, \
-                sample_uv_mask, \
+                sample_hu_cond, \
+                sample_hu_mask, \
+                sample_hv_cond, \
+                sample_hv_mask, \
                 sample_s_cond, \
                 sample_s_mask
     
