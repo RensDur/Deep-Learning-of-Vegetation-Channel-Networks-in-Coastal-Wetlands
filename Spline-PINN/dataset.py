@@ -326,7 +326,7 @@ class Dataset:
             if typename == "right-open-outflow":
                 
                 # Zero sediment BC at the outflow boundary
-                self.s_mask_fullres[group_indices,:,-self.padding_fullres:,self.padding_fullres:-self.padding_fullres] = 1
+                self.s_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
 
                 # Oscillating vertical flow on the open boundary
                 self.hu_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
@@ -335,7 +335,7 @@ class Dataset:
             if typename == "left-open-outflow":
                 
                 # Zero sediment BC at the outflow boundary
-                self.s_mask_fullres[group_indices,:,:self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 1
+                self.s_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,:self.padding_fullres] = 1
 
                 # Oscillating vertical flow on the open boundary
                 self.hu_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,:self.padding_fullres] = 1
