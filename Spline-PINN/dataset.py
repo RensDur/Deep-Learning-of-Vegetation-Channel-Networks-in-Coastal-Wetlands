@@ -59,42 +59,38 @@ class Dataset:
         # Boundary conditions and masking
         self.h_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
         self.h_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
-        self.uv_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
-        self.uv_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.hu_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.hu_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.hv_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.hv_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
         self.s_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
         self.s_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
 
         self.h_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.h_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
-        self.uv_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
-        self.uv_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
+        self.hu_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
+        self.hu_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
+        self.hv_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
+        self.hv_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.s_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.s_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
 
-        # Water inflow per environment
-        self.h_in = torch.zeros(self.dataset_size, 1, self.width, self.height)
-
         # Environment information
         self.types = [
-            "rest-lake",
-            "oscillator",
-            "random-oscillator",
-            "multiple-random-oscillator",
-            "four-corners-oscillator",
-            "reflection",
-            "top-edge-oscillator",
-            "bottom-edge-oscillator",
-            "left-edge-oscillator",
-            "right-edge-oscillator",
+            # "rest-lake",
+            # "oscillator",
+            # "random-oscillator",
+            # "multiple-random-oscillator",
+            # "four-corners-oscillator",
+            # "reflection",
+            # "top-edge-oscillator",
+            # "bottom-edge-oscillator",
+            # "left-edge-oscillator",
+            # "right-edge-oscillator",
             "top-open-outflow",
             "bottom-open-outflow",
             "right-open-outflow",
             "left-open-outflow",
-            # "top-open-outflow-obstacle",
-            # "bottom-open-outflow-obstacle",
-            # "right-open-outflow-obstacle",
-            # "left-open-outflow-obstacle",
-            # "multiple-oscillators"
         ] if types is None else types
 
         print(f"Running with types: {self.types}")
@@ -156,11 +152,15 @@ class Dataset:
         self.h_cond_fullres[indices] = 0
 
         # BC: h holds around the entire frame
-        self.uv_mask_fullres[indices] = 1
-        self.uv_mask_fullres[indices, :, self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
+        self.hu_mask_fullres[indices] = 1
+        self.hu_mask_fullres[indices, :, self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
+
+        self.hv_mask_fullres[indices] = 1
+        self.hv_mask_fullres[indices, :, self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
 
         # Velocity condition zero
-        self.uv_cond_fullres[indices] = 0
+        self.hu_cond_fullres[indices] = 0
+        self.hv_cond_fullres[indices] = 0
 
         # S condition zero
         self.s_mask_fullres[indices] = 0
@@ -305,92 +305,41 @@ class Dataset:
             # OPEN OUTFLOW BOUNDARIES
             #
             if typename == "top-open-outflow":
-                # Water flowing into the environment
-                self.h_in[group_indices,:,:,:] = self.params.Hin
-
-                # Open boundary: Remove the closed boundary and add S=0
-                self.uv_mask_fullres[group_indices,:,:self.padding_fullres,:] = 0
+                
+                # Zero sediment BC at the outflow boundary
                 self.s_mask_fullres[group_indices,:,:self.padding_fullres,:] = 1
+
+                # Oscillating vertical flow on the open boundary
+                self.hv_mask_fullres[group_indices,:,:self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 1
+                self.hv_cond_fullres[group_indices,:,:self.padding_fullres,self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.padding_fullres, self.width_fullres - 2*self.padding_fullres)
+
 
             if typename == "bottom-open-outflow":
-                # Water flowing into the environment
-                self.h_in[group_indices,:,:,:] = self.params.Hin
-
-                # Open boundary: Remove the closed boundary and add S=0
-                self.uv_mask_fullres[group_indices,:,-self.padding_fullres:,:] = 0
+                
+                # Zero sediment BC at the outflow boundary
                 self.s_mask_fullres[group_indices,:,-self.padding_fullres:,:] = 1
+
+                # Oscillating vertical flow on the open boundary
+                self.hv_mask_fullres[group_indices,:,-self.padding_fullres:,self.padding_fullres:-self.padding_fullres] = 1
+                self.hv_cond_fullres[group_indices,:,-self.padding_fullres:,self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.padding_fullres, self.width_fullres - 2*self.padding_fullres)
 
             if typename == "right-open-outflow":
-                # Water flowing into the environment
-                self.h_in[group_indices,:,:,:] = self.params.Hin
-
-                # Open boundary: Remove the closed boundary and add S=0
-                self.uv_mask_fullres[group_indices,:,:,-self.padding_fullres:] = 0
-                self.s_mask_fullres[group_indices,:,:,-self.padding_fullres:] = 1
-
-            if typename == "left-open-outflow":
-                # Water flowing into the environment
-                self.h_in[group_indices,:,:,:] = self.params.Hin
-
-                # Open boundary: Remove the closed boundary and add S=0
-                self.uv_mask_fullres[group_indices,:,:,:self.padding_fullres] = 0
-                self.s_mask_fullres[group_indices,:,:,:self.padding_fullres] = 1
-
-            #
-            # OPEN OUTFLOW BOUNDARIES WITH A RANDOMLY PLACED OBSTACLE
-            #
-            if typename == "top-open-outflow-obstacle":
-                # Water flowing into the environment
-                self.h_in[group_indices,:,:,:] = self.params.Hin
-
-                # Open boundary: Remove the closed boundary and add S=0
-                self.uv_mask_fullres[group_indices,:,:self.padding_fullres,:] = 0
-                self.s_mask_fullres[group_indices,:,:self.padding_fullres,:] = 1
-
-                # obstabcle (pillars)
-                for x in np.random.choice(range(-45, 46), 1):#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
-                    for y in np.random.choice(range(-45, 46), 1):#[-45,-15,15,45]:
-                        self.uv_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
-
-            if typename == "bottom-open-outflow-obstacle":
-                # Water flowing into the environment
-                self.h_in[group_indices,:,:,:] = self.params.Hin
-
-                # Open boundary: Remove the closed boundary and add S=0
-                self.uv_mask_fullres[group_indices,:,-self.padding_fullres:,:] = 0
+                
+                # Zero sediment BC at the outflow boundary
                 self.s_mask_fullres[group_indices,:,-self.padding_fullres:,:] = 1
 
-                # obstabcle (pillars)
-                for x in np.random.choice(range(-45, 46), 1):#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
-                    for y in np.random.choice(range(-45, 46), 1):#[-45,-15,15,45]:
-                        self.uv_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
+                # Oscillating vertical flow on the open boundary
+                self.hu_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
+                self.hu_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.height_fullres - 2*self.padding_fullres, self.padding_fullres)
 
-            if typename == "right-open-outflow-obstacle":
-                # Water flowing into the environment
-                self.h_in[group_indices,:,:,:] = self.params.Hin
+            if typename == "left-open-outflow":
+                
+                # Zero sediment BC at the outflow boundary
+                self.s_mask_fullres[group_indices,:,:self.padding_fullres,:] = 1
 
-                # Open boundary: Remove the closed boundary and add S=0
-                self.uv_mask_fullres[group_indices,:,:,-self.padding_fullres:] = 0
-                self.s_mask_fullres[group_indices,:,:,-self.padding_fullres:] = 1
-
-                # obstabcle (pillars)
-                for x in np.random.choice(range(-45, 46), 1):#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
-                    for y in np.random.choice(range(-45, 46), 1):#[-45,-15,15,45]:
-                        self.uv_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
-
-            if typename == "left-open-outflow-obstacle":
-                # Water flowing into the environment
-                self.h_in[group_indices,:,:,:] = self.params.Hin
-
-                # Open boundary: Remove the closed boundary and add S=0
-                self.uv_mask_fullres[group_indices,:,:,:self.padding_fullres] = 0
-                self.s_mask_fullres[group_indices,:,:,:self.padding_fullres] = 1
-
-                # obstabcle (pillars)
-                for x in np.random.choice(range(-45, 46), 1):#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
-                    for y in np.random.choice(range(-45, 46), 1):#[-45,-15,15,45]:
-                        self.uv_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
-
+                # Oscillating vertical flow on the open boundary
+                self.hu_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,:self.padding_fullres] = 1
+                self.hu_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,:self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.height_fullres - 2*self.padding_fullres, self.padding_fullres)
 
         for typename in grouping.keys():
             reset_all_of_type(typename, grouping[typename])
@@ -408,8 +357,10 @@ class Dataset:
         # Average pooling to create downsampled versions of the BCs
         self.h_cond[indices] = F.avg_pool2d(self.h_cond_fullres[indices],self.resolution_factor)
         self.h_mask[indices] = F.avg_pool2d(self.h_mask_fullres[indices],self.resolution_factor)
-        self.uv_cond[indices] = F.avg_pool2d(self.uv_cond_fullres[indices],self.resolution_factor)
-        self.uv_mask[indices] = F.avg_pool2d(self.uv_mask_fullres[indices],self.resolution_factor)
+        self.hu_cond[indices] = F.avg_pool2d(self.hu_cond_fullres[indices],self.resolution_factor)
+        self.hu_mask[indices] = F.avg_pool2d(self.hu_mask_fullres[indices],self.resolution_factor)
+        self.hv_cond[indices] = F.avg_pool2d(self.hv_cond_fullres[indices],self.resolution_factor)
+        self.hv_mask[indices] = F.avg_pool2d(self.hv_mask_fullres[indices],self.resolution_factor)
         self.s_cond[indices] = F.avg_pool2d(self.s_cond_fullres[indices],self.resolution_factor)
         self.s_mask[indices] = F.avg_pool2d(self.s_mask_fullres[indices],self.resolution_factor)
 
@@ -444,14 +395,29 @@ class Dataset:
                 self.h_cond_fullres[group_indices,:,:,:] = self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
                 self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
+            if typename == "top-open-outflow":
+                self.hv_cond_fullres[group_indices,:,:self.padding_fullres,self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.padding_fullres, self.width_fullres - 2*self.padding_fullres)
+
+            if typename == "bottom-open-outflow":
+                self.hv_cond_fullres[group_indices,:,-self.padding_fullres:,self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.padding_fullres, self.width_fullres - 2*self.padding_fullres)
+
+            if typename == "right-open-outflow":
+                self.hu_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.height_fullres - 2*self.padding_fullres, self.padding_fullres)
+
+            if typename == "left-open-outflow":
+                self.hu_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,:self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.height_fullres - 2*self.padding_fullres, self.padding_fullres)
+
+
         for typename in grouping.keys():
             reset_all_of_type(typename, grouping[typename])
     
         # Average pooling to create downsampled versions of the BCs
         self.h_cond[indices] = F.avg_pool2d(self.h_cond_fullres[indices],self.resolution_factor)
         self.h_mask[indices] = F.avg_pool2d(self.h_mask_fullres[indices],self.resolution_factor)
-        self.uv_cond[indices] = F.avg_pool2d(self.uv_cond_fullres[indices],self.resolution_factor)
-        self.uv_mask[indices] = F.avg_pool2d(self.uv_mask_fullres[indices],self.resolution_factor)
+        self.hu_cond[indices] = F.avg_pool2d(self.hu_cond_fullres[indices],self.resolution_factor)
+        self.hu_mask[indices] = F.avg_pool2d(self.hu_mask_fullres[indices],self.resolution_factor)
+        self.hv_cond[indices] = F.avg_pool2d(self.hv_cond_fullres[indices],self.resolution_factor)
+        self.hv_mask[indices] = F.avg_pool2d(self.hv_mask_fullres[indices],self.resolution_factor)
         self.s_cond[indices] = F.avg_pool2d(self.s_cond_fullres[indices],self.resolution_factor)
         self.s_mask[indices] = F.avg_pool2d(self.s_mask_fullres[indices],self.resolution_factor)
         
@@ -521,7 +487,6 @@ class Dataset:
 
         # Return the hidden states and boundary conditions after moving them to the desired device
         return self.hidden_states[self.asked_indices].to(self.device), \
-                self.h_in[self.asked_indices].to(self.device), \
                 self.h_cond[self.asked_indices].to(self.device), \
                 self.h_mask[self.asked_indices].to(self.device), \
                 self.uv_cond[self.asked_indices].to(self.device), \
