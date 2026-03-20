@@ -641,6 +641,6 @@ class Dataset:
         hv, grad_hv, _ = self.variables["hv"].interpolate_superres_at(self.variables.extract_from(hidden_states, "hv"), resolution_factor)
 
         # s field: requires first derivative + laplace
-        s, grad_s, _ = self.variables["s"].interpolate_superres_at(self.variables.extract_from(hidden_states, "s"), resolution_factor)
+        # s, grad_s, _ = self.variables["s"].interpolate_superres_at(self.variables.extract_from(hidden_states, "s"), resolution_factor)
 
-        return h, grad_h, hu, grad_hu, hv, grad_hv, s, grad_s
+        return h, grad_h, hu, grad_hu, hv, grad_hv
