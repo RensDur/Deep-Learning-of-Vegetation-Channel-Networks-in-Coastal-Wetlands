@@ -27,7 +27,7 @@ class SplineVariable:
         self.name = name
 
         # Spline order = (degree polynomial) + 1
-        self.orders = [order, order, order]
+        self.orders = [2, order, order]
 
         # Torch device
         self.device = device
