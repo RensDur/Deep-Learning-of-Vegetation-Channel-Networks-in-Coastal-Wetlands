@@ -34,7 +34,12 @@ def div(x, y,create_graph=False,retain_graph=False):
 	:x: function outputs
 	:y: parameters (expected shape: [batchsize x 3] - 3 for x,y,t)
 	"""
-	div = grad(x[:,0],y,create_graph=create_graph,retain_graph=True)[:,0:1]+grad(x[:,1],y,create_graph=create_graph,retain_graph=retain_graph)[:,1:2]
+
+	# TODO: Fix commentry in this file... Ordering is t,y,x
+	# Laplacian uses x y
+
+	#		   x[:,1] (Y)											[:,1:2] (Y)  x[:,2] (X)												      [:,2:3] (X)
+	div = grad(x[:,1],y,create_graph=create_graph,retain_graph=True)[:,1:2]+grad(x[:,2],y,create_graph=create_graph,retain_graph=retain_graph)[:,2:3]
 	return div
 
 def vector2HSV(vector,plot_sqrt=False):

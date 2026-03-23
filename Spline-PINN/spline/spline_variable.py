@@ -147,7 +147,7 @@ class SplineVariable:
 
             # Laplace -- Note: laplacian without first derivative is not supported (quicker computation)
             if self.requires_laplacian:
-                self.kernels[0:1,4:5] = operators.div(self.kernels[0:1,2:4], offsets, retain_graph=True)
+                self.kernels[0:1,4:5] = operators.div(self.kernels[0:1,1:4], offsets, retain_graph=True)
             
             self.kernels = self.kernels.reshape(1, self.kernel_size, (self.orders[0]+1)*(self.orders[1]+1)*(self.orders[2]+1), 2, 2, 2).detach() # Group orders in one channel
             
@@ -193,7 +193,7 @@ class SplineVariable:
 
                     # Laplace -- Note: laplacian without first derivative is not supported (quicker computation)
                     if self.requires_laplacian:
-                        sub_kernels[0:1,4:5] = operators.div(sub_kernels[0:1,2:4], offsets, retain_graph=False)
+                        sub_kernels[0:1,4:5] = operators.div(sub_kernels[0:1,1:4], offsets, retain_graph=False)
                     
                     sub_kernels = sub_kernels.reshape(1,self.kernel_size,(self.orders[0]+1)*(self.orders[1]+1)*(self.orders[2]+1),2,2,2).detach()
                     self.superres_kernels[:,:,:,:,i::resolution_factor,j::resolution_factor] = sub_kernels
