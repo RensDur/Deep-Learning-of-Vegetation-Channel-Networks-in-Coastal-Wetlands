@@ -470,7 +470,7 @@ class Dataset:
 					v_cond						-> shape: bs x 1 x w x h
 					v_mask (continuous) 		-> shape: bs x 1 x w x h differentiable renderer would allow for differentiable geometries
 			sample-grids:
-				- grid-offsets (x,y,t) 			-> shape: bs x 3 x 1 x 1 (values between 0,1; all offsets are the same within an "image" - otherwise: bsx3xwxh)
+				- grid-offsets (t, y, x) 		-> shape: bs x 3 x 1 x 1 (values between 0,1; all offsets are the same within an "image" - otherwise: bsx3xwxh)
 				- sample_u_cond					-> shape: bs x 1 x w x h
 				- sample_u_mask (boolean)		-> shape: bs x 1 x w x h
 				- sample_v_cond					-> shape: bs x 1 x w x h
@@ -499,15 +499,15 @@ class Dataset:
             offset = torch.rand(3)
             grid_offsets.append(offset)
 
-            x_offset = min(int(self.resolution_factor*offset[0]),self.resolution_factor-1)
             y_offset = min(int(self.resolution_factor*offset[1]),self.resolution_factor-1)
+            x_offset = min(int(self.resolution_factor*offset[2]),self.resolution_factor-1)
 
-            sample_h_cond.append(self.h_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
-            sample_h_mask.append(self.h_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
-            sample_uv_cond.append(self.uv_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
-            sample_uv_mask.append(self.uv_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
-            sample_s_cond.append(self.s_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
-            sample_s_mask.append(self.s_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
+            sample_h_cond.append(self.h_cond_fullres[self.asked_indices,:,y_offset::self.resolution_factor,x_offset::self.resolution_factor])
+            sample_h_mask.append(self.h_mask_fullres[self.asked_indices,:,y_offset::self.resolution_factor,x_offset::self.resolution_factor])
+            sample_uv_cond.append(self.uv_cond_fullres[self.asked_indices,:,y_offset::self.resolution_factor,x_offset::self.resolution_factor])
+            sample_uv_mask.append(self.uv_mask_fullres[self.asked_indices,:,y_offset::self.resolution_factor,x_offset::self.resolution_factor])
+            sample_s_cond.append(self.s_cond_fullres[self.asked_indices,:,y_offset::self.resolution_factor,x_offset::self.resolution_factor])
+            sample_s_mask.append(self.s_mask_fullres[self.asked_indices,:,y_offset::self.resolution_factor,x_offset::self.resolution_factor])
 
         # Move all data to the desired device
         for i in range(self.n_samples):
@@ -564,7 +564,7 @@ class Dataset:
         """
         :old_hidden_states: old hidden states (size: bs x (v_size+p_size) x w x h)
         :new_hidden_states: new hidden states (size: bs x (v_size+p_size) x w x h)
-        :offset: offset in x / y / t direction (vector of size 3 containing values between 0 and 1)
+        :offset: offset in (t, y, x) direction (vector of size 3 containing values between 0 and 1)
         :return: interpolated fields for:
             :z: z field
             :grad(z): gradient of z field

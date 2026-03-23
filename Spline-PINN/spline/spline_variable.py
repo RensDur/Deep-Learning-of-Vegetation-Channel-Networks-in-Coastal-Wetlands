@@ -106,7 +106,7 @@ class SplineVariable:
         """
         Idea: return derivatives of splines directly, implement with convolutions
         :weights: size: bs x (orders[0]+1) * (orders[1]+1) x w x h
-        :offsets: offsets to interpolate in between weights, size: 2
+        :offsets: offsets to interpolate in between weights, size: 3
         :orders: orders of spline for each dimension (note: counting starts at 0 => 0 ~ 1st order, 1 ~ 2nd order, 2 ~ 3rd order)
         :return: a_z,v,grad_v,laplace_v - note that, width / height is decreased by 1, because we only interpolate in between support points (weights)
             :a_z: vector potential of velocity field, size: bs x 1 x (w-1) x (h-1)
@@ -123,7 +123,7 @@ class SplineVariable:
             self.kernels = self.kernel_buffer[offset_key]
         else:
 
-            # The incoming offset is a local coordinate (dx, dy) describing a position between four support points
+            # The incoming offset is a local coordinate (dt, dy, dx) describing a position between four support points
             # Repeat the offset four times and organise them in a grid of shape [1,   2, 2, 2]
             #                                                                   [_, x/y, <[0,0],[0,1],[1,0],[1,1]>]
             #                                                                   [_, x/y/t, <[0,0,0],[0,0,1],[0,1,0],...,[1,1,1]>]
@@ -187,7 +187,7 @@ class SplineVariable:
                                 sub_kernels[0:1,0:1,k,l,m,:,:,:] = kernels.p_multidim(offsets[:,:,k,l,m],[self.orders[0],self.orders[1],self.orders[2]],[k,l,m])
 
                     
-                    # First derivative (d/dt, d/dx and d/dy)
+                    # First derivative (d/dt, d/dy and d/dx)
                     if self.requires_derivative:
                         sub_kernels[0:1,1:4] = operators.grad(sub_kernels[0:1,0:1,:,:,:,:,:,:],offsets,create_graph=True,retain_graph=True)
 
