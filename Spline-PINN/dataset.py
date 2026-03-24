@@ -51,6 +51,7 @@ class Dataset:
         # Hidden state
         self.hidden_states = torch.zeros(
             self.dataset_size,
+            2,
             self.variables.hidden_size(),
             self.width-1,
             self.height-1
@@ -149,7 +150,7 @@ class Dataset:
         indices = np.array([indices]).flatten()
 
         # Set all hidden coefficients to zero
-        self.hidden_states[indices, :, :, :] = 0
+        self.hidden_states[indices, :, :, :, :] = 0
 
         # Reset all masks and conditions
         self.h_mask_fullres[indices] = 0
@@ -533,8 +534,11 @@ class Dataset:
     
     def tell(self, hidden_states):
 
+        # Move the original latent space of he asked indices back one time-iteration
+        self.hidden_states[self.asked_indices, -1] = self.hidden_states[self.asked_indices, 0]
+
         # Update hidden states after moving them back to the CPU
-        self.hidden_states[self.asked_indices] = hidden_states.detach().cpu()
+        self.hidden_states[self.asked_indices, 0] = hidden_states.detach().cpu()
 
         # Randomly reset environments
         self.t += 1

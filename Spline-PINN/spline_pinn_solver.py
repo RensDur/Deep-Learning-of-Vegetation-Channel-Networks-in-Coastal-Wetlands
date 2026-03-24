@@ -353,7 +353,7 @@ class SplinePINNSolver:
                 if self.params.plot_loss:
                     dim = [1]
 
-                loss_h, loss_u, loss_v, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks, dim)
+                loss_h, loss_u, loss_v, loss_bound = self.compute_batch_loss(old_hidden_state[:, 0], new_hidden_state, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks, dim)
 
 
                 if self.params.plot_loss:

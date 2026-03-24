@@ -92,7 +92,7 @@ class ShallowWaterUNet(nn.Module):
 		self.residuals = residuals
 		
 		self.interpol = nn.Conv2d(input_size,interpolation_size,kernel_size=2) # interpolate v_cond (2) and v_mask (1) from 4 surrounding fields
-		self.inc = DoubleConv(self.hidden_state_size+interpolation_size, hidden_size) # input: hidden_state + interpolation of v_cond and v_mask
+		self.inc = DoubleConv((2*self.hidden_state_size)+interpolation_size, hidden_size) # input: hidden_state + interpolation of v_cond and v_mask
 		self.down1 = Down(hidden_size, 2*hidden_size)
 		self.down2 = Down(2*hidden_size, 4*hidden_size)
 		self.down3 = Down(4*hidden_size, 8*hidden_size)
@@ -127,7 +127,7 @@ class ShallowWaterUNet(nn.Module):
 		
 		x = self.interpol(x)
 		
-		x = torch.cat([hidden_state,x],dim=1)
+		x = torch.cat([hidden_state[:, -1], hidden_state[:, 0],x],dim=1)
 		x1 = self.inc(x)
 		x2 = self.down1(x1)
 		x3 = self.down2(x2)
@@ -141,7 +141,7 @@ class ShallowWaterUNet(nn.Module):
 		out = x
 		
 		# residual connections
-		out[:,:,:,:] = self.output_scalar*torch.tanh((out[:,:,:,:]+hidden_state[:,:,:,:])/self.output_scalar)
+		out[:,:,:,:] = self.output_scalar*torch.tanh(out[:,:,:,:]/self.output_scalar)
 		
 		# # Substract the mean of every variable
 		# out[:,self.spline_variables.get_singular_slice_for("h"),:,:] = out[:,self.spline_variables.get_singular_slice_for("h"),:,:] - torch.mean(out[:,self.spline_variables.get_singular_slice_for("h"),:,:],dim=(2,3)).unsqueeze(2).unsqueeze(3)
