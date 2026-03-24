@@ -585,7 +585,7 @@ class Dataset:
         s = (1-offset[2])*old_s + offset[2]*new_s
         grad_s = (1-offset[2])*old_grad_s + offset[2]*new_grad_s
         laplacian_s = (1-offset[2])*old_laplacian_s + offset[2]*new_laplacian_s
-        ds_dt = (new_s - old_s) / (self.params.dt * self.params.morphological_acc_factor)
+        ds_dt = (new_s - old_s) / self.params.dt
         
         return h, grad_h, dh_dt, hu, grad_hu, dhu_dt, hv, grad_hv, dhv_dt, s, grad_s, laplacian_s, ds_dt
     

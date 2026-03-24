@@ -21,7 +21,7 @@ def params():
 	# Training parameters
 	parser.add_argument('--n_epochs', default=100000, type=int, help='number of epochs (after each epoch, the model gets saved)')
 	parser.add_argument('--n_batches_per_epoch', default=1000, type=int, help='number of batches per epoch (default: 10000)')
-	parser.add_argument('--batch_size', default=35, type=int, help='batch size (default: 30)')
+	parser.add_argument('--batch_size', default=50, type=int, help='batch size (default: 30)')
 	parser.add_argument('--n_samples', default=10, type=int, help='number of samples (different offsets) per batch (default: 10)')
 	parser.add_argument('--dataset_size', default=1000, type=int, help='size of dataset (default: 1000)')
 	parser.add_argument('--average_sequence_length', default=5000, type=int, help='average sequence length in dataset (default: 5000)')
@@ -45,7 +45,7 @@ def params():
 	
 	# Network parameters
 	parser.add_argument('--net', default="ShallowWaterModelUNet", type=str, help='network to train', choices=["Shortcut","Shortcut2","Shortcut2_residual","Shortcut4","Shortcut4_residual","Shortcut3","Fluid_model","Wave_model"])
-	parser.add_argument('--hidden_size', default=80, type=int, help='hidden size of network (default: 20)')
+	parser.add_argument('--hidden_size', default=32, type=int, help='hidden size of network (default: 20)')
 	parser.add_argument('--orders_h', default=1, type=int, help='spline order for water layer thickness [h]')
 	parser.add_argument('--orders_u', default=1, type=int, help='spline order for horizontal momentum [u]')
 	parser.add_argument('--orders_v', default=1, type=int, help='spline order for vertical momentum [v]')
