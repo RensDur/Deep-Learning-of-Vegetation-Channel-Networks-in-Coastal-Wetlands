@@ -46,7 +46,15 @@ class SplinePINNSolver:
         #
         # Torch model
         #
-        self.net = get_Net(params, self.dataset.variables).to(self.device)
+        self.nets = get_Net(params, self.dataset.variables)
+        self.water_net = self.nets[0].to(self.device)
+        self.sediment_net = self.nets[1].to(self.device)
+
+        #
+        # Training Stage
+        #
+        self.training_sediment = False
+        self.training_sediment_start_epoch = 20
 
         #
         # Diffusion operation (needed, if we want to put more loss-weight to regions close to the domain boundaries)
@@ -245,7 +253,7 @@ class SplinePINNSolver:
         #
         # Optimizer
         #
-        self.optimizer = Adam(self.net.parameters(), lr=self.params.lr)
+        self.optimizer = Adam(self.water_net.parameters(), lr=self.params.lr)   # Initially, we only train the water net
         self.optimizer = PCGrad(self.optimizer)
 
         torch.autograd.set_detect_anomaly(True)
@@ -255,6 +263,9 @@ class SplinePINNSolver:
         #
         self.logger = Logger(parameters.get_description(self.params), use_csv=self.params.log_csv, use_tensorboard=self.params.log_tensorboard)
         if self.params.load_latest or self.params.load_date_time is not None or self.params.load_index is not None:
+
+            raise Exception("NotImplementedException: Loading state for training is not yet supported")
+
             self.load_logger = Logger(parameters.get_description(self.params), use_csv=self.params.log_csv, use_tensorboard=self.params.log_tensorboard)
             if self.params.load_optimizer:
                 self.params.load_date_time, self.params.load_index = self.logger.load_state(self.net, self.optimizer,
@@ -284,7 +295,8 @@ class SplinePINNSolver:
         self.logger.log_info(info_text)
 
         # Enable training of the model
-        self.net.train()
+        self.water_net.train()
+        self.sediment_net.train()
 
         #
         # Prepare Loss Plots
@@ -337,6 +349,22 @@ class SplinePINNSolver:
         # Start from the most recently finished epoch and train until the configured number
         # of epochs has been reached.
         for epoch in range(self.params.load_index, self.params.n_epochs):
+
+            # Once we've completed enough epochs to train hydrodynamics, start training sediment as well
+            if epoch == self.training_sediment_start_epoch:
+                self.optimizer = Adam([
+                    {"params": self.water_net.parameters(), "lr": self.params.lr},
+                    {"params": self.sediment_net.parameters(), "lr": self.params.lr},
+                ])
+                self.optimizer = PCGrad(self.optimizer)
+
+                # Start training sediment
+                self.training_sediment = True
+
+                print(f"\nSTARTING TRAINING OF SedimentUNet NOW\n")
+
+
+
             # Each epoch consists of a configurable number of batches.
             for i in range(self.params.n_batches_per_epoch):
 
@@ -344,7 +372,17 @@ class SplinePINNSolver:
                 old_hidden_state, h_cond, h_mask, hu_cond, hu_mask, hv_cond, hv_mask, s_cond, s_mask, grid_offsets, sample_h_conds, sample_h_masks, sample_hu_conds, sample_hu_masks, sample_hv_conds, sample_hv_masks, sample_s_conds, sample_s_masks = self.dataset.ask()
 
                 # Predict the new domain state by performing a forward pass through the network
-                new_hidden_state = self.net(old_hidden_state, h_cond, h_mask, hu_cond, hu_mask, hv_cond, hv_mask, s_cond, s_mask)
+                # Water
+                new_hidden_state_water = self.water_net(old_hidden_state, h_cond, h_mask, hu_cond, hu_mask, hv_cond, hv_mask)
+
+                # Sediment
+                if self.training_sediment:
+                    new_hidden_state_sediment = self.sediment_net(old_hidden_state, s_cond, s_mask)
+                else:
+                    new_hidden_state_sediment = self.dataset.variables.extract_from(old_hidden_state, "s")
+
+                # Compile the full new hidden state
+                new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment], dim=1)
 
                 dim = [1,2,3]
                 if self.params.plot_loss:
@@ -385,22 +423,26 @@ class SplinePINNSolver:
                 pcgrad_losses = [
                     loss_h,
                     loss_momentum,
-                    loss_sediment,
                     loss_bound
                 ]
 
+                # In the sediment training stage, add sediment to PCGrad as well
+                if self.training_sediment:
+                    pcgrad_losses.append(loss_sediment)
+
                 # Reset old gradients to 0 and compute new gradients with backpropagation
-                self.net.zero_grad()
+                self.water_net.zero_grad()
+                self.sediment_net.zero_grad()
                 
                 # PCGrad backprop pass
                 self.optimizer.pc_backward(pcgrad_losses)
 
                 # Clip gradients
-                if self.params.clip_grad_value is not None:
-                    torch.nn.utils.clip_grad_value_(self.net.parameters(),self.params.clip_grad_value)
+                # if self.params.clip_grad_value is not None:
+                #     torch.nn.utils.clip_grad_value_(self.net.parameters(),self.params.clip_grad_value)
 
-                if self.params.clip_grad_norm is not None:
-                    torch.nn.utils.clip_grad_norm_(self.net.parameters(),self.params.clip_grad_norm)
+                # if self.params.clip_grad_norm is not None:
+                #     torch.nn.utils.clip_grad_norm_(self.net.parameters(),self.params.clip_grad_norm)
                 
                 # Perform an optimization step
                 self.optimizer.step()
@@ -486,9 +528,10 @@ class SplinePINNSolver:
 
             # Save the training state after each epoch
             if self.params.log:
-                self.logger.save_state(self.net, self.optimizer, epoch + 1)
+                self.logger.save_state("water_net", self.water_net, self.optimizer, epoch + 1)
 
-
+                if self.training_sediment:
+                    self.logger.save_state("sediment_net", self.sediment_net, self.optimizer, epoch + 1)
 
 
     def visualize(self, window):
@@ -506,10 +549,12 @@ class SplinePINNSolver:
         self.logger = Logger(parameters.get_description(self.params), use_csv=False, use_tensorboard=False, device=self.device)
 
         # Load the trained model state
-        date_time, index = self.logger.load_state(self.net, None, datetime=self.params.load_date_time, index=self.params.load_index)
+        date_time, index = self.logger.load_state("water_net", self.water_net, None, datetime=self.params.load_date_time, index=self.params.load_index)
+        date_time, index = self.logger.load_state("sediment_net", self.sediment_net, None, datetime=self.params.load_date_time, index=self.params.load_index)
 
         # Enable evaluation of the model
-        self.net.eval()
+        self.water_net.eval()
+        self.sediment_net.eval()
 
         print(f"Loaded {self.params.net}: {date_time}, index: {index}")
 
@@ -523,7 +568,17 @@ class SplinePINNSolver:
             old_hidden_state, h_cond, h_mask, hu_cond, hu_mask, hv_cond, hv_mask, s_cond, s_mask, grid_offsets, sample_h_conds, sample_h_masks, sample_hu_conds, sample_hu_masks, sample_hv_conds, sample_hv_masks, sample_s_conds, sample_s_masks = self.dataset.ask()
 
             # Predict the new domain state by performing a forward pass through the network
-            new_hidden_state = self.net(old_hidden_state, h_cond, h_mask, hu_cond, hu_mask, hv_cond, hv_mask, s_cond, s_mask)
+            # Water
+            new_hidden_state_water = self.water_net(old_hidden_state, h_cond, h_mask, hu_cond, hu_mask, hv_cond, hv_mask)
+
+            # Sediment
+            if self.training_sediment:
+                new_hidden_state_sediment = self.sediment_net(old_hidden_state, s_cond, s_mask)
+            else:
+                new_hidden_state_sediment = self.dataset.variables.extract_from(old_hidden_state, "s")
+
+            # Compile the full new hidden state
+            new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment], dim=1)
 
             # loss_h, loss_u, loss_v, loss_bound, loss_damp = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks)
 
@@ -534,7 +589,7 @@ class SplinePINNSolver:
             self.dataset.tell(new_hidden_state)
 
             # Display water level thickness h
-            h = hu_cond[0, 0].clone()
+            h = h[0, 0].clone()
             # h = h - torch.min(h)
             # h = h / torch.max(h)
             h = h.detach().cpu().numpy()

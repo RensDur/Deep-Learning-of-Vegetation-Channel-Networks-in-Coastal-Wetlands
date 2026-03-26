@@ -176,15 +176,15 @@ class Logger():
 		else:
 			warnings.warn("set use_csv=True if you want to plot metrics")
 	
-	def save_state(self,model,optimizer,index="final"):
+	def save_state(self,name,model,optimizer,index="final"):
 		"""
 		saves state of model and optimizer
 		:model: model to save (if list: save multiple models)
 		:optimizer: optimizer (if list: save multiple optimizers)
 		:index: index of state to save (e.g. specific epoch)
 		"""
-		os.makedirs('Logger/{}/{}/states'.format(self.name,self.datetime),exist_ok=True)
-		path = 'Logger/{}/{}/states/{}.state'.format(self.name,self.datetime,index)
+		os.makedirs('Logger/{}/{}/states_{}'.format(self.name,self.datetime,name),exist_ok=True)
+		path = 'Logger/{}/{}/states_{}/{}.state'.format(self.name,self.datetime,name,index)
 		state = {}
 		
 		if type(model)is not list:
@@ -210,7 +210,7 @@ class Logger():
 		with open(path,"wb") as f:
 			pickle.dump(dic,f)
 	
-	def load_state(self,model,optimizer,datetime=None,index=None,continue_datetime=False):
+	def load_state(self,name,model,optimizer,datetime=None,index=None,continue_datetime=False):
 		"""
 		loads state of model and optimizer
 		:model: model to load (if list: load multiple models)
@@ -234,11 +234,11 @@ class Logger():
 			self.datetime = datetime
 		
 		if index is None:
-			for _,_,files in os.walk('Logger/{}/{}/states/'.format(self.name,datetime)):
+			for _,_,files in os.walk('Logger/{}/{}/states_{}/'.format(self.name,datetime,name)):
 				index = os.path.splitext(natsorted(files)[-1])[0]
 				break
 		
-		path = 'Logger/{}/{}/states/{}.state'.format(self.name,datetime,index)
+		path = 'Logger/{}/{}/states_{}/{}.state'.format(self.name,datetime,name,index)
 		state = torch.load(path, map_location=self.device)
 		
 		if type(model) is not list:
