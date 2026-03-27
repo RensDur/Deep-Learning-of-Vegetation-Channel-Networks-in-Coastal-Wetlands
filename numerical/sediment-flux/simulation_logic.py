@@ -1,7 +1,6 @@
 import torch
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
-from window import Window
 
 #
 # TORCH DEVICE
@@ -14,34 +13,31 @@ if torch.backends.mps.is_available():
 
 print(f"Using torch device: {torch_device}")
 
-
-#
-# ENVIRONMENTS
-#
-
-width = 100
-height = 100
-
-h = torch.ones(1, 1, height, width, device=torch_device)
-hu = torch.zeros(1, 1, height, width, device=torch_device)
-hv = torch.zeros(1, 1, height, width, device=torch_device)
-s = torch.zeros(1, 1, height, width, device=torch_device)
-
 #
 # PARAMETERS
 #
 
-H0 = 1
+H0 = 0.02
 Hc = 1e-3
+Hin = 1e-5
 grav = 9.81
 
-D0 = 10e-7
+D0 = 1e-7
+pD = 0.99
+pE = 0.9
 Sin = 5e-9
 Qs = 6e-4
 Es = 2.5e-4
 nb = 0.016
+nv = 0.2
 
-dt = 0.001
+r = 3.2e-8
+k = 1500
+Qq = 0.02
+Eb = 1e-5
+Db = 6e-9
+
+dt = 0.005
 
 current_t = 0.0
 
@@ -67,26 +63,47 @@ def d2_dx2(quantity):
 def d2_dy2(quantity):
     return F.conv2d(quantity, dy2_kernel, padding=(1,0))
 
-#
-# MAIN WINDOW
-#
-win = Window("Numerical Simulation", width, height)
+
+class Solver():
 
 
+    def __init__(self):
+        #
+        # ENVIRONMENTS
+        #
 
-win.set_data_range(0, 0.2)
+        self.width = 200
+        self.height = 200
 
-# MAIN LOOP
-with torch.no_grad():
-    # Simulation loop
-    while win.is_open():
+        self.h = torch.zeros(1, 1, self.height, self.width)
+        self.hu = torch.zeros(1, 1, self.height, self.width)
+        self.hv = torch.zeros(1, 1, self.height, self.width)
+        self.s = torch.zeros(1, 1, self.height, self.width)
+        self.b = torch.zeros(1, 1, self.height, self.width)
+
+        # H: initial condition
+        self.h[:, :, :, :] = H0
+
+        # Randomly place vegetation
+        self.b[torch.where(torch.rand(1, 1, self.height, self.width) < 0.002)] = k
+
+    #
+    # MAIN FUNCTION
+    #
+    def run_iter(self):
+
+        h = self.h
+        hu = self.hu
+        hv = self.hv
+        s = self.s
+        b = self.b
 
         # Compute u and v
         u = hu / h
         v = hv / h
 
         # Manning's n
-        n = nb # No vegetation
+        n = nb + (nv - nb) * (b / k)
 
         # Chezys coefficient
         Cz = (1.0 / n) * torch.pow(h, 1.0 / 6.0)
@@ -123,7 +140,7 @@ with torch.no_grad():
         hv[:, :, -1, :] = -hv[:, :, -2, :]
 
         # Compute h update
-        dh_dt = - d_dx(hu) - d_dy(hv)
+        dh_dt = - d_dx(hu) - d_dy(hv) + Hin
 
         h = h + dh_dt * dt
 
@@ -132,17 +149,15 @@ with torch.no_grad():
         h[:, :, 0, :] = h[:, :, 1, :]
         h[:, :, -1, :] = h[:, :, -2, :]
 
-        # Oscillator
-        # h[:, :, (height//2-5):(height//2+5), (width//2-5):(width//2+5)] = 1 + 0.5 * torch.sin(torch.Tensor([current_t])).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, 10, 10)
-
         # Compute sediment update
+        Ds = D0 * (1.0 - pD * (b / k))
 
-        Ds = D0 # No vegetation
+        topographic_diffusion_term = d_dx(Ds * d_dx(s)) + d_dy(Ds * d_dy(s))
 
         # effective water height
         he = h - Hc
 
-        ds_dt = Sin * (he / (Qs + he)) - Es * s * tau_b_per_rho + Ds * (d2_dx2(s) + d2_dy2(s))
+        ds_dt = Sin * (he / (Qs + he)) - Es * (1.0 - pE * (b/k)) * s * tau_b_per_rho + topographic_diffusion_term
 
         # Update s
         s = s + ds_dt * dt * 44712
@@ -153,8 +168,45 @@ with torch.no_grad():
         s[:, :, 0, :] = s[:, :, 1, :]
         s[:, :, -1, :] = s[:, :, -2, :]
 
-        current_t += dt
+        # Compute vegetation update
+        db_dt = r * b * (1.0 - (b/k)) * (Qq / (Qq + he)) - Eb * b * tau_b_per_rho + Db * (d2_dx2(b) + d2_dy2(b))
 
-        # Update view
-        win.put_image(s[0, 0].cpu())
-        win.update()
+        # Update b
+        b = b + db_dt * dt * 44712
+
+        # Boundary conditions on b
+        b[:, :, :, 0] = b[:, :, :, 1]
+        b[:, :, :, -1] = b[:, :, :, -2]
+        b[:, :, 0, :] = b[:, :, 1, :]
+        b[:, :, -1, :] = b[:, :, -2, :]
+
+        self.h = h
+        self.hu = hu
+        self.hv = hv
+        self.s = s
+        self.b = b
+
+    def run_iters(self, count):
+
+        # Move everything to gpu
+        self.gpu()
+
+        # Run num of iterations
+        for _ in range(count):
+            self.run_iter()
+        
+        # Move to cpu
+        self.cpu()
+
+    def to(self, device):
+        self.h = self.h.to(device)
+        self.hu = self.hu.to(device)
+        self.hv = self.hv.to(device)
+        self.s = self.s.to(device)
+        self.b = self.b.to(device)
+
+    def cpu(self):
+        self.to(torch.device("cpu"))
+
+    def gpu(self):
+        self.to(torch_device)
