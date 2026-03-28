@@ -37,7 +37,7 @@ Qq = 0.02
 Eb = 1e-5
 Db = 6e-9
 
-dt = 0.005
+dt = 0.001
 
 current_t = 0.0
 
@@ -143,6 +143,9 @@ class Solver():
         dh_dt = - d_dx(hu) - d_dy(hv) + Hin
 
         h = h + dh_dt * dt
+
+        # Ensure minimum h to critical value
+        h = torch.clamp(h, min=Hc)
 
         h[:, :, :, 0] = h[:, :, :, 1]
         h[:, :, :, -1] = h[:, :, :, -2]

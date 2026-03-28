@@ -15,8 +15,8 @@ sediment_plot = axs[0, 0].imshow(solver.s[0,0], cmap="gray", vmin=0, vmax=0.2)
 sediment_plot_under_veg = axs[0, 1].imshow(solver.s[0,0], cmap="gray", vmin=0, vmax=0.2)
 vegetation_plot = axs[0, 1].imshow(solver.b[0,0], cmap="YlGn", vmin=0, vmax=1500, alpha=0.8)
 
-momentum_u_plot = axs[1, 0].imshow(solver.hu[0,0], cmap="bwr", vmin=-0.5, vmax=0.5)
-momentum_v_plot = axs[1, 1].imshow(solver.hv[0,0], cmap="bwr", vmin=-0.5, vmax=0.5)
+momentum_u_plot = axs[1, 0].imshow(solver.hu[0,0], cmap="bwr", vmin=-0.005, vmax=0.005)
+momentum_v_plot = axs[1, 1].imshow(solver.hv[0,0], cmap="bwr", vmin=-0.005, vmax=0.005)
 
 # setting title
 axs[0, 0].set(title="Sediment bed", xlabel="Cross shore", ylabel="Along shore")
@@ -66,7 +66,7 @@ def simulation_loop():
     global momentum_v_plot
 
     iter_sum = 0
-    n_iter = 500
+    n_iter = 1000
 
     while running:
         
