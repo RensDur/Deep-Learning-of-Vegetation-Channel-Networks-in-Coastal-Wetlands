@@ -22,6 +22,8 @@ Hc = 1e-3
 Hin = 1e-5
 grav = 9.81
 
+Du = 0.5
+
 D0 = 1e-7
 pD = 0.99
 pE = 0.9
@@ -37,7 +39,7 @@ Qq = 0.02
 Eb = 1e-5
 Db = 6e-9
 
-dt = 0.001
+dt = 0.0125
 
 current_t = 0.0
 
@@ -76,8 +78,8 @@ class Solver():
         self.height = 200
 
         self.h = torch.zeros(1, 1, self.height, self.width)
-        self.hu = torch.zeros(1, 1, self.height, self.width)
-        self.hv = torch.zeros(1, 1, self.height, self.width)
+        self.u = torch.zeros(1, 1, self.height, self.width)
+        self.v = torch.zeros(1, 1, self.height, self.width)
         self.s = torch.zeros(1, 1, self.height, self.width)
         self.b = torch.zeros(1, 1, self.height, self.width)
 
@@ -93,14 +95,10 @@ class Solver():
     def run_iter(self):
 
         h = self.h
-        hu = self.hu
-        hv = self.hv
+        u = self.u
+        v = self.v
         s = self.s
         b = self.b
-
-        # Compute u and v
-        u = hu / h
-        v = hv / h
 
         # Manning's n
         n = nb + (nv - nb) * (b / k)
@@ -114,33 +112,33 @@ class Solver():
         tau_by_per_rho = tau_precalc * v
         tau_b_per_rho = (grav / torch.pow(Cz, 2.0)) * (torch.pow(u, 2) + torch.pow(v, 2))
 
-        # Compute flux update
-        dhu_dt = -grav*h*d_dx(s + h) - hu*(d_dx(u) + d_dy(v)) - u*d_dx(hu) - v*d_dy(hu) - tau_bx_per_rho
-        dhv_dt = -grav*h*d_dy(s + h) - hv*(d_dx(u) + d_dy(v)) - u*d_dx(hv) - v*d_dy(hv) - tau_by_per_rho
+        # Compute flow velocity update
+        du_dt = -grav * d_dx(h + s) - u*d_dx(u) - v*d_dy(u) - (tau_bx_per_rho / h) + Du * (d2_dx2(u) + d2_dy2(u))
+        dv_dt = -grav * d_dy(h + s) - u*d_dx(v) - v*d_dy(v) - (tau_by_per_rho / h) + Du * (d2_dx2(v) + d2_dy2(v))
 
         # Update flux
-        hu = hu + dhu_dt * dt
-        hv = hv + dhv_dt * dt
+        u = u + du_dt * dt
+        v = v + dv_dt * dt
 
         # Boundary conditions on flux
         # Left boundary
-        hu[:, :, :, 0] = -hu[:, :, :, 1]
-        hv[:, :, :, 0] = hv[:, :, :, 1]
+        u[:, :, :, 0] = -u[:, :, :, 1]
+        v[:, :, :, 0] = v[:, :, :, 1]
 
         # Right boundary
-        hu[:, :, :, -1] = 2*hu[:, :, :, -2] - hu[:, :, :, -3]
-        hv[:, :, :, -1] = hv[:, :, :, -2]
+        u[:, :, :, -1] = 2*u[:, :, :, -2] - u[:, :, :, -3]
+        v[:, :, :, -1] = v[:, :, :, -2]
 
         # Top
-        hu[:, :, 0, :] = hu[:, :, 1, :]
-        hv[:, :, 0, :] = -hv[:, :, 1, :]
+        u[:, :, 0, :] = u[:, :, 1, :]
+        v[:, :, 0, :] = -v[:, :, 1, :]
 
         # Bottom
-        hu[:, :, -1, :] = hu[:, :, -2, :]
-        hv[:, :, -1, :] = -hv[:, :, -2, :]
+        u[:, :, -1, :] = u[:, :, -2, :]
+        v[:, :, -1, :] = -v[:, :, -2, :]
 
         # Compute h update
-        dh_dt = - d_dx(hu) - d_dy(hv) + Hin
+        dh_dt = - d_dx(h*u) - d_dy(h*v) + Hin
 
         h = h + dh_dt * dt
 
@@ -184,8 +182,8 @@ class Solver():
         b[:, :, -1, :] = b[:, :, -2, :]
 
         self.h = h
-        self.hu = hu
-        self.hv = hv
+        self.u = u
+        self.v = v
         self.s = s
         self.b = b
 
@@ -203,8 +201,8 @@ class Solver():
 
     def to(self, device):
         self.h = self.h.to(device)
-        self.hu = self.hu.to(device)
-        self.hv = self.hv.to(device)
+        self.u = self.u.to(device)
+        self.v = self.v.to(device)
         self.s = self.s.to(device)
         self.b = self.b.to(device)
 

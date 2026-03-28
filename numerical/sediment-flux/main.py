@@ -15,8 +15,8 @@ sediment_plot = axs[0, 0].imshow(solver.s[0,0], cmap="gray", vmin=0, vmax=0.2)
 sediment_plot_under_veg = axs[0, 1].imshow(solver.s[0,0], cmap="gray", vmin=0, vmax=0.2)
 vegetation_plot = axs[0, 1].imshow(solver.b[0,0], cmap="YlGn", vmin=0, vmax=1500, alpha=0.8)
 
-momentum_u_plot = axs[1, 0].imshow(solver.hu[0,0], cmap="bwr", vmin=-0.005, vmax=0.005)
-momentum_v_plot = axs[1, 1].imshow(solver.hv[0,0], cmap="bwr", vmin=-0.005, vmax=0.005)
+momentum_u_plot = axs[1, 0].imshow(solver.u[0,0], cmap="bwr", vmin=-0.2, vmax=0.2)
+momentum_v_plot = axs[1, 1].imshow(solver.v[0,0], cmap="bwr", vmin=-0.2, vmax=0.2)
 
 # setting title
 axs[0, 0].set(title="Sediment bed", xlabel="Cross shore", ylabel="Along shore")
@@ -79,8 +79,8 @@ def simulation_loop():
             sediment_plot_under_veg.set_data(solver.s[0,0])
             vegetation_plot.set_data(solver.b[0,0])
 
-            momentum_u_plot.set_data(solver.hu[0,0])
-            momentum_v_plot.set_data(solver.hv[0,0])
+            momentum_u_plot.set_data(solver.u[0,0])
+            momentum_v_plot.set_data(solver.v[0,0])
 
         except:
             running = False
