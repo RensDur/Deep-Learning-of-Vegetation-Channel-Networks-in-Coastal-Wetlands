@@ -74,8 +74,8 @@ class Solver():
         # ENVIRONMENTS
         #
 
-        self.width = 200
-        self.height = 200
+        self.width = 800
+        self.height = 800
 
         self.h = torch.zeros(1, 1, self.height, self.width)
         self.u = torch.zeros(1, 1, self.height, self.width)
@@ -87,7 +87,7 @@ class Solver():
         self.h[:, :, :, :] = H0
 
         # Randomly place vegetation
-        self.b[torch.where(torch.rand(1, 1, self.height, self.width) < 0.002)] = k
+        self.b[torch.where(torch.rand_like(self.b) < 0.002)] = k
 
     #
     # MAIN FUNCTION
