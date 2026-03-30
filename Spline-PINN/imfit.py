@@ -25,15 +25,15 @@ class FitDataset:
         # Variables in this dataset
         self.variables = SplineArray(
             SplineVariable("h", 1, requires_derivative=True, requires_laplacian=True),                           # h describes the zero-meaned surface height, on top of H0
-            SplineVariable("u", 1, requires_derivative=True, requires_laplacian=True),
-            SplineVariable("v", 1, requires_derivative=True, requires_laplacian=True),
-            SplineVariable("s", 1, requires_derivative=True, requires_laplacian=True),
-            SplineVariable("b", 1, requires_derivative=True, requires_laplacian=True),
+            SplineVariable("u", 2, requires_derivative=True, requires_laplacian=True),
+            SplineVariable("v", 2, requires_derivative=True, requires_laplacian=True),
+            SplineVariable("s", 2, requires_derivative=True, requires_laplacian=True),
+            SplineVariable("b", 2, requires_derivative=True, requires_laplacian=True),
             device=self.device
         )
 
         # Hidden state
-        self.hidden_state = torch.zeros(
+        self.hidden_state = torch.rand(
             1,
             self.variables.hidden_size(),
             self.width-1,
@@ -105,7 +105,7 @@ class FitDataset:
 
 class FitNet(nn.Module):
 
-    def __init__(self, spline_variables, hidden_size=32):
+    def __init__(self, spline_variables, hidden_size=64):
         """
         :orders_v: order of spline for velocity potential (should be at least 2)
         :orders_p: order of spline for pressure field
@@ -120,7 +120,22 @@ class FitNet(nn.Module):
         # Convolutional layers
         self.conv1 = nn.Conv2d(self.spline_variables.hidden_size(), self.hidden_size, kernel_size=3, padding=1)
         self.conv2 = nn.Conv2d(self.hidden_size, self.hidden_size, kernel_size=3, padding=1)
-        self.conv3 = nn.Conv2d(self.hidden_size, self.spline_variables.hidden_size(), kernel_size=3, padding=1)
+        self.conv3 = nn.Conv2d(self.hidden_size, self.hidden_size, kernel_size=3, padding=1)
+        self.conv4 = nn.Conv2d(self.hidden_size, self.hidden_size, kernel_size=3, padding=1)
+        self.conv5 = nn.Conv2d(self.hidden_size, self.spline_variables.hidden_size(), kernel_size=3, padding=1)
+
+        self.output_scalar = torch.ones(1, self.spline_variables.hidden_size(), 1, 1)*2
+
+        self.output_scalar[:, spline_variables.get_singular_slice_for("h"), :, :] = 2
+        self.output_scalar[:, spline_variables.get_singular_slice_for("u"), :, :] = 2
+        self.output_scalar[:, spline_variables.get_singular_slice_for("v"), :, :] = 2
+        self.output_scalar[:, spline_variables.get_singular_slice_for("s"), :, :] = 2
+        self.output_scalar[:, spline_variables.get_singular_slice_for("b"), :, :] = 2000
+
+    def to(self, torch_device):
+        super(FitNet, self).to(torch_device)
+        self.output_scalar = self.output_scalar.to(torch_device)
+        return self
 
     def forward(self, hidden_state):
         """
@@ -135,8 +150,12 @@ class FitNet(nn.Module):
         x = self.conv2(x)
         x = torch.relu(x)
         x = self.conv3(x)
+        x = torch.relu(x)
+        x = self.conv4(x)
+        x = torch.relu(x)
+        x = self.conv5(x)
 
-        out = x
+        out = self.output_scalar * torch.tanh(x / self.output_scalar)
 
         return out
 
@@ -145,10 +164,10 @@ def main():
 
     torch_device = torch.device("cpu")
 
-    # if torch.backends.mps.is_available():
-    #     torch_device = torch.device("mps")
-    # elif torch.cuda.is_available():
-    #     torch_device = torch.device("cuda")
+    if torch.backends.mps.is_available():
+        torch_device = torch.device("mps")
+    elif torch.cuda.is_available():
+        torch_device = torch.device("cuda")
     
     dataset = FitDataset(200, 200, torch_device)
 
@@ -161,11 +180,11 @@ def main():
     net.train()
 
     # Load reference images from disk
-    ref_h = torch.ones(1, 1, 800, 800).to(torch_device)
-    ref_u = torch.ones(1, 1, 800, 800).to(torch_device)
-    ref_v = torch.ones(1, 1, 800, 800).to(torch_device)
-    ref_s = torch.ones(1, 1, 800, 800).to(torch_device)
-    ref_b = torch.ones(1, 1, 800, 800).to(torch_device)
+    ref_h = torch.load("../numerical/sediment-flux/out/2026-03-30 21:24:45/2500000/h.pt").to(torch_device)
+    ref_u = torch.load("../numerical/sediment-flux/out/2026-03-30 21:24:45/2500000/u.pt").to(torch_device)
+    ref_v = torch.load("../numerical/sediment-flux/out/2026-03-30 21:24:45/2500000/v.pt").to(torch_device)
+    ref_s = torch.load("../numerical/sediment-flux/out/2026-03-30 21:24:45/2500000/s.pt").to(torch_device)
+    ref_b = torch.load("../numerical/sediment-flux/out/2026-03-30 21:24:45/2500000/b.pt").to(torch_device)
 
     # Setup visualisation
 
@@ -175,12 +194,12 @@ def main():
     # Create subplots
     figure, axs = plt.subplots(2, 2, figsize=(20, 10))
 
-    sediment_plot = axs[0, 0].imshow(ref_s[0,0], cmap="gray", vmin=0, vmax=0.2)
-    sediment_plot_under_veg = axs[0, 1].imshow(ref_s[0,0], cmap="gray", vmin=0, vmax=0.2)
-    vegetation_plot = axs[0, 1].imshow(ref_b[0,0], cmap="YlGn", vmin=0, vmax=1500, alpha=0.8)
+    sediment_plot = axs[0, 0].imshow(ref_s[0,0].clone().detach().cpu().numpy(), cmap="gray", vmin=0, vmax=0.2)
+    sediment_plot_under_veg = axs[0, 1].imshow(ref_s[0,0].clone().detach().cpu().numpy(), cmap="gray", vmin=0, vmax=0.2)
+    vegetation_plot = axs[0, 1].imshow(ref_b[0,0].clone().detach().cpu().numpy(), cmap="YlGn", vmin=0, vmax=1500, alpha=0.8)
 
-    momentum_u_plot = axs[1, 0].imshow(ref_u[0,0], cmap="bwr", vmin=-0.2, vmax=0.2)
-    momentum_v_plot = axs[1, 1].imshow(ref_v[0,0], cmap="bwr", vmin=-0.2, vmax=0.2)
+    momentum_u_plot = axs[1, 0].imshow(ref_u[0,0].clone().detach().cpu().numpy(), cmap="bwr", vmin=-0.2, vmax=0.2)
+    momentum_v_plot = axs[1, 1].imshow(ref_v[0,0].clone().detach().cpu().numpy(), cmap="bwr", vmin=-0.2, vmax=0.2)
 
     # setting title
     axs[0, 0].set(title="Sediment bed", xlabel="Cross shore", ylabel="Along shore")
@@ -204,64 +223,69 @@ def main():
 
     # Training loop
     EPOCHS = 100
-    N_SAMPLES = 10
+    N_BATCHES = 10
+    N_SAMPLES = 50
     resolution_factor = 4
 
     for epoch in range(EPOCHS):
+        for batch in range(N_BATCHES):
 
-        output_hidden_state = net(dataset.hidden_state)
+            output_hidden_state = net(dataset.hidden_state)
 
-        loss_h = 0
-        loss_u = 0
-        loss_v = 0
-        loss_s = 0
-        loss_b = 0
+            loss_h = 0
+            loss_u = 0
+            loss_v = 0
+            loss_s = 0
+            loss_b = 0
 
-        for i in range(N_SAMPLES):
-            # Randomly pick a sampling point
-            sample = torch.rand(2)
+            for i in range(N_SAMPLES):
+                # Randomly pick a sampling point
+                sample = torch.rand(2)
 
-            y_offset = min(int(resolution_factor*sample[0]),resolution_factor-1)
-            x_offset = min(int(resolution_factor*sample[1]),resolution_factor-1)
+                y_offset = min(int(resolution_factor*sample[0]),resolution_factor-1)
+                x_offset = min(int(resolution_factor*sample[1]),resolution_factor-1)
 
-            sample_h = ref_h[:, :, y_offset::resolution_factor, x_offset::resolution_factor]
-            sample_u = ref_u[:, :, y_offset::resolution_factor, x_offset::resolution_factor]
-            sample_v = ref_v[:, :, y_offset::resolution_factor, x_offset::resolution_factor]
-            sample_s = ref_s[:, :, y_offset::resolution_factor, x_offset::resolution_factor]
-            sample_b = ref_b[:, :, y_offset::resolution_factor, x_offset::resolution_factor]
+                sample_h = ref_h[:, :, y_offset::resolution_factor, x_offset::resolution_factor]
+                sample_u = ref_u[:, :, y_offset::resolution_factor, x_offset::resolution_factor]
+                sample_v = ref_v[:, :, y_offset::resolution_factor, x_offset::resolution_factor]
+                sample_s = ref_s[:, :, y_offset::resolution_factor, x_offset::resolution_factor]
+                sample_b = ref_b[:, :, y_offset::resolution_factor, x_offset::resolution_factor]
 
-            offset = torch.floor(sample*resolution_factor)/resolution_factor
-            offset = offset.to(torch_device)
+                offset = torch.floor(sample*resolution_factor)/resolution_factor
+                offset = offset.to(torch_device)
 
-            # Interpolate states
-            h, u, v, s, b = dataset.interpolate_states(output_hidden_state, offset)
+                # Interpolate states
+                h, u, v, s, b = dataset.interpolate_states(output_hidden_state, offset)
 
-            # Compute loss
-            loss_h = loss_h + torch.mean(__loss_function(h - sample_h[:,:,1:-1,1:-1]))
-            loss_u = loss_u + torch.mean(__loss_function(u - sample_u[:,:,1:-1,1:-1]))
-            loss_v = loss_v + torch.mean(__loss_function(v - sample_v[:,:,1:-1,1:-1]))
-            loss_s = loss_s + torch.mean(__loss_function(s - sample_s[:,:,1:-1,1:-1]))
-            loss_b = loss_b + torch.mean(__loss_function(b - sample_b[:,:,1:-1,1:-1]))
+                # Compute loss
+                loss_h = loss_h + torch.mean(__loss_function(h - sample_h[:,:,1:-1,1:-1]))
+                loss_u = loss_u + torch.mean(__loss_function(u - sample_u[:,:,1:-1,1:-1]))
+                loss_v = loss_v + torch.mean(__loss_function(v - sample_v[:,:,1:-1,1:-1]))
+                loss_s = loss_s + torch.mean(__loss_function(s - sample_s[:,:,1:-1,1:-1]))
+                loss_b = loss_b + torch.mean(__loss_function(b - sample_b[:,:,1:-1,1:-1]))
 
-        # Normalize for the number of samples
-        loss_h = loss_h / N_SAMPLES
-        loss_u = loss_u / N_SAMPLES
-        loss_v = loss_v / N_SAMPLES
-        loss_s = loss_s / N_SAMPLES
-        loss_b = loss_b / N_SAMPLES
+            # Normalize for the number of samples
+            loss_h = loss_h / N_SAMPLES
+            loss_u = loss_u / N_SAMPLES
+            loss_v = loss_v / N_SAMPLES
+            loss_s = loss_s / N_SAMPLES
+            loss_b = loss_b / N_SAMPLES
 
-        # Log loss
-        loss = torch.log(loss_h + loss_u + loss_v + loss_s + loss_b)
+            # Log loss
+            loss = torch.log(loss_h + loss_u + loss_v + loss_s + loss_b)
+
+            # Backprop
+            net.zero_grad()
+            loss.backward()
+
+            # Optimization step
+            optimizer.step()
+
+            # Put the hidden state back
+            dataset.hidden_state = output_hidden_state.detach()
 
         # Report loss
         print(f"Loss: {loss}")
-
-        # Backprop
-        net.zero_grad()
-        loss.backward()
-
-        # Optimization step
-        optimizer.step()
 
         # Update the visuals
         h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = dataset.interpolate_superres(output_hidden_state, resolution_factor)
