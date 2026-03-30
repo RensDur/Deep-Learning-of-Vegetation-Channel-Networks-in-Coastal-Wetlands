@@ -40,6 +40,8 @@ Eb = 1e-5
 Db = 6e-9
 
 dt = 0.0125
+dx = 1/4
+dy = 1/4
 
 current_t = 0.0
 
@@ -54,16 +56,16 @@ dx2_kernel = torch.tensor([1.0, -2.0, 1.0], device=torch_device).view(1, 1, 1, 3
 dy2_kernel = torch.tensor([1.0, -2.0, 1.0], device=torch_device).view(1, 1, 3, 1)
 
 def d_dx(quantity):
-    return F.conv2d(quantity, dx_kernel, padding=(0,1))
+    return F.conv2d(quantity, dx_kernel, padding=(0,1)) / dx
 
 def d_dy(quantity):
-    return F.conv2d(quantity, dy_kernel, padding=(1,0))
+    return F.conv2d(quantity, dy_kernel, padding=(1,0)) / dy
 
 def d2_dx2(quantity):
-    return F.conv2d(quantity, dx2_kernel, padding=(0,1))
+    return F.conv2d(quantity, dx2_kernel, padding=(0,1)) / dx**2
 
 def d2_dy2(quantity):
-    return F.conv2d(quantity, dy2_kernel, padding=(1,0))
+    return F.conv2d(quantity, dy2_kernel, padding=(1,0)) / dy**2
 
 
 class Solver():
