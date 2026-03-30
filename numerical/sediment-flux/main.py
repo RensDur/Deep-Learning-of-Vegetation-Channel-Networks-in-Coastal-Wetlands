@@ -1,6 +1,9 @@
+import os
+import datetime
 from simulation_logic import Solver
 import matplotlib.pyplot as plt
 import threading
+import torch
 import numpy as np
 
 solver = Solver()
@@ -34,6 +37,18 @@ plt.colorbar(momentum_v_plot)
 # In interactive mode, plt.show() immediately returns
 plt.show()
 
+# Store intermediate results after several number of iterations
+store_points = [
+    250_000,
+    300_000,
+    650_000,
+    750_000,
+    1_300_000,
+    1_500_000,
+    2_500_000,
+    5_000_000
+]
+
 # Let the program run until the 'closing event' has been fired
 running = True
 
@@ -65,6 +80,10 @@ def simulation_loop():
     global momentum_u_plot
     global momentum_v_plot
 
+    # Create the storage directory
+    date_time_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    os.makedirs(f"out/{date_time_str}",exist_ok=True)
+
     iter_sum = 0
     n_iter = 1000
 
@@ -72,6 +91,7 @@ def simulation_loop():
         
         try:
             print(f"Iter {iter_sum}")
+            
             solver.run_iters(n_iter)
             iter_sum += n_iter
 
@@ -84,6 +104,26 @@ def simulation_loop():
 
         except:
             running = False
+
+        
+
+        # Store the result if a storage-point has been reached
+        if len(store_points) > 0:
+            if iter_sum >= store_points[0]:
+
+                print(f"Writing iteration {store_points[0]} to disk")
+
+                # Store point reached, store a snapshot
+                os.makedirs(f"out/{date_time_str}/{store_points[0]}",exist_ok=True)
+
+                torch.save(solver.h, f"out/{date_time_str}/{store_points[0]}/h.pt")
+                torch.save(solver.u, f"out/{date_time_str}/{store_points[0]}/u.pt")
+                torch.save(solver.v, f"out/{date_time_str}/{store_points[0]}/v.pt")
+                torch.save(solver.s, f"out/{date_time_str}/{store_points[0]}/s.pt")
+                torch.save(solver.b, f"out/{date_time_str}/{store_points[0]}/b.pt")
+
+                # Onto next store_point
+                del store_points[0]
 
 
 
