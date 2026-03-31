@@ -70,7 +70,7 @@ class FitDataset:
         s, grad_s, _ = self.variables["s"].interpolate_at(self.variables.extract_from(hidden_state, "s"), offset)
 
         # b field: requires first derivative
-        b, grad_b, _ = self.variables["s"].interpolate_at(self.variables.extract_from(hidden_state, "s"), offset)
+        b, grad_b, _ = self.variables["b"].interpolate_at(self.variables.extract_from(hidden_state, "b"), offset)
 
         return h, u, v, s, b
 
@@ -136,6 +136,10 @@ class FitNet(nn.Module):
         self.down2 = nn.Conv2d(self.hidden_size*2, self.hidden_size*2, kernel_size=4, stride=4, padding=0) # Downsample to /4 times the original dimensions
         self.down3 = nn.Conv2d(self.hidden_size*2, self.hidden_size, kernel_size=2, padding=0)
         self.down4 = nn.Conv2d(self.hidden_size, self.spline_variables.hidden_size(), kernel_size=3, padding=1)
+
+        # Convolutional layers for vegetation
+        self.conv_veg_1 = nn.Conv2d(self.spline_variables.hidden_size(), hidden_size*2, kernel_size=3, padding=1)
+        self.conv_veg_2 = nn.Conv2d(hidden_size*2, self.spline_variables["b"].hidden_size(), kernel_size=3, padding=1)
         
         # Fully connected layer
         # self.fcn1 = nn.Linear(self.hidden_size * (self.width-1) * (self.height-1), self.spline_variables.hidden_size() * (self.width-1) * (self.height-1))
@@ -146,6 +150,7 @@ class FitNet(nn.Module):
         self.output_scalar[:, spline_variables.get_singular_slice_for("u"), :, :] = 2
         self.output_scalar[:, spline_variables.get_singular_slice_for("v"), :, :] = 2
         self.output_scalar[:, spline_variables.get_singular_slice_for("s"), :, :] = 2
+        self.output_scalar[:, spline_variables.get_slice_for("b"),:,:] = 2000
         self.output_scalar[:, spline_variables.get_singular_slice_for("b"), :, :] = 2000
 
     def to(self, torch_device):
@@ -177,6 +182,14 @@ class FitNet(nn.Module):
         x = self.down3(x)
         x = torch.relu(x)
         x = self.down4(x)
+
+        # Convolutional layers for vegetation
+        veg = self.output_scalar * torch.tanh(x / self.output_scalar)
+        veg = self.conv_veg_1(veg)
+        veg = torch.relu(veg)
+        veg = self.conv_veg_2(veg)
+
+        x[:, self.spline_variables.get_slice_for("b"),:,:] = veg
 
         # Fully connected layer
         # x = x.reshape(1, self.hidden_size * (self.width-1) * (self.height-1))
@@ -327,6 +340,8 @@ def main():
             loss_v = loss_v / N_SAMPLES
             loss_s = loss_s / N_SAMPLES
             loss_b = loss_b / N_SAMPLES
+
+            loss_b = loss_b / 2_250_000
 
             # Log loss
             loss_h = torch.log(loss_h + 1e-5)
