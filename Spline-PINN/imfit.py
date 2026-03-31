@@ -2,6 +2,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.optim import Adam
+from pcgrad.pcgrad import PCGrad
 import numpy as np
 import math
 from spline.spline_variable import SplineVariable
@@ -201,6 +202,7 @@ def main():
 
     # Optimizer
     optimizer = Adam(net.parameters(), lr=0.0001)
+    optimizer = PCGrad(optimizer)
 
     # Enable training
     net.train()
@@ -216,34 +218,34 @@ def main():
 
     # Setup visualisation
 
-    # Plot domain (first time)
-    plt.ion()
+    # # Plot domain (first time)
+    # plt.ion()
 
-    # Create subplots
-    figure, axs = plt.subplots(2, 2, figsize=(20, 10))
+    # # Create subplots
+    # figure, axs = plt.subplots(2, 2, figsize=(20, 10))
 
-    sediment_plot = axs[0, 0].imshow(ref_s[0,0].clone().detach().cpu().numpy(), cmap="gray", vmin=0, vmax=0.2)
-    sediment_plot_under_veg = axs[0, 1].imshow(ref_s[0,0].clone().detach().cpu().numpy(), cmap="gray", vmin=0, vmax=0.2)
-    vegetation_plot = axs[0, 1].imshow(ref_b[0,0].clone().detach().cpu().numpy(), cmap="YlGn", vmin=0, vmax=1500, alpha=0.8)
+    # sediment_plot = axs[0, 0].imshow(ref_s[0,0].clone().detach().cpu().numpy(), cmap="gray", vmin=0, vmax=0.2)
+    # sediment_plot_under_veg = axs[0, 1].imshow(ref_s[0,0].clone().detach().cpu().numpy(), cmap="gray", vmin=0, vmax=0.2)
+    # vegetation_plot = axs[0, 1].imshow(ref_b[0,0].clone().detach().cpu().numpy(), cmap="YlGn", vmin=0, vmax=1500, alpha=0.8)
 
-    momentum_u_plot = axs[1, 0].imshow(ref_u[0,0].clone().detach().cpu().numpy(), cmap="bwr", vmin=-0.2, vmax=0.2)
-    momentum_v_plot = axs[1, 1].imshow(ref_v[0,0].clone().detach().cpu().numpy(), cmap="bwr", vmin=-0.2, vmax=0.2)
+    # momentum_u_plot = axs[1, 0].imshow(ref_u[0,0].clone().detach().cpu().numpy(), cmap="bwr", vmin=-0.2, vmax=0.2)
+    # momentum_v_plot = axs[1, 1].imshow(ref_v[0,0].clone().detach().cpu().numpy(), cmap="bwr", vmin=-0.2, vmax=0.2)
 
-    # setting title
-    axs[0, 0].set(title="Sediment bed", xlabel="Cross shore", ylabel="Along shore")
-    axs[0, 1].set(title="Sediment bed with vegetation", xlabel="Cross shore", ylabel="Along shore")
-    axs[1, 0].set(title="Momentum u (x-direction)", xlabel="Cross shore", ylabel="Along shore")
-    axs[1, 1].set(title="Momentum v (y-direction)", xlabel="Cross shore", ylabel="Along shore")
+    # # setting title
+    # axs[0, 0].set(title="Sediment bed", xlabel="Cross shore", ylabel="Along shore")
+    # axs[0, 1].set(title="Sediment bed with vegetation", xlabel="Cross shore", ylabel="Along shore")
+    # axs[1, 0].set(title="Momentum u (x-direction)", xlabel="Cross shore", ylabel="Along shore")
+    # axs[1, 1].set(title="Momentum v (y-direction)", xlabel="Cross shore", ylabel="Along shore")
 
-    # Color bars
-    plt.colorbar(sediment_plot)
-    plt.colorbar(sediment_plot_under_veg)
-    plt.colorbar(vegetation_plot)
-    plt.colorbar(momentum_u_plot)
-    plt.colorbar(momentum_v_plot)
+    # # Color bars
+    # plt.colorbar(sediment_plot)
+    # plt.colorbar(sediment_plot_under_veg)
+    # plt.colorbar(vegetation_plot)
+    # plt.colorbar(momentum_u_plot)
+    # plt.colorbar(momentum_v_plot)
 
-    # In interactive mode, plt.show() immediately returns
-    plt.show()
+    # # In interactive mode, plt.show() immediately returns
+    # plt.show()
 
     # Loss function
     def __loss_function(x):
@@ -300,11 +302,29 @@ def main():
             loss_b = loss_b / N_SAMPLES
 
             # Log loss
-            loss = torch.log(loss_h + loss_u + loss_v + loss_s + loss_b)
+            loss_h = torch.log(loss_h + 1e-5)
+            loss_u = torch.log(loss_u + 1e-5)
+            loss_v = torch.log(loss_v + 1e-5)
+            loss_s = torch.log(loss_s + 1e-5)
+            loss_b = torch.log(loss_b + 1e-5)
+
+            # Sum loss for stats
+            loss = loss_h + loss_u + loss_v + loss_s + loss_b
+
+            # PCGrad losses
+            pcgrad_losses = [
+                loss_h,
+                loss_u,
+                loss_v,
+                loss_s,
+                loss_b,
+            ]
 
             # Backprop
             net.zero_grad()
-            loss.backward()
+            
+            # PCGrad backprop
+            optimizer.pc_backward(pcgrad_losses)
 
             # Optimization step
             optimizer.step()
@@ -313,24 +333,24 @@ def main():
             dataset.hidden_state = output_hidden_state.detach()
 
         # Report loss
-        print(f"Loss: {loss}")
+        print(f"Loss (epoch {epoch}): {loss}")
 
-        # Update the visuals
-        h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = dataset.interpolate_superres(output_hidden_state, resolution_factor)
+        # # Update the visuals
+        # h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = dataset.interpolate_superres(output_hidden_state, resolution_factor)
 
-        sediment_plot.set_data(s[0,0].detach().cpu().numpy())
-        sediment_plot_under_veg.set_data(s[0,0].detach().cpu().numpy())
-        vegetation_plot.set_data(b[0,0].detach().cpu().numpy())
+        # sediment_plot.set_data(s[0,0].detach().cpu().numpy())
+        # sediment_plot_under_veg.set_data(s[0,0].detach().cpu().numpy())
+        # vegetation_plot.set_data(b[0,0].detach().cpu().numpy())
 
-        momentum_u_plot.set_data(u[0,0].detach().cpu().numpy())
-        momentum_v_plot.set_data(v[0,0].detach().cpu().numpy())
+        # momentum_u_plot.set_data(u[0,0].detach().cpu().numpy())
+        # momentum_v_plot.set_data(v[0,0].detach().cpu().numpy())
 
-        # Plot the domain (update existing plot)
-        # Draw updated values
-        figure.canvas.draw()
+        # # Plot the domain (update existing plot)
+        # # Draw updated values
+        # figure.canvas.draw()
 
-        # UI Loop: process all pending UI events
-        figure.canvas.flush_events()
+        # # UI Loop: process all pending UI events
+        # figure.canvas.flush_events()
 
 
 
