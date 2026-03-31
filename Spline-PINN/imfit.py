@@ -256,7 +256,7 @@ def main():
         return torch.pow(x, 2)
 
     # Training loop
-    EPOCHS = 100
+    EPOCHS = 1000
     N_BATCHES = 10
     N_SAMPLES = 50
     resolution_factor = 4
@@ -343,6 +343,10 @@ def main():
             if loss < min_loss:
                 min_loss = loss
                 torch.save(dataset.hidden_state, f"numerical_spline_converted/2026-03-30 21:24:45/2500000/hidden_state.pt")
+
+                # Report the loss
+                with open(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/min_loss.txt", "w") as file:
+                    file.write(f"Minimum loss stored: {min_loss}")
 
         # Report loss
         print(f"Loss (epoch {epoch}): {loss}")
