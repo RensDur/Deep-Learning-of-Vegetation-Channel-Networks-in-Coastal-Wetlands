@@ -220,6 +220,26 @@ def main():
     # Create a folder for the hidden state output
     os.makedirs(f"numerical_spline_converted/2026-03-30 21:24:45/2500000",exist_ok=True)
 
+    # Create an empty file for every loss component
+    with open(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_h.txt", "w") as file:
+        file.write(f"loss_h\n")
+    with open(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_u.txt", "w") as file:
+        file.write(f"loss_u\n")
+    with open(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_v.txt", "w") as file:
+        file.write(f"loss_v\n")
+    with open(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_s.txt", "w") as file:
+        file.write(f"loss_s\n")
+    with open(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_b.txt", "w") as file:
+        file.write(f"loss_b\n")
+    with open(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_total.txt", "w") as file:
+        file.write(f"loss_total\n")
+
+    # Try to load the latest hidden state
+    try:
+        dataset.hidden_state = torch.load(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/hidden_state.pt")
+    except:
+        print(f"Unable to load previous optimal hidden state from disk")
+
     # Setup visualisation
 
     # # Plot domain (first time)
@@ -338,6 +358,20 @@ def main():
 
             # Put the hidden state back
             dataset.hidden_state = output_hidden_state.detach()
+
+            # Report the progression of loss
+            with open(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_h.txt", "a") as file:
+                file.write(f"{loss_h}\n")
+            with open(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_u.txt", "a") as file:
+                file.write(f"{loss_u}\n")
+            with open(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_v.txt", "a") as file:
+                file.write(f"{loss_v}\n")
+            with open(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_s.txt", "a") as file:
+                file.write(f"{loss_s}\n")
+            with open(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_b.txt", "a") as file:
+                file.write(f"{loss_b}\n")
+            with open(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_total.txt", "a") as file:
+                file.write(f"{loss}\n")
 
             # If this was the best run until now, save the state
             if loss < min_loss:
