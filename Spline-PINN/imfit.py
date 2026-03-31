@@ -105,7 +105,7 @@ class FitDataset:
 
 class FitNet(nn.Module):
 
-    def __init__(self, spline_variables, hidden_size=64):
+    def __init__(self, spline_variables, channels, width, height, resolution_factor, hidden_size=16):
         """
         :orders_v: order of spline for velocity potential (should be at least 2)
         :orders_p: order of spline for pressure field
@@ -117,12 +117,26 @@ class FitNet(nn.Module):
         self.hidden_size = hidden_size
         self.spline_variables = spline_variables
 
+        self.width = width
+        self.height = height
+        self.width_fullres = self.width * resolution_factor
+        self.height_fullres = self.height * resolution_factor
+
+        self.img_channels = channels
+
         # Convolutional layers
-        self.conv1 = nn.Conv2d(self.spline_variables.hidden_size(), self.hidden_size, kernel_size=3, padding=1)
+        self.conv1 = nn.Conv2d(self.img_channels, self.hidden_size, kernel_size=3, padding=1)
         self.conv2 = nn.Conv2d(self.hidden_size, self.hidden_size, kernel_size=3, padding=1)
         self.conv3 = nn.Conv2d(self.hidden_size, self.hidden_size, kernel_size=3, padding=1)
-        self.conv4 = nn.Conv2d(self.hidden_size, self.hidden_size, kernel_size=3, padding=1)
-        self.conv5 = nn.Conv2d(self.hidden_size, self.spline_variables.hidden_size(), kernel_size=3, padding=1)
+
+        # Downsampling layers
+        self.down1 = nn.Conv2d(self.hidden_size, self.hidden_size*2, kernel_size=9, padding=4)  # Maintain resolution, capture large-distance influences
+        self.down2 = nn.Conv2d(self.hidden_size*2, self.hidden_size*2, kernel_size=4, stride=4, padding=0) # Downsample to /4 times the original dimensions
+        self.down3 = nn.Conv2d(self.hidden_size*2, self.hidden_size, kernel_size=2, padding=0)
+        self.down4 = nn.Conv2d(self.hidden_size, self.spline_variables.hidden_size(), kernel_size=3, padding=1)
+        
+        # Fully connected layer
+        # self.fcn1 = nn.Linear(self.hidden_size * (self.width-1) * (self.height-1), self.spline_variables.hidden_size() * (self.width-1) * (self.height-1))
 
         self.output_scalar = torch.ones(1, self.spline_variables.hidden_size(), 1, 1)*2
 
@@ -137,7 +151,7 @@ class FitNet(nn.Module):
         self.output_scalar = self.output_scalar.to(torch_device)
         return self
 
-    def forward(self, hidden_state):
+    def forward(self, input_image):
         """
         :hidden_state: old hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
         :v_cond: velocity (dirichlet) conditions on boundaries (average value within cell): bs x 2 x w x h
@@ -145,15 +159,27 @@ class FitNet(nn.Module):
         :return: new hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
         """
 
-        x = self.conv1(hidden_state)
+        # Convolutional layers
+        x = self.conv1(input_image)
         x = torch.relu(x)
         x = self.conv2(x)
         x = torch.relu(x)
         x = self.conv3(x)
         x = torch.relu(x)
-        x = self.conv4(x)
+        
+        # Downsampling layers
+        x = self.down1(x)
         x = torch.relu(x)
-        x = self.conv5(x)
+        x = self.down2(x)
+        x = torch.relu(x)
+        x = self.down3(x)
+        x = torch.relu(x)
+        x = self.down4(x)
+
+        # Fully connected layer
+        # x = x.reshape(1, self.hidden_size * (self.width-1) * (self.height-1))
+        # x = self.fcn1(x)
+        # x = x.reshape(1, self.spline_variables.hidden_size(), self.width-1, self.height-1)
 
         out = self.output_scalar * torch.tanh(x / self.output_scalar)
 
@@ -171,7 +197,7 @@ def main():
     
     dataset = FitDataset(200, 200, torch_device)
 
-    net = FitNet(dataset.variables).to(torch_device)
+    net = FitNet(dataset.variables, 5, 200, 200, 4).to(torch_device)
 
     # Optimizer
     optimizer = Adam(net.parameters(), lr=0.0001)
@@ -185,6 +211,8 @@ def main():
     ref_v = torch.load("../numerical/sediment-flux/out/2026-03-30 21:24:45/2500000/v.pt").to(torch_device)
     ref_s = torch.load("../numerical/sediment-flux/out/2026-03-30 21:24:45/2500000/s.pt").to(torch_device)
     ref_b = torch.load("../numerical/sediment-flux/out/2026-03-30 21:24:45/2500000/b.pt").to(torch_device)
+
+    input_image = torch.cat([ref_h, ref_u, ref_v, ref_s, ref_b], dim=1)
 
     # Setup visualisation
 
@@ -230,7 +258,7 @@ def main():
     for epoch in range(EPOCHS):
         for batch in range(N_BATCHES):
 
-            output_hidden_state = net(dataset.hidden_state)
+            output_hidden_state = net(input_image)
 
             loss_h = 0
             loss_u = 0
