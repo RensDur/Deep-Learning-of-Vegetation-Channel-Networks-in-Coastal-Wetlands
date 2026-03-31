@@ -3,6 +3,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.optim import Adam
+from itertools import chain
 from pcgrad.pcgrad import PCGrad
 import numpy as np
 import math
@@ -107,7 +108,7 @@ class FitDataset:
 
 class FitNet(nn.Module):
 
-    def __init__(self, spline_variables, channels, width, height, resolution_factor, hidden_size=16):
+    def __init__(self, out_channels, hidden_size=32, output_scalar=2):
         """
         :orders_v: order of spline for velocity potential (should be at least 2)
         :orders_p: order of spline for pressure field
@@ -116,47 +117,21 @@ class FitNet(nn.Module):
         """
         super(FitNet, self).__init__()
 
-        self.hidden_size = hidden_size
-        self.spline_variables = spline_variables
-
-        self.width = width
-        self.height = height
-        self.width_fullres = self.width * resolution_factor
-        self.height_fullres = self.height * resolution_factor
-
-        self.img_channels = channels
+        self.hidden_size = out_channels
+        self.out_channels = out_channels
 
         # Convolutional layers
-        self.conv1 = nn.Conv2d(self.img_channels, self.hidden_size, kernel_size=3, padding=1)
+        self.conv1 = nn.Conv2d(1, self.hidden_size, kernel_size=3, padding=1)
         self.conv2 = nn.Conv2d(self.hidden_size, self.hidden_size, kernel_size=3, padding=1)
-        self.conv3 = nn.Conv2d(self.hidden_size, self.hidden_size, kernel_size=3, padding=1)
+        self.conv3 = nn.Conv2d(self.hidden_size, self.hidden_size*2, kernel_size=3, padding=1)
 
         # Downsampling layers
-        self.down1 = nn.Conv2d(self.hidden_size, self.hidden_size*2, kernel_size=9, padding=4)  # Maintain resolution, capture large-distance influences
+        self.down1 = nn.Conv2d(self.hidden_size*2, self.hidden_size*2, kernel_size=9, padding=4)  # Maintain resolution, capture large-distance influences
         self.down2 = nn.Conv2d(self.hidden_size*2, self.hidden_size*2, kernel_size=4, stride=4, padding=0) # Downsample to /4 times the original dimensions
         self.down3 = nn.Conv2d(self.hidden_size*2, self.hidden_size, kernel_size=2, padding=0)
-        self.down4 = nn.Conv2d(self.hidden_size, self.spline_variables.hidden_size(), kernel_size=3, padding=1)
+        self.down4 = nn.Conv2d(self.hidden_size, out_channels, kernel_size=3, padding=1)
 
-        # Convolutional layers for vegetation
-        self.conv_veg_1 = nn.Conv2d(self.spline_variables.hidden_size(), hidden_size*2, kernel_size=3, padding=1)
-        self.conv_veg_2 = nn.Conv2d(hidden_size*2, self.spline_variables["b"].hidden_size(), kernel_size=3, padding=1)
-        
-        # Fully connected layer
-        # self.fcn1 = nn.Linear(self.hidden_size * (self.width-1) * (self.height-1), self.spline_variables.hidden_size() * (self.width-1) * (self.height-1))
-
-        self.output_scalar = torch.ones(1, self.spline_variables.hidden_size(), 1, 1)*2
-
-        self.output_scalar[:, spline_variables.get_singular_slice_for("h"), :, :] = 2
-        self.output_scalar[:, spline_variables.get_singular_slice_for("u"), :, :] = 2
-        self.output_scalar[:, spline_variables.get_singular_slice_for("v"), :, :] = 2
-        self.output_scalar[:, spline_variables.get_singular_slice_for("s"), :, :] = 2
-        self.output_scalar[:, spline_variables.get_slice_for("b"),:,:] = 2000
-        self.output_scalar[:, spline_variables.get_singular_slice_for("b"), :, :] = 2000
-
-    def to(self, torch_device):
-        super(FitNet, self).to(torch_device)
-        self.output_scalar = self.output_scalar.to(torch_device)
-        return self
+        self.output_scalar = output_scalar
 
     def forward(self, input_image):
         """
@@ -166,8 +141,10 @@ class FitNet(nn.Module):
         :return: new hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
         """
 
+        x = input_image
+
         # Convolutional layers
-        x = self.conv1(input_image)
+        x = self.conv1(x)
         x = torch.relu(x)
         x = self.conv2(x)
         x = torch.relu(x)
@@ -183,20 +160,57 @@ class FitNet(nn.Module):
         x = torch.relu(x)
         x = self.down4(x)
 
-        # Convolutional layers for vegetation
-        veg = self.output_scalar * torch.tanh(x / self.output_scalar)
-        veg = self.conv_veg_1(veg)
-        veg = torch.relu(veg)
-        veg = self.conv_veg_2(veg)
-
-        x[:, self.spline_variables.get_slice_for("b"),:,:] = veg
-
-        # Fully connected layer
-        # x = x.reshape(1, self.hidden_size * (self.width-1) * (self.height-1))
-        # x = self.fcn1(x)
-        # x = x.reshape(1, self.spline_variables.hidden_size(), self.width-1, self.height-1)
 
         out = self.output_scalar * torch.tanh(x / self.output_scalar)
+
+        return out
+
+
+class CompoundFitNet(nn.Module):
+
+    def __init__(self, spline_variables):
+        super(CompoundFitNet, self).__init__()
+
+        self.spline_variables = spline_variables
+
+        self.img_channels = len(self.spline_variables) # Number of channels in the input image
+
+        # For each image channel, we dedicate a separate FitNet
+        self.nets: list[FitNet] = [FitNet(self.spline_variables[i].hidden_size()) for i in range(len(self.spline_variables))]
+
+        # Vegetation requires a larger output scalar
+        self.nets[-1].output_scalar = 2000
+
+    def to(self, torch_device):
+        super(CompoundFitNet, self).to(torch_device)
+        self.nets = [n.to(torch_device) for n in self.nets]
+        return self
+
+    def train(self):
+        [n.train() for n in self.nets]
+
+    def eval(self):
+        [n.eval() for n in self.nets]
+
+    def parameters(self):
+        return chain.from_iterable(n.parameters() for n in self.nets)
+
+    def forward(self, input_image):
+        """
+        :hidden_state: old hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
+        :v_cond: velocity (dirichlet) conditions on boundaries (average value within cell): bs x 2 x w x h
+        :v_mask: mask for boundary conditions (average value within cell): bs x 1 x w x h
+        :return: new hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
+        """
+
+        compound = []
+
+        for i in range(self.img_channels):
+            compound.append(
+                self.nets[i](input_image[:,i:i+1,:,:])
+            )
+
+        out = torch.cat(compound, dim=1)
 
         return out
 
@@ -212,14 +226,14 @@ def main():
     
     dataset = FitDataset(200, 200, torch_device)
 
-    net = FitNet(dataset.variables, 5, 200, 200, 4).to(torch_device)
+    net = CompoundFitNet(dataset.variables).to(torch_device)
+
+    # Enable training
+    net.train()
 
     # Optimizer
     optimizer = Adam(net.parameters(), lr=0.0001)
     optimizer = PCGrad(optimizer)
-
-    # Enable training
-    net.train()
 
     # Load reference images from disk
     ref_h = torch.load("numerical_output/2026-03-30 21:24:45/2500000/h.pt").to(torch_device)
@@ -341,7 +355,7 @@ def main():
             loss_s = loss_s / N_SAMPLES
             loss_b = loss_b / N_SAMPLES
 
-            loss_b = loss_b / 2_250_000
+            loss_b = loss_b / 1500**2
 
             # Log loss
             loss_h = torch.log(loss_h + 1e-5)
