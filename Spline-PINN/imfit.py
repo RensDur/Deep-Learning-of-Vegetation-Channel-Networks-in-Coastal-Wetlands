@@ -208,11 +208,11 @@ def main():
     net.train()
 
     # Load reference images from disk
-    ref_h = torch.load("../numerical/sediment-flux/out/2026-03-30 21:24:45/2500000/h.pt").to(torch_device)
-    ref_u = torch.load("../numerical/sediment-flux/out/2026-03-30 21:24:45/2500000/u.pt").to(torch_device)
-    ref_v = torch.load("../numerical/sediment-flux/out/2026-03-30 21:24:45/2500000/v.pt").to(torch_device)
-    ref_s = torch.load("../numerical/sediment-flux/out/2026-03-30 21:24:45/2500000/s.pt").to(torch_device)
-    ref_b = torch.load("../numerical/sediment-flux/out/2026-03-30 21:24:45/2500000/b.pt").to(torch_device)
+    ref_h = torch.load("numerical_output/2026-03-30 21:24:45/2500000/h.pt").to(torch_device)
+    ref_u = torch.load("numerical_output/2026-03-30 21:24:45/2500000/u.pt").to(torch_device)
+    ref_v = torch.load("numerical_output/2026-03-30 21:24:45/2500000/v.pt").to(torch_device)
+    ref_s = torch.load("numerical_output/2026-03-30 21:24:45/2500000/s.pt").to(torch_device)
+    ref_b = torch.load("numerical_output/2026-03-30 21:24:45/2500000/b.pt").to(torch_device)
 
     input_image = torch.cat([ref_h, ref_u, ref_v, ref_s, ref_b], dim=1)
 
