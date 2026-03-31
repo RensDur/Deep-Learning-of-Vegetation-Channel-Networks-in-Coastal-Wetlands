@@ -1,3 +1,4 @@
+import os
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -216,6 +217,9 @@ def main():
 
     input_image = torch.cat([ref_h, ref_u, ref_v, ref_s, ref_b], dim=1)
 
+    # Create a folder for the hidden state output
+    os.makedirs(f"numerical_spline_converted/2026-03-30 21:24:45/2500000",exist_ok=True)
+
     # Setup visualisation
 
     # # Plot domain (first time)
@@ -256,6 +260,9 @@ def main():
     N_BATCHES = 10
     N_SAMPLES = 50
     resolution_factor = 4
+
+    # Store the minimum loss output
+    min_loss = 10
 
     for epoch in range(EPOCHS):
         for batch in range(N_BATCHES):
@@ -331,6 +338,11 @@ def main():
 
             # Put the hidden state back
             dataset.hidden_state = output_hidden_state.detach()
+
+            # If this was the best run until now, save the state
+            if loss < min_loss:
+                min_loss = loss
+                torch.save(dataset.hidden_state, f"numerical_spline_converted/2026-03-30 21:24:45/2500000/hidden_state.pt")
 
         # Report loss
         print(f"Loss (epoch {epoch}): {loss}")
