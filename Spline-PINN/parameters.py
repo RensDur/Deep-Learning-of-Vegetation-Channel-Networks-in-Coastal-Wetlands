@@ -59,12 +59,12 @@ def params():
     # Domain parameters
 	parser.add_argument('--Hin', default=1e-5, type=float, help="")
 	parser.add_argument('--Hc', default=1e-3, type=float, help="")
-	parser.add_argument('--H0', default=1, type=float, help="Initial water thickness")
-	parser.add_argument("--wave_size", default=0.5, type=float, help="Wave height for SWE")
-	parser.add_argument("--epsilon", default=0.0001, type=float, help="Wave damping factor epsilon")
-	parser.add_argument("--k_epsilon", default=0.001, type=float, help="Wave damping factor k")
-	parser.add_argument("--f_epsilon", default=0.01, type=float, help="Wave damping factor f")
-	parser.add_argument("--nu", default=0.5, type=float, help="")
+	parser.add_argument('--H0', default=0.02, type=float, help="Initial water thickness")
+	# parser.add_argument("--wave_size", default=0.5, type=float, help="Wave height for SWE")
+	# parser.add_argument("--epsilon", default=0.0001, type=float, help="Wave damping factor epsilon")
+	# parser.add_argument("--k_epsilon", default=0.001, type=float, help="Wave damping factor k")
+	# parser.add_argument("--f_epsilon", default=0.01, type=float, help="Wave damping factor f")
+	# parser.add_argument("--nu", default=0.5, type=float, help="")
 	parser.add_argument('--grav', default=9.81, type=float, help="")
 	parser.add_argument('--rho', default=1000, type=float, help="Water density")
 	parser.add_argument('--Du', default=0.5, type=float, help="Turbulent Eddy velocity")
@@ -104,7 +104,7 @@ def params():
 	return params
 
 def get_description(params):
-    return f"net {params.net}; hs {params.hidden_size}; ws {params.wave_size}; dt {params.dt};"
+    return f"net {params.net}; hs {params.hidden_size}; dt {params.dt};"
 
 def get_hyperparam_fluid(params):
 	return f"fluid net {params.net}; hs {params.hidden_size}; ov {params.orders_v}; op {params.orders_p}; mu {params.mu}; rho {params.rho}; dt {params.dt};"
