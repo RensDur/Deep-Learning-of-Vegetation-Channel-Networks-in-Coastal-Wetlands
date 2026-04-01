@@ -86,6 +86,7 @@ class SplinePINNSolver:
         loss_u = 0
         loss_v = 0
         loss_s = 0
+        loss_b = 0
         loss_bound = 0
         loss_damp = 0
 
@@ -109,7 +110,6 @@ class SplinePINNSolver:
             h, grad_h, dh_dt, u, grad_u, laplacian_u, du_dt, v, grad_v, laplacian_v, dv_dt, s, grad_s, laplacian_s, ds_dt, b, grad_b, laplacian_b, db_dt = self.dataset.interpolate_states(old_hidden_state, new_hidden_state, offset)
 
             # Add mean water level height
-            h = h + self.params.H0
             h = F.relu(h - self.params.Hc) + self.params.Hc
 
             #
@@ -164,55 +164,70 @@ class SplinePINNSolver:
                 ds_dt - self.params.Sin * (he / (self.params.Qs + he)) + self.params.Es * (1.0 - self.params.pE * (b/self.params.k)) * s * tau_b_per_rho - div_Ds_grad_S
             ), dim)
 
+            # Vegetation loss
+            loss_b = loss_b + torch.mean(self.loss_function(
+                db_dt - self.params.r * b * (1.0 - (b/self.params.k)) * (self.params.Qq / (self.params.Qq + he)) + self.params.EB * b * tau_b_per_rho - self.params.DB * laplacian_B
+            ), dim)
+
             # h boundary condition loss
             loss_bound_h = torch.mean(sample_h_mask[:,:,1:-1,1:-1] * self.loss_function(
                 h - (sample_h_cond[:,:,1:-1,1:-1] + self.params.H0)
             ), dim)
 
+            #
             # Boundary condition loss
-            loss_bound_u = torch.mean(sample_hu_mask[:,:,1:-1,1:-1] * self.loss_function(
-                hu - sample_hu_cond[:,:,1:-1,1:-1]
+            #
+
+            # Closed boundary
+            loss_bound_closed = torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
+                grad_h
             ), dim)
 
-            loss_bound_u_grad_hx = torch.mean(sample_hu_mask[:,:,1:-1,1:-1] * self.loss_function(
-                grad_h[:,1:2]
+            loss_bound_closed = loss_bound_closed + torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
+                u
             ), dim)
 
-            loss_bound_v = torch.mean(sample_hv_mask[:,:,1:-1,1:-1] * self.loss_function(
-                hv - sample_hv_cond[:,:,1:-1,1:-1]
+            loss_bound_closed = loss_bound_closed + torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
+                v
             ), dim)
 
-            loss_bound_v_grad_hy = torch.mean(sample_hv_mask[:,:,1:-1,1:-1] * self.loss_function(
-                grad_h[:,0:1]
+            loss_bound_closed = loss_bound_closed + torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
+                grad_s
             ), dim)
 
-            # Sedimentary BC loss
-            loss_bound_s = torch.mean(sample_s_mask[:,:,1:-1,1:-1] * self.loss_function(
-                s - sample_s_cond[:,:,1:-1,1:-1]
+            loss_bound_closed = loss_bound_closed + torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
+                grad_b
             ), dim)
 
-            loss_bound_s_grad_hu = torch.mean(sample_s_mask[:,:,1:-1,1:-1] * self.loss_function(
-                grad_hu
+            # Open boundary
+            loss_bound_open = torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
+                grad_h
             ), dim)
 
-            loss_bound_s_grad_hv = torch.mean(sample_s_mask[:,:,1:-1,1:-1] * self.loss_function(
-                grad_hv
+            loss_bound_open = loss_bound_open + torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
+                grad_u
             ), dim)
 
-            loss_bound = loss_bound + loss_bound_h + loss_bound_u + loss_bound_u_grad_hx + loss_bound_v + loss_bound_v_grad_hy + loss_bound_s + loss_bound_s_grad_hu + loss_bound_s_grad_hv
+            loss_bound_open = loss_bound_open + torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
+                grad_v
+            ), dim)
 
-            # Damping loss
-            # loss_damp_h = torch.mean(self.loss_function(grad_h), dim)
-            # loss_damp_u = torch.mean(self.loss_function(u), dim)
-            # loss_damp_v = torch.mean(self.loss_function(v), dim)
+            loss_bound_open = loss_bound_open + torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
+                s # S = 0
+            ), dim)
 
-            # loss_damp = loss_damp + self.damp_loss_factor * (loss_damp_h + loss_damp_u + loss_damp_v)
+            loss_bound_open = loss_bound_open + torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
+                grad_b
+            ), dim)
+
+            loss_bound = loss_bound + loss_bound_closed + loss_bound_open
 
         # Multiply by the loss weights
         loss_h = loss_h * self.params.loss_h
         loss_u = loss_u * self.params.loss_momentum
         loss_v = loss_v * self.params.loss_momentum
         loss_s = loss_s * self.params.loss_s
+        loss_b = loss_b * self.params.loss_b
         loss_bound = loss_bound * self.params.loss_bound
 
         # Normalize towards the number of samples taken
@@ -220,10 +235,13 @@ class SplinePINNSolver:
         loss_u = loss_u / self.params.n_samples
         loss_v = loss_v / self.params.n_samples
         loss_s = loss_s / self.params.n_samples
+        loss_b = loss_b / self.params.n_samples
         loss_bound = loss_bound / self.params.n_samples
-        # loss_damp = loss_damp / self.params.n_samples
 
-        return loss_h, loss_u, loss_v, loss_s, loss_bound
+        # Normalize vegetation loss for scale-difference
+        loss_b = loss_b / self.parameters.k**2
+
+        return loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound
 
     def train(self):
         """
@@ -372,12 +390,12 @@ class SplinePINNSolver:
                 if self.params.plot_loss:
                     dim = [1]
 
-                loss_h, loss_u, loss_v, loss_s, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, dim)
+                loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, dim)
 
 
                 if self.params.plot_loss:
                     # Combine the losses to create a loss_tensor image
-                    loss_tensor = torch.mean(loss_h + loss_u + loss_v + loss_s + loss_bound, dim=0)
+                    loss_tensor = torch.mean(loss_h + loss_u + loss_v + loss_s + loss_b + loss_bound, dim=0)
 
                     # Compute total loss value
                     loss_total = torch.log(torch.mean(loss_tensor))
@@ -387,6 +405,7 @@ class SplinePINNSolver:
                     loss_u = torch.mean(loss_u, dim=[1,2])
                     loss_v = torch.mean(loss_v, dim=[1,2])
                     loss_s = torch.mean(loss_s, dim=[1,2])
+                    loss_b = torch.mean(loss_b, dim=[1,2])
                     loss_bound = torch.mean(loss_bound, dim=[1,2])
 
                 # Log loss (per term)
@@ -395,12 +414,14 @@ class SplinePINNSolver:
                     loss_u = torch.log(loss_u + 0.0001)
                     loss_v = torch.log(loss_v + 0.0001)
                     loss_s = torch.log(loss_s + 0.0001)
+                    loss_b = torch.log(loss_b + 0.0001)
                     loss_bound = torch.log(loss_bound + 0.0001)
 
                 # Compute the loss terms we would like to consider separate learning tasks for PCGrad
                 loss_h = torch.mean(loss_h)
                 loss_momentum = torch.mean(loss_u + loss_v)
                 loss_sediment = torch.mean(loss_s)
+                loss_vegetation = torch.mean(loss_b)
                 loss_bound = torch.mean(loss_bound)
 
                 # For backprop using PCGrad, construct each loss term
@@ -459,6 +480,7 @@ class SplinePINNSolver:
                     self.logger.log("loss_h", loss_h.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
                     self.logger.log("loss_momentum", loss_momentum.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
                     self.logger.log("loss_sediment", loss_sediment.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
+                    self.logger.log("loss_vegetation", loss_vegetation.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
                     self.logger.log("loss_bound", loss_bound.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
 
                     # log_index = epoch * self.params.n_batches_per_epoch + i
