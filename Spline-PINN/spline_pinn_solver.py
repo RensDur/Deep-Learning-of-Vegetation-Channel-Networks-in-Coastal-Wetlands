@@ -55,10 +55,10 @@ class SplinePINNSolver:
         # Training Stage
         #
         self.training_sediment = False
-        self.training_sediment_start_epoch = 100
+        self.training_sediment_start_epoch = 20
 
         self.training_vegetation = False
-        self.training_vegetation_start_epoch = 200
+        self.training_vegetation_start_epoch = 40
 
         #
         # Diffusion operation (needed, if we want to put more loss-weight to regions close to the domain boundaries)
@@ -456,9 +456,13 @@ class SplinePINNSolver:
                 if self.training_sediment:
                     pcgrad_losses.append(loss_sediment)
 
+                if self.training_vegetation:
+                    pcgrad_losses.append(loss_vegetation)
+
                 # Reset old gradients to 0 and compute new gradients with backpropagation
                 self.water_net.zero_grad()
                 self.sediment_net.zero_grad()
+                self.vegetation_net.zero_grad()
                 
                 # PCGrad backprop pass
                 self.optimizer.pc_backward(pcgrad_losses)
@@ -560,6 +564,9 @@ class SplinePINNSolver:
                 if self.training_sediment:
                     self.logger.save_state("sediment_net", self.sediment_net, self.optimizer, epoch + 1)
 
+                if self.training_vegetation:
+                    self.logger.save_state("vegetation_net", self.vegetation_net, self.optimizer, epoch + 1)
+
 
     def visualize(self, window):
         """
@@ -578,10 +585,12 @@ class SplinePINNSolver:
         # Load the trained model state
         date_time, index = self.logger.load_state("water_net", self.water_net, None, datetime=self.params.load_date_time, index=self.params.load_index)
         date_time, index = self.logger.load_state("sediment_net", self.sediment_net, None, datetime=self.params.load_date_time, index=self.params.load_index)
+        date_time, index = self.logger.load_state("vegetation_net", self.vegetation_net, None, datetime=self.params.load_date_time, index=self.params.load_index)
 
         # Enable evaluation of the model
         self.water_net.eval()
         self.sediment_net.eval()
+        self.vegetation_net.eval()
 
         print(f"Loaded {self.params.net}: {date_time}, index: {index}")
 
