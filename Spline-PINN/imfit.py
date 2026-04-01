@@ -1,4 +1,5 @@
 import os
+import sys
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -215,14 +216,7 @@ class CompoundFitNet(nn.Module):
         return out
 
 
-def main():
-
-    torch_device = torch.device("cpu")
-
-    if torch.backends.mps.is_available():
-        torch_device = torch.device("mps")
-    elif torch.cuda.is_available():
-        torch_device = torch.device("cuda")
+def training_loop(torch_device):
     
     dataset = FitDataset(200, 200, torch_device)
 
@@ -432,11 +426,111 @@ def main():
         # figure.canvas.flush_events()
 
 
+def evaluation_loop(torch_device):
+       
+    dataset = FitDataset(200, 200, torch_device)
 
+    # Try to load the latest hidden state
+    try:
+        dataset.hidden_state = torch.load(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/hidden_state.pt").to(torch_device)
+    except:
+        print(f"Unable to load previous optimal hidden state from disk")
+
+    # Load reference images from disk
+    ref_h = torch.load("numerical_output/2026-03-30 21:24:45/2500000/h.pt").to(torch_device)
+    ref_u = torch.load("numerical_output/2026-03-30 21:24:45/2500000/u.pt").to(torch_device)
+    ref_v = torch.load("numerical_output/2026-03-30 21:24:45/2500000/v.pt").to(torch_device)
+    ref_s = torch.load("numerical_output/2026-03-30 21:24:45/2500000/s.pt").to(torch_device)
+    ref_b = torch.load("numerical_output/2026-03-30 21:24:45/2500000/b.pt").to(torch_device)
+
+    input_image = torch.cat([ref_h, ref_u, ref_v, ref_s, ref_b], dim=1)
+
+    # Setup visualisation
+
+    # Plot domain (first time)
+    plt.ion()
+
+    # Create subplots
+    figure, axs = plt.subplots(2, 2, figsize=(20, 10))
+
+    sediment_plot = axs[0, 0].imshow(ref_s[0,0].clone().detach().cpu().numpy(), cmap="gray", vmin=0, vmax=0.02)
+    sediment_plot_under_veg = axs[0, 1].imshow(ref_s[0,0].clone().detach().cpu().numpy(), cmap="gray", vmin=0, vmax=0.2)
+    vegetation_plot = axs[0, 1].imshow(ref_b[0,0].clone().detach().cpu().numpy(), cmap="YlGn", vmin=0, vmax=1500, alpha=0.8)
+
+    momentum_u_plot = axs[1, 0].imshow(ref_u[0,0].clone().detach().cpu().numpy(), cmap="bwr", vmin=-0.2, vmax=0.2)
+    momentum_v_plot = axs[1, 1].imshow(ref_v[0,0].clone().detach().cpu().numpy(), cmap="bwr", vmin=-0.2, vmax=0.2)
+
+    # setting title
+    axs[0, 0].set(title="Sediment bed", xlabel="Cross shore", ylabel="Along shore")
+    axs[0, 1].set(title="Sediment bed with vegetation", xlabel="Cross shore", ylabel="Along shore")
+    axs[1, 0].set(title="Momentum u (x-direction)", xlabel="Cross shore", ylabel="Along shore")
+    axs[1, 1].set(title="Momentum v (y-direction)", xlabel="Cross shore", ylabel="Along shore")
+
+    # Color bars
+    plt.colorbar(sediment_plot)
+    plt.colorbar(sediment_plot_under_veg)
+    plt.colorbar(vegetation_plot)
+    plt.colorbar(momentum_u_plot)
+    plt.colorbar(momentum_v_plot)
+
+    # In interactive mode, plt.show() immediately returns
+    plt.show()
+
+    # Resolution factor
+    resolution_factor = 4
+
+    while True:
+
+        # Update the visuals
+        h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = dataset.interpolate_superres(dataset.hidden_state, resolution_factor)
+
+        # Quick loss calculation
+        loss_h = torch.pow(h - ref_h, 2)
+        loss_u = torch.pow(u - ref_u, 2)
+        loss_v = torch.pow(v - ref_v, 2)
+        loss_s = torch.pow(s - ref_s, 2)
+        loss_b = torch.pow(b - ref_b, 2)
+
+        sediment_plot.set_data(loss_b[0,0].detach().cpu().numpy())
+        sediment_plot_under_veg.set_data(s[0,0].detach().cpu().numpy())
+        vegetation_plot.set_data(loss_b[0,0].detach().cpu().numpy())
+
+        momentum_u_plot.set_data(u[0,0].detach().cpu().numpy())
+        momentum_v_plot.set_data(v[0,0].detach().cpu().numpy())
+
+        # Plot the domain (update existing plot)
+        # Draw updated values
+        figure.canvas.draw()
+
+        # UI Loop: process all pending UI events
+        figure.canvas.flush_events()
 
 
 
 
 
 if __name__ == "__main__":
-    main()
+    
+    # Program mode
+    mode = "train"
+    if '--vis' in sys.argv:
+        mode = "eval"
+    
+    # GPU acceleration
+    torch_device = torch.device("cpu")
+
+    if not '--nogpu' in sys.argv:
+        if torch.backends.mps.is_available():
+            torch_device = torch.device("mps")
+        elif torch.cuda.is_available():
+            torch_device = torch.device("cuda")
+
+    print(f"Using torch device {torch_device}")
+
+
+    if mode == "train":
+        training_loop(torch_device)
+    elif mode == "eval":
+        evaluation_loop(torch_device)
+    else:
+        raise Exception(f"Unrecognized mode: {mode}")
