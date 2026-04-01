@@ -26,7 +26,7 @@ def get_Net(params, spline_variables):
 class ShallowWaterUNet(nn.Module):
 	# inspired by UNet taken from: https://github.com/milesial/Pytorch-UNet/blob/master/unet/unet_model.py
 	
-	def __init__(self, spline_variables, hidden_size=64, interpolation_size=12, bilinear=True, input_size=6, residuals=False):
+	def __init__(self, spline_variables, hidden_size=64, interpolation_size=4, bilinear=True, input_size=2, residuals=False):
 		"""
 		:orders_v: order of spline for velocity potential (should be at least 2)
 		:orders_p: order of spline for pressure field
@@ -40,7 +40,7 @@ class ShallowWaterUNet(nn.Module):
 		
 		self.spline_variables = spline_variables
 		self.hidden_input_size = spline_variables.hidden_size()
-		self.hidden_output_size = spline_variables["h"].hidden_size() + spline_variables["hu"].hidden_size() + spline_variables["hv"].hidden_size()
+		self.hidden_output_size = spline_variables["h"].hidden_size() + spline_variables["u"].hidden_size() + spline_variables["v"].hidden_size()
 		self.residuals = residuals
 		
 		self.interpol = nn.Conv2d(input_size,interpolation_size,kernel_size=2) # interpolate v_cond (2) and v_mask (1) from 4 surrounding fields
@@ -59,22 +59,22 @@ class ShallowWaterUNet(nn.Module):
 		self.output_scalar = torch.ones(1, self.hidden_output_size, 1, 1)*2
 
 		self.output_scalar[:,spline_variables.get_singular_slice_for("h"),:,:] = 2
-		self.output_scalar[:,spline_variables.get_singular_slice_for("hu"),:,:] = 10
-		self.output_scalar[:,spline_variables.get_singular_slice_for("hv"),:,:] = 10
+		self.output_scalar[:,spline_variables.get_singular_slice_for("u"),:,:] = 10
+		self.output_scalar[:,spline_variables.get_singular_slice_for("v"),:,:] = 10
 
 	def to(self, torch_device):
 		super(ShallowWaterUNet, self).to(torch_device)
 		self.output_scalar = self.output_scalar.to(torch_device)
 		return self
 	
-	def forward(self, hidden_state, h_cond, h_mask, hu_cond, hu_mask, hv_cond, hv_mask):
+	def forward(self, hidden_state, closed_mask, opened_mask):
 		"""
 		:hidden_state: old hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
 		:v_cond: velocity (dirichlet) conditions on boundaries (average value within cell): bs x 2 x w x h
 		:v_mask: mask for boundary conditions (average value within cell): bs x 1 x w x h
 		:return: new hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
 		"""
-		x = torch.cat([h_cond, h_mask, hu_cond, hu_mask, hv_cond, hv_mask],dim=1)
+		x = torch.cat([closed_mask, opened_mask],dim=1)
 		
 		x = self.interpol(x)
 		
@@ -94,8 +94,8 @@ class ShallowWaterUNet(nn.Module):
 		# residual connections
 		extracted_water_hidden_state = torch.cat([
 			self.spline_variables.extract_from(hidden_state, "h"),
-			self.spline_variables.extract_from(hidden_state, "hu"),
-			self.spline_variables.extract_from(hidden_state, "hv")
+			self.spline_variables.extract_from(hidden_state, "u"),
+			self.spline_variables.extract_from(hidden_state, "v")
 		], dim=1)
 		out[:,:,:,:] = self.output_scalar*torch.tanh((out[:,:,:,:]+extracted_water_hidden_state[:,:,:,:])/self.output_scalar)
 		
@@ -147,14 +147,14 @@ class SedimentUNet(nn.Module):
 		self.output_scalar = self.output_scalar.to(torch_device)
 		return self
 	
-	def forward(self, hidden_state, s_cond, s_mask):
+	def forward(self, hidden_state, closed_mask, opened_mask):
 		"""
 		:hidden_state: old hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
 		:v_cond: velocity (dirichlet) conditions on boundaries (average value within cell): bs x 2 x w x h
 		:v_mask: mask for boundary conditions (average value within cell): bs x 1 x w x h
 		:return: new hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
 		"""
-		x = torch.cat([s_cond, s_mask],dim=1)
+		x = torch.cat([closed_mask, opened_mask],dim=1)
 		
 		x = self.interpol(x)
 		
