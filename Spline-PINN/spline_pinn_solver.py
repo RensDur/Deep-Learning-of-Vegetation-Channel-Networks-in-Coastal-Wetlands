@@ -79,7 +79,7 @@ class SplinePINNSolver:
         # return F.huber_loss(x, torch.zeros_like(x), reduction="none", delta=self.params.huber_delta)
         return x**2
     
-    def compute_batch_loss(self, old_hidden_state, new_hidden_state, grid_offsets, sample_h_conds, sample_h_masks, sample_hu_conds, sample_hu_masks, sample_hv_conds, sample_hv_masks, sample_s_conds, sample_s_masks, dim=[1,2,3]):
+    def compute_batch_loss(self, old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, dim=[1,2,3]):
 
         # Compute Physics Informed Loss image tensor
         loss_h = 0
@@ -94,55 +94,30 @@ class SplinePINNSolver:
             offset = torch.floor(sample*self.params.resolution_factor)/self.params.resolution_factor
 
             # For added clarity: The masks define where the BCs act, they're 1 everywhere on the boundary, 0 everywhere else
-            sample_h_cond = sample_h_conds[j]
-            sample_h_mask = sample_h_masks[j]
-            sample_hu_cond = sample_hu_conds[j]
-            sample_hu_mask = sample_hu_masks[j]
-            sample_hv_cond = sample_hv_conds[j]
-            sample_hv_mask = sample_hv_masks[j]
-            sample_s_cond = sample_s_conds[j]
-            sample_s_mask = sample_s_masks[j]
+            sample_closed_mask = sample_closed_masks[j]
+            sample_opened_mask = sample_opened_masks[j]
 
-            sample_h_domain_mask = 1-sample_h_mask
-            sample_hu_domain_mask = 1-sample_hu_mask
-            sample_hv_domain_mask = 1-sample_hv_mask
-            sample_s_domain_mask = 1-sample_s_mask
+            sample_closed_domain_mask = 1-sample_closed_mask
+            sample_opened_domain_mask = 1-sample_opened_mask
 
             # Put additional border_weight on domain boundaries:
             # Important: weighed by parameter 'border_weight'
-            sample_h_mask = (sample_h_mask + sample_h_mask*self.diffuse(sample_h_domain_mask)*self.params.border_weight).detach()
-            sample_hu_mask = (sample_hu_mask + sample_hu_mask*self.diffuse(sample_hu_domain_mask)*self.params.border_weight).detach()
-            sample_hv_mask = (sample_hv_mask + sample_hv_mask*self.diffuse(sample_hv_domain_mask)*self.params.border_weight).detach()
-            sample_s_mask = (sample_s_mask + sample_s_mask*self.diffuse(sample_s_domain_mask)*self.params.border_weight).detach()
+            sample_closed_mask = (sample_closed_mask + sample_closed_mask*self.diffuse(sample_closed_domain_mask)*self.params.border_weight).detach()
+            sample_opened_mask = (sample_opened_mask + sample_opened_mask*self.diffuse(sample_opened_domain_mask)*self.params.border_weight).detach()
 
             # Interpolate spline coefficients to obtain the necessary quantities
-            h, grad_h, dh_dt, hu, grad_hu, dhu_dt, hv, grad_hv, dhv_dt, s, grad_s, laplacian_s, ds_dt = self.dataset.interpolate_states(old_hidden_state, new_hidden_state, offset)
+            h, grad_h, dh_dt, u, grad_u, laplacian_u, du_dt, v, grad_v, laplacian_v, dv_dt, s, grad_s, laplacian_s, ds_dt, b, grad_b, laplacian_b, db_dt = self.dataset.interpolate_states(old_hidden_state, new_hidden_state, offset)
 
             # Add mean water level height
             h = h + self.params.H0
             h = F.relu(h - self.params.Hc) + self.params.Hc
 
             #
-            # Derive u and v
-            #
-            u = hu / h
-            v = hv / h
-
-            #
-            # Derive grad(u) and grad(v) via the quotient rule
-            #
-            du_dx = (1.0 / torch.pow(h, 2)) * (h * grad_hu[:,1:2] - hu * grad_h[:,1:2])
-            du_dy = (1.0 / torch.pow(h, 2)) * (h * grad_hu[:,0:1] - hu * grad_h[:,0:1])
-
-            dv_dx = (1.0 / torch.pow(h, 2)) * (h * grad_hv[:,1:2] - hv * grad_h[:,1:2])
-            dv_dy = (1.0 / torch.pow(h, 2)) * (h * grad_hv[:,0:1] - hv * grad_h[:,0:1])
-
-            #
             # Derive bed friction coefficients
             #
 
             # n: Manning's coefficient
-            n = self.params.nb # + (self.params.nv - self.params.nb) * B / self.params.k
+            n = self.params.nb  + (self.params.nv - self.params.nb) * b / self.params.k
 
             # Cz: Chezy coefficient
             chezy = (1.0 / n) * torch.pow(h, 1.0 / 6.0)
@@ -163,16 +138,16 @@ class SplinePINNSolver:
 
             # h-loss
             loss_h = loss_h + torch.mean(self.loss_function(
-                dh_dt + grad_hu[:,1:2] + grad_hv[:,0:1]
+                dh_dt + (u*grad_h[:,1:2] + h*grad_u[:,1:2]) + (v*grad_h[:,0:1] + h*grad_v[:,0:1]) - self.params.Hin
             ), dim)
 
             # Momentum loss
             loss_u = loss_u + torch.mean(self.loss_function(
-                dhu_dt + self.params.grav*h*(grad_s[:,1:2] + grad_h[:,1:2]) + hu*(du_dx + dv_dy) + u*grad_hu[:,1:2] + v*grad_hu[:,0:1] + tau_bx_per_rho
+                du_dt + self.params.grav*(grad_h[:,1:2] + grad_s[:,1:2]) + u*grad_u[:,1:2] + v*grad_u[:,0:1] + tau_bx_per_rho/h - self.params.Du * laplacian_u
             ), dim)
 
             loss_v = loss_v + torch.mean(self.loss_function(
-                dhv_dt + self.params.grav*h*(grad_s[:,0:1] + grad_h[:,0:1]) + hv*(du_dx + dv_dy) + u*grad_hv[:,1:2] + v*grad_hv[:,0:1] + tau_by_per_rho
+                dv_dt + self.params.grav*(grad_h[:,0:1] + grad_s[:,0:1]) + u*grad_v[:,1:2] + v*grad_v[:,0:1] + tau_by_per_rho/h - self.params.Du * laplacian_v
             ), dim)
 
             # Sediment loss
@@ -369,15 +344,15 @@ class SplinePINNSolver:
             for i in range(self.params.n_batches_per_epoch):
 
                 # Ask for a batch from the dataset
-                old_hidden_state, h_cond, h_mask, hu_cond, hu_mask, hv_cond, hv_mask, s_cond, s_mask, grid_offsets, sample_h_conds, sample_h_masks, sample_hu_conds, sample_hu_masks, sample_hv_conds, sample_hv_masks, sample_s_conds, sample_s_masks = self.dataset.ask()
+                old_hidden_state, closed_mask, opened_mask, grid_offsets, sample_closed_masks, sample_opened_masks = self.dataset.ask()
 
                 # Predict the new domain state by performing a forward pass through the network
                 # Water
-                new_hidden_state_water = self.water_net(old_hidden_state, h_cond, h_mask, hu_cond, hu_mask, hv_cond, hv_mask)
+                new_hidden_state_water = self.water_net(old_hidden_state, closed_mask, opened_mask)
 
                 # Sediment
                 if self.training_sediment:
-                    new_hidden_state_sediment = self.sediment_net(old_hidden_state, s_cond, s_mask)
+                    new_hidden_state_sediment = self.sediment_net(old_hidden_state, closed_mask, opened_mask)
                 else:
                     new_hidden_state_sediment = self.dataset.variables.extract_from(old_hidden_state, "s")
 
@@ -388,7 +363,7 @@ class SplinePINNSolver:
                 if self.params.plot_loss:
                     dim = [1]
 
-                loss_h, loss_u, loss_v, loss_s, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_h_conds, sample_h_masks, sample_hu_conds, sample_hu_masks, sample_hv_conds, sample_hv_masks, sample_s_conds, sample_s_masks, dim)
+                loss_h, loss_u, loss_v, loss_s, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, dim)
 
 
                 if self.params.plot_loss:

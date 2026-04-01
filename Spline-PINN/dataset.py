@@ -308,12 +308,12 @@ class Dataset:
         new_h, new_grad_h, _ = self.variables["h"].interpolate_at(self.variables.extract_from(new_hidden_states, "h"), offset[:2])
 
         # u field: requires first derivative + laplace
-        old_u, old_grad_u, _ = self.variables["u"].interpolate_at(self.variables.extract_from(old_hidden_states, "u"), offset[:2])
-        new_u, new_grad_u, _ = self.variables["u"].interpolate_at(self.variables.extract_from(new_hidden_states, "u"), offset[:2])
+        old_u, old_grad_u, old_laplacian_u = self.variables["u"].interpolate_at(self.variables.extract_from(old_hidden_states, "u"), offset[:2])
+        new_u, new_grad_u, new_laplacian_u = self.variables["u"].interpolate_at(self.variables.extract_from(new_hidden_states, "u"), offset[:2])
 
         # v field: requires first derivative + laplace
-        old_v, old_grad_v, _ = self.variables["v"].interpolate_at(self.variables.extract_from(old_hidden_states, "v"), offset[:2])
-        new_v, new_grad_v, _ = self.variables["v"].interpolate_at(self.variables.extract_from(new_hidden_states, "v"), offset[:2])
+        old_v, old_grad_v, old_laplacian_v = self.variables["v"].interpolate_at(self.variables.extract_from(old_hidden_states, "v"), offset[:2])
+        new_v, new_grad_v, new_laplacian_v = self.variables["v"].interpolate_at(self.variables.extract_from(new_hidden_states, "v"), offset[:2])
 
         # s field: requires first derivative
         old_s, old_grad_s, old_laplacian_s = self.variables["s"].interpolate_at(self.variables.extract_from(old_hidden_states, "s"), offset[:2])
@@ -330,10 +330,12 @@ class Dataset:
 
         u = (1-offset[2])*old_u + offset[2]*new_u
         grad_u = (1-offset[2])*old_grad_u + offset[2]*new_grad_u
+        laplacian_u = (1-offset[2])*old_laplacian_u + offset[2]*new_laplacian_u
         du_dt = (new_u - old_u) / self.params.dt
 
         v = (1-offset[2])*old_v + offset[2]*new_v
         grad_v = (1-offset[2])*old_grad_v + offset[2]*new_grad_v
+        laplacian_v = (1-offset[2])*old_laplacian_v + offset[2]*new_laplacian_v
         dv_dt = (new_v - old_v) / self.params.dt
 
         s = (1-offset[2])*old_s + offset[2]*new_s
@@ -346,7 +348,7 @@ class Dataset:
         laplacian_b = (1-offset[2])*old_laplacian_b + offset[2]*new_laplacian_b
         db_dt = (new_b - old_b) / self.params.dt
         
-        return h, grad_h, dh_dt, u, grad_u, du_dt, v, grad_v, dv_dt, s, grad_s, laplacian_s, ds_dt, b, grad_b, laplacian_b, db_dt
+        return h, grad_h, dh_dt, u, grad_u, laplacian_u, du_dt, v, grad_v, laplacian_v, dv_dt, s, grad_s, laplacian_s, ds_dt, b, grad_b, laplacian_b, db_dt
     
 
     def interpolate_superres(self, hidden_states, resolution_factor):
