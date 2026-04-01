@@ -49,12 +49,16 @@ class SplinePINNSolver:
         self.nets = get_Net(params, self.dataset.variables)
         self.water_net = self.nets[0].to(self.device)
         self.sediment_net = self.nets[1].to(self.device)
+        self.vegetation_net = self.nets[2].to(self.device)
 
         #
         # Training Stage
         #
         self.training_sediment = False
         self.training_sediment_start_epoch = 20
+
+        self.training_vegetation = False
+        self.training_vegetation_start_epoch = 40
 
         #
         # Diffusion operation (needed, if we want to put more loss-weight to regions close to the domain boundaries)
@@ -139,7 +143,7 @@ class SplinePINNSolver:
             gradDs_dot_gradS = grad_Ds[:, 1:2] * grad_s[:, 1:2] + grad_Ds[:, 0:1] * grad_s[:, 0:1]
 
             # Full divergence term
-            div_Ds_grad_S = Ds * laplace_S + gradDs_dot_gradS
+            div_Ds_grad_S = Ds * laplacian_s + gradDs_dot_gradS
 
             #
             # COMPUTE SAMPLE LOSS
@@ -166,12 +170,7 @@ class SplinePINNSolver:
 
             # Vegetation loss
             loss_b = loss_b + torch.mean(self.loss_function(
-                db_dt - self.params.r * b * (1.0 - (b/self.params.k)) * (self.params.Qq / (self.params.Qq + he)) + self.params.EB * b * tau_b_per_rho - self.params.DB * laplacian_B
-            ), dim)
-
-            # h boundary condition loss
-            loss_bound_h = torch.mean(sample_h_mask[:,:,1:-1,1:-1] * self.loss_function(
-                h - (sample_h_cond[:,:,1:-1,1:-1] + self.params.H0)
+                db_dt - self.params.r * b * (1.0 - (b/self.params.k)) * (self.params.Qq / (self.params.Qq + he)) + self.params.EB * b * tau_b_per_rho - self.params.DB * laplacian_b
             ), dim)
 
             #
@@ -239,7 +238,7 @@ class SplinePINNSolver:
         loss_bound = loss_bound / self.params.n_samples
 
         # Normalize vegetation loss for scale-difference
-        loss_b = loss_b / self.parameters.k**2
+        loss_b = loss_b / self.params.k**2
 
         return loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound
 
@@ -299,6 +298,7 @@ class SplinePINNSolver:
         # Enable training of the model
         self.water_net.train()
         self.sediment_net.train()
+        self.vegetation_net.train()
 
         #
         # Prepare Loss Plots
@@ -365,6 +365,21 @@ class SplinePINNSolver:
 
                 print(f"\nSTARTING TRAINING OF SedimentUNet NOW\n")
 
+            # Once we've completed enough epochs to train hydrodynamics + sediment, start training vegetation as well
+            if epoch == self.training_vegetation_start_epoch:
+                self.optimizer = Adam([
+                    {"params": self.water_net.parameters(), "lr": self.params.lr},
+                    {"params": self.sediment_net.parameters(), "lr": self.params.lr},
+                    {"params": self.vegetation_net.parameters(), "lr": self.params.lr},
+                ])
+                self.optimizer = PCGrad(self.optimizer)
+
+                # Start training sediment
+                self.training_sediment = True
+                self.training_vegetation = True
+
+                print(f"\nSTARTING TRAINING OF VegetationUNet NOW\n")
+
 
 
             # Each epoch consists of a configurable number of batches.
@@ -383,8 +398,14 @@ class SplinePINNSolver:
                 else:
                     new_hidden_state_sediment = self.dataset.variables.extract_from(old_hidden_state, "s")
 
+                # Vegetation
+                if self.training_vegetation:
+                    new_hidden_state_vegetation = self.vegetation_net(old_hidden_state, closed_mask, opened_mask)
+                else:
+                    new_hidden_state_vegetation = self.dataset.variables.extract_from(old_hidden_state, "b")
+
                 # Compile the full new hidden state
-                new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment], dim=1)
+                new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment, new_hidden_state_vegetation], dim=1)
 
                 dim = [1,2,3]
                 if self.params.plot_loss:

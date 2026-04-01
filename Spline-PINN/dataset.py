@@ -152,7 +152,7 @@ class Dataset:
                 #
                 # Set the initial condition
                 #
-                self.hidden_state[group_indices] = self.prefit_saltmarsh.clone()
+                self.hidden_states[group_indices] = self.prefit_saltmarsh.clone()
 
                 #
                 # Set the boundary conditions
