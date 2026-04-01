@@ -32,7 +32,7 @@ class FitDataset:
             SplineVariable("h", 2, requires_derivative=True, requires_laplacian=True),                           # h describes the zero-meaned surface height, on top of H0
             SplineVariable("u", 2, requires_derivative=True, requires_laplacian=True),
             SplineVariable("v", 2, requires_derivative=True, requires_laplacian=True),
-            SplineVariable("s", 3, requires_derivative=True, requires_laplacian=True),
+            SplineVariable("s", 2, requires_derivative=True, requires_laplacian=True),
             SplineVariable("b", 2, requires_derivative=True, requires_laplacian=True),
             device=self.device
         )
