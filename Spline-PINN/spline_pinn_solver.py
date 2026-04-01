@@ -132,6 +132,15 @@ class SplinePINNSolver:
             # Effective water height
             he = h - self.params.Hc
 
+            # Compute topographic diffusion term (\/(Ds\/S)) (Ds is a field)
+            Ds = self.params.D0 * (1.0 - self.params.pD * (b / self.params.k))
+            grad_Ds = - ((self.params.D0 * self.params.pD) / self.params.k) * grad_b
+
+            gradDs_dot_gradS = grad_Ds[:, 1:2] * grad_s[:, 1:2] + grad_Ds[:, 0:1] * grad_s[:, 0:1]
+
+            # Full divergence term
+            div_Ds_grad_S = Ds * laplace_S + gradDs_dot_gradS
+
             #
             # COMPUTE SAMPLE LOSS
             #
@@ -152,7 +161,7 @@ class SplinePINNSolver:
 
             # Sediment loss
             loss_s = loss_s + torch.mean(self.loss_function(
-                ds_dt - self.params.Sin * (he / (self.params.Qs + he)) + self.params.Es * s * tau_b_per_rho - self.params.D0 * laplacian_s
+                ds_dt - self.params.Sin * (he / (self.params.Qs + he)) + self.params.Es * (1.0 - self.params.pE * (b/self.params.k)) * s * tau_b_per_rho - div_Ds_grad_S
             ), dim)
 
             # h boundary condition loss
