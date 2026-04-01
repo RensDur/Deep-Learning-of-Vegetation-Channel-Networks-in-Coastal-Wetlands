@@ -42,9 +42,10 @@ class Dataset:
         # Variables in this dataset
         self.variables = SplineArray(
             SplineVariable("h", 1, requires_derivative=True),                           # h describes the zero-meaned surface height, on top of H0
-            SplineVariable("hu", 2, requires_derivative=True),
-            SplineVariable("hv", 2, requires_derivative=True),
-            SplineVariable("s", 1, requires_derivative=True, requires_laplacian=True),
+            SplineVariable("u", 2, requires_derivative=True, requires_laplacian=True),
+            SplineVariable("v", 2, requires_derivative=True, requires_laplacian=True),
+            SplineVariable("s", 2, requires_derivative=True, requires_laplacian=True),
+            SplineVariable("b", 2, requires_derivative=True, requires_laplacian=True),
             device=self.device
         )
 
@@ -57,40 +58,18 @@ class Dataset:
         )
 
         # Boundary conditions and masking
-        self.h_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
-        self.h_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
-        self.hu_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
-        self.hu_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
-        self.hv_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
-        self.hv_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
-        self.s_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
-        self.s_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.closed_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.opened_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
 
-        self.h_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
-        self.h_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
-        self.hu_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
-        self.hu_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
-        self.hv_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
-        self.hv_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
-        self.s_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
-        self.s_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
+        self.closed_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
+        self.opened_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
+
+        # Load the saltmarsh numerical solution, pre-fitted to a hidden spline representation
+        self.prefit_saltmarsh = torch.load(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/hidden_state.pt").cpu()
 
         # Environment information
         self.types = [
-            # "rest-lake",
-            # "oscillator",
-            # "random-oscillator",
-            # "multiple-random-oscillator",
-            # "four-corners-oscillator",
-            # "reflection",
-            # "top-edge-oscillator",
-            # "bottom-edge-oscillator",
-            # "left-edge-oscillator",
-            # "right-edge-oscillator",
-            "top-open-outflow",
-            "bottom-open-outflow",
-            "right-open-outflow",
-            "left-open-outflow",
+            "numerical-saltmarsh"
         ] if types is None else types
 
         print(f"Running with types: {self.types}")
@@ -148,23 +127,8 @@ class Dataset:
         self.hidden_states[indices, :, :, :] = 0
 
         # Reset all masks and conditions
-        self.h_mask_fullres[indices] = 0
-        self.h_cond_fullres[indices] = 0
-
-        # BC: h holds around the entire frame
-        self.hu_mask_fullres[indices] = 1
-        self.hu_mask_fullres[indices, :, self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
-
-        self.hv_mask_fullres[indices] = 1
-        self.hv_mask_fullres[indices, :, self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
-
-        # Velocity condition zero
-        self.hu_cond_fullres[indices] = 0
-        self.hv_cond_fullres[indices] = 0
-
-        # S condition zero
-        self.s_mask_fullres[indices] = 0
-        self.s_cond_fullres[indices] = 0
+        self.closed_mask_fullres[indices] = 0
+        self.opened_mask_fullres[indices] = 0
 
         # Randomly choose a new type for each environment
         self.env_type[indices] = np.random.choice(self.types, indices.shape)
@@ -181,188 +145,33 @@ class Dataset:
             """
 
             #
-            # LAKE AT REST
+            # SALTMARSH SETTING
             #
-            if typename == "rest-lake":
-                pass
+            if typename == "numerical-saltmarsh":
 
-            #
-            # OSCILLATOR
-            #
-            if typename == "oscillator":
+                #
+                # Set the initial condition
+                #
+                self.hidden_state[group_indices] = self.prefit_saltmarsh.clone()
 
-                # obstabcles (oscillators)
-                for x in [0]:#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
-                    for y in [0]:#[-45,-15,15,45]:
-                        self.h_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
-                        self.uv_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
+                #
+                # Set the boundary conditions
+                #
 
-                # Set the masks and conditions
-                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+                # All sides are closed, except the right edge
+                self.closed_mask_fullres[group_indices] = 1
+                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:] = 0
 
-            #
-            # RANDOMLY PLACED OSCILLATOR
-            #
-            if typename == "random-oscillator":
-                # obstabcles (oscillators)
-                for x in np.random.choice(range(-45, 46), 1):#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
-                    for y in np.random.choice(range(-45, 46), 1):#[-45,-15,15,45]:
-                        self.h_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
-                        self.uv_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
+                # The right edge is open
+                self.opened_mask_fullres[group_indices,:,:,-self.padding_fullres:] = 1
 
-                # Set the masks and conditions
-                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
-
-            #
-            # RANDOMLY PLACED OSCILLATOR
-            #
-            if typename == "multiple-random-oscillator":
-                # obstabcles (oscillators)
-                for x in np.random.choice(range(-45, 46, 5), 2):#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
-                    for y in np.random.choice(range(-45, 46, 5), 2):#[-45,-15,15,45]:
-                        self.h_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
-                        self.uv_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
-
-                # Set the masks and conditions
-                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
-
-            #
-            # EVENLY SPACED FOUR CORNERS
-            #
-            if typename == "four-corners-oscillator":
-                # obstabcles (oscillators)
-                for x in [-50, 50]:
-                    for y in [-50, 50]:
-                        self.h_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
-                        self.uv_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
-
-                # Set the masks and conditions
-                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
-
-            #
-            # REFLECTION
-            #
-            if typename == "reflection":
-
-                # obstabcles (oscillators)
-                for x in [-10]:#[-45,-15,15,45]:#[-40,-20,0,20,40]:# [-30,0,30]:
-                    for y in [60]:#[-45,-15,15,45]:
-                        self.h_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
-                        self.uv_mask_fullres[group_indices,:,(self.width_fullres//2+(-5+x)*self.resolution_factor):(self.width_fullres//2+(5+x)*self.resolution_factor),(self.height_fullres//2+(-5+y)*self.resolution_factor):(self.height_fullres//2+(5+y)*self.resolution_factor)] = 1
-
-                # Set the masks and conditions
-                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
-
-                # We install a barrier starting in the top-center going towards the middle of the domain of thickness 10
-                barrier_thickness = 10 * self.resolution_factor
-                self.uv_mask_fullres[group_indices,:, 0:(self.height_fullres//2), (self.width_fullres//2-barrier_thickness//2):(self.width_fullres//2+barrier_thickness//2)+1] = 1
-
-                # Set the masks and conditions
-                self.uv_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
-                self.uv_cond_fullres[group_indices] = self.uv_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
-
-            #
-            # EDGE OSCILLATORS
-            #
-            if typename == "top-edge-oscillator":
-                self.h_mask_fullres[group_indices,:,:self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 1
-                self.uv_mask_fullres[group_indices,:,:self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 1
-
-                # Set the masks and conditions
-                self.h_cond_fullres[group_indices,:,:,:] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
-
-            if typename == "bottom-edge-oscillator":
-                self.h_mask_fullres[group_indices,:,-self.padding_fullres:,self.padding_fullres:-self.padding_fullres] = 1
-                self.uv_mask_fullres[group_indices,:,-self.padding_fullres:,self.padding_fullres:-self.padding_fullres] = 1
-
-                # Set the masks and conditions
-                self.h_cond_fullres[group_indices,:,:,:] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
-
-            if typename == "left-edge-oscillator":
-                self.h_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,:self.padding_fullres] = 1
-                self.uv_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,:self.padding_fullres] = 1
-
-                # Set the masks and conditions
-                self.h_cond_fullres[group_indices,:,:,:] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
-
-            if typename == "right-edge-oscillator":
-                self.h_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
-                self.uv_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
-
-                # Set the masks and conditions
-                self.h_cond_fullres[group_indices,:,:,:] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
-
-            #
-            # OPEN OUTFLOW BOUNDARIES
-            #
-            if typename == "top-open-outflow":
-                
-                # Zero sediment BC at the outflow boundary
-                self.s_mask_fullres[group_indices,:,:self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 1
-
-                # Oscillating vertical flow on the open boundary
-                self.hv_mask_fullres[group_indices,:,:self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 1
-                self.hv_cond_fullres[group_indices,:,:self.padding_fullres,self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.padding_fullres, self.width_fullres - 2*self.padding_fullres)
-
-
-            if typename == "bottom-open-outflow":
-                
-                # Zero sediment BC at the outflow boundary
-                self.s_mask_fullres[group_indices,:,-self.padding_fullres:,self.padding_fullres:-self.padding_fullres] = 1
-
-                # Oscillating vertical flow on the open boundary
-                self.hv_mask_fullres[group_indices,:,-self.padding_fullres:,self.padding_fullres:-self.padding_fullres] = 1
-                self.hv_cond_fullres[group_indices,:,-self.padding_fullres:,self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.padding_fullres, self.width_fullres - 2*self.padding_fullres)
-
-            if typename == "right-open-outflow":
-                
-                # Zero sediment BC at the outflow boundary
-                self.s_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
-
-                # Oscillating vertical flow on the open boundary
-                self.hu_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
-                self.hu_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.height_fullres - 2*self.padding_fullres, self.padding_fullres)
-
-            if typename == "left-open-outflow":
-                
-                # Zero sediment BC at the outflow boundary
-                self.s_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,:self.padding_fullres] = 1
-
-                # Oscillating vertical flow on the open boundary
-                self.hu_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,:self.padding_fullres] = 1
-                self.hu_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,:self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.height_fullres - 2*self.padding_fullres, self.padding_fullres)
 
         for typename in grouping.keys():
             reset_all_of_type(typename, grouping[typename])
-
-        # Soften the transition planes
-        # Create sponge BCs by applying a gradient in the boundary
-        # conv_kernel = torch.tensor([[0, 0.25, 0],
-        #                             [0.25, 0, 0.25],
-        #                             [0, 0.25, 0]]).view(1, 1, 3, 3)
-        
-        # for _ in range(2):
-        #     self.h_mask_fullres[indices] = 1-F.conv2d(1-self.h_mask_fullres[indices], conv_kernel, padding=1)
-        #     self.uv_mask_fullres[indices] = 1-F.conv2d(1-self.uv_mask_fullres[indices], conv_kernel, padding=1)
     
         # Average pooling to create downsampled versions of the BCs
-        self.h_cond[indices] = F.avg_pool2d(self.h_cond_fullres[indices],self.resolution_factor)
-        self.h_mask[indices] = F.avg_pool2d(self.h_mask_fullres[indices],self.resolution_factor)
-        self.hu_cond[indices] = F.avg_pool2d(self.hu_cond_fullres[indices],self.resolution_factor)
-        self.hu_mask[indices] = F.avg_pool2d(self.hu_mask_fullres[indices],self.resolution_factor)
-        self.hv_cond[indices] = F.avg_pool2d(self.hv_cond_fullres[indices],self.resolution_factor)
-        self.hv_mask[indices] = F.avg_pool2d(self.hv_mask_fullres[indices],self.resolution_factor)
-        self.s_cond[indices] = F.avg_pool2d(self.s_cond_fullres[indices],self.resolution_factor)
-        self.s_mask[indices] = F.avg_pool2d(self.s_mask_fullres[indices],self.resolution_factor)
+        self.closed_mask[indices] = F.avg_pool2d(self.closed_mask_fullres[indices],self.resolution_factor)
+        self.opened_mask[indices] = F.avg_pool2d(self.opened_mask_fullres[indices],self.resolution_factor)
 
 
 
@@ -383,43 +192,14 @@ class Dataset:
             """
             group_indices is guaranteed to be non-empty
             """
-
-            #
-            # OSCILLATOR
-            #
-            if typename == "oscillator" or typename == "random-oscillator" or typename == "multiple-random-oscillator" or typename == "four-corners-oscillator" or typename == "reflection":
-                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
-
-            if typename == "top-edge-oscillator" or typename == "bottom-edge-oscillator" or typename == "left-edge-oscillator" or typename == "right-edge-oscillator":
-                self.h_cond_fullres[group_indices,:,:,:] = self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
-
-            if typename == "top-open-outflow":
-                self.hv_cond_fullres[group_indices,:,:self.padding_fullres,self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.padding_fullres, self.width_fullres - 2*self.padding_fullres)
-
-            if typename == "bottom-open-outflow":
-                self.hv_cond_fullres[group_indices,:,-self.padding_fullres:,self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.padding_fullres, self.width_fullres - 2*self.padding_fullres)
-
-            if typename == "right-open-outflow":
-                self.hu_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.height_fullres - 2*self.padding_fullres, self.padding_fullres)
-
-            if typename == "left-open-outflow":
-                self.hu_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,:self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.height_fullres - 2*self.padding_fullres, self.padding_fullres)
-
+            pass
 
         for typename in grouping.keys():
             reset_all_of_type(typename, grouping[typename])
     
         # Average pooling to create downsampled versions of the BCs
-        self.h_cond[indices] = F.avg_pool2d(self.h_cond_fullres[indices],self.resolution_factor)
-        self.h_mask[indices] = F.avg_pool2d(self.h_mask_fullres[indices],self.resolution_factor)
-        self.hu_cond[indices] = F.avg_pool2d(self.hu_cond_fullres[indices],self.resolution_factor)
-        self.hu_mask[indices] = F.avg_pool2d(self.hu_mask_fullres[indices],self.resolution_factor)
-        self.hv_cond[indices] = F.avg_pool2d(self.hv_cond_fullres[indices],self.resolution_factor)
-        self.hv_mask[indices] = F.avg_pool2d(self.hv_mask_fullres[indices],self.resolution_factor)
-        self.s_cond[indices] = F.avg_pool2d(self.s_cond_fullres[indices],self.resolution_factor)
-        self.s_mask[indices] = F.avg_pool2d(self.s_mask_fullres[indices],self.resolution_factor)
+        self.closed_mask[indices] = F.avg_pool2d(self.closed_mask_fullres[indices],self.resolution_factor)
+        self.opened_mask[indices] = F.avg_pool2d(self.opened_mask_fullres[indices],self.resolution_factor)
         
         # Update the time for each environment
         self.env_time[indices] = self.env_time[indices] + math.pi / 100.0
@@ -452,14 +232,8 @@ class Dataset:
 
         # Compute grid offsets and sample BCs
         grid_offsets = []
-        sample_h_cond = []
-        sample_h_mask = []
-        sample_hu_cond = []
-        sample_hu_mask = []
-        sample_hv_cond = []
-        sample_hv_mask = []
-        sample_s_cond = []
-        sample_s_mask = []
+        sample_closed_mask = []
+        sample_opened_mask = []
 
         for _ in range(self.n_samples):
 
@@ -470,46 +244,22 @@ class Dataset:
             x_offset = min(int(self.resolution_factor*offset[0]),self.resolution_factor-1)
             y_offset = min(int(self.resolution_factor*offset[1]),self.resolution_factor-1)
 
-            sample_h_cond.append(self.h_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
-            sample_h_mask.append(self.h_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
-            sample_hu_cond.append(self.hu_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
-            sample_hu_mask.append(self.hu_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
-            sample_hv_cond.append(self.hv_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
-            sample_hv_mask.append(self.hv_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
-            sample_s_cond.append(self.s_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
-            sample_s_mask.append(self.s_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
+            sample_closed_mask.append(self.closed_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
+            sample_opened_mask.append(self.opened_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
 
         # Move all data to the desired device
         for i in range(self.n_samples):
             grid_offsets[i] = grid_offsets[i].to(self.device)
-            sample_h_cond[i] = sample_h_cond[i].to(self.device)
-            sample_h_mask[i] = sample_h_mask[i].to(self.device)
-            sample_hu_cond[i] = sample_hu_cond[i].to(self.device)
-            sample_hu_mask[i] = sample_hu_mask[i].to(self.device)
-            sample_hv_cond[i] = sample_hv_cond[i].to(self.device)
-            sample_hv_mask[i] = sample_hv_mask[i].to(self.device)
-            sample_s_cond[i] = sample_s_cond[i].to(self.device)
-            sample_s_mask[i] = sample_s_mask[i].to(self.device)
+            sample_closed_mask[i] = sample_closed_mask[i].to(self.device)
+            sample_opened_mask[i] = sample_opened_mask[i].to(self.device)
 
         # Return the hidden states and boundary conditions after moving them to the desired device
         return self.hidden_states[self.asked_indices].to(self.device), \
-                self.h_cond[self.asked_indices].to(self.device), \
-                self.h_mask[self.asked_indices].to(self.device), \
-                self.hu_cond[self.asked_indices].to(self.device), \
-                self.hu_mask[self.asked_indices].to(self.device), \
-                self.hv_cond[self.asked_indices].to(self.device), \
-                self.hv_mask[self.asked_indices].to(self.device), \
-                self.s_cond[self.asked_indices].to(self.device), \
-                self.s_mask[self.asked_indices].to(self.device), \
+                self.closed_mask[self.asked_indices].to(self.device), \
+                self.opened_mask[self.asked_indices].to(self.device), \
                 grid_offsets, \
-                sample_h_cond, \
-                sample_h_mask, \
-                sample_hu_cond, \
-                sample_hu_mask, \
-                sample_hv_cond, \
-                sample_hv_mask, \
-                sample_s_cond, \
-                sample_s_mask
+                sample_closed_mask, \
+                sample_opened_mask
     
     def tell(self, hidden_states):
 
@@ -558,36 +308,45 @@ class Dataset:
         new_h, new_grad_h, _ = self.variables["h"].interpolate_at(self.variables.extract_from(new_hidden_states, "h"), offset[:2])
 
         # u field: requires first derivative + laplace
-        old_hu, old_grad_hu, _ = self.variables["hu"].interpolate_at(self.variables.extract_from(old_hidden_states, "hu"), offset[:2])
-        new_hu, new_grad_hu, _ = self.variables["hu"].interpolate_at(self.variables.extract_from(new_hidden_states, "hu"), offset[:2])
+        old_u, old_grad_u, _ = self.variables["u"].interpolate_at(self.variables.extract_from(old_hidden_states, "u"), offset[:2])
+        new_u, new_grad_u, _ = self.variables["u"].interpolate_at(self.variables.extract_from(new_hidden_states, "u"), offset[:2])
 
         # v field: requires first derivative + laplace
-        old_hv, old_grad_hv, _ = self.variables["hv"].interpolate_at(self.variables.extract_from(old_hidden_states, "hv"), offset[:2])
-        new_hv, new_grad_hv, _ = self.variables["hv"].interpolate_at(self.variables.extract_from(new_hidden_states, "hv"), offset[:2])
+        old_v, old_grad_v, _ = self.variables["v"].interpolate_at(self.variables.extract_from(old_hidden_states, "v"), offset[:2])
+        new_v, new_grad_v, _ = self.variables["v"].interpolate_at(self.variables.extract_from(new_hidden_states, "v"), offset[:2])
 
         # s field: requires first derivative
         old_s, old_grad_s, old_laplacian_s = self.variables["s"].interpolate_at(self.variables.extract_from(old_hidden_states, "s"), offset[:2])
         new_s, new_grad_s, new_laplacian_s = self.variables["s"].interpolate_at(self.variables.extract_from(new_hidden_states, "s"), offset[:2])
+
+        # b field: requires first derivative
+        old_b, old_grad_b, old_laplacian_b = self.variables["b"].interpolate_at(self.variables.extract_from(old_hidden_states, "b"), offset[:2])
+        new_b, new_grad_b, new_laplacian_b = self.variables["b"].interpolate_at(self.variables.extract_from(new_hidden_states, "b"), offset[:2])
 
         # First order interpolation in time
         h = (1-offset[2])*old_h + offset[2]*new_h
         grad_h = (1-offset[2])*old_grad_h + offset[2]*new_grad_h
         dh_dt = (new_h - old_h) / self.params.dt
 
-        hu = (1-offset[2])*old_hu + offset[2]*new_hu
-        grad_hu = (1-offset[2])*old_grad_hu + offset[2]*new_grad_hu
-        dhu_dt = (new_hu - old_hu) / self.params.dt
+        u = (1-offset[2])*old_u + offset[2]*new_u
+        grad_u = (1-offset[2])*old_grad_u + offset[2]*new_grad_u
+        du_dt = (new_u - old_u) / self.params.dt
 
-        hv = (1-offset[2])*old_hv + offset[2]*new_hv
-        grad_hv = (1-offset[2])*old_grad_hv + offset[2]*new_grad_hv
-        dhv_dt = (new_hv - old_hv) / self.params.dt
+        v = (1-offset[2])*old_v + offset[2]*new_v
+        grad_v = (1-offset[2])*old_grad_v + offset[2]*new_grad_v
+        dv_dt = (new_v - old_v) / self.params.dt
 
         s = (1-offset[2])*old_s + offset[2]*new_s
         grad_s = (1-offset[2])*old_grad_s + offset[2]*new_grad_s
         laplacian_s = (1-offset[2])*old_laplacian_s + offset[2]*new_laplacian_s
         ds_dt = (new_s - old_s) / self.params.dt
+
+        b = (1-offset[2])*old_b + offset[2]*new_b
+        grad_b = (1-offset[2])*old_grad_b + offset[2]*new_grad_b
+        laplacian_b = (1-offset[2])*old_laplacian_b + offset[2]*new_laplacian_b
+        db_dt = (new_b - old_b) / self.params.dt
         
-        return h, grad_h, dh_dt, hu, grad_hu, dhu_dt, hv, grad_hv, dhv_dt, s, grad_s, laplacian_s, ds_dt
+        return h, grad_h, dh_dt, u, grad_u, du_dt, v, grad_v, dv_dt, s, grad_s, laplacian_s, ds_dt, b, grad_b, laplacian_b, db_dt
     
 
     def interpolate_superres(self, hidden_states, resolution_factor):
@@ -606,12 +365,15 @@ class Dataset:
         h, grad_h, _ = self.variables["h"].interpolate_superres_at(self.variables.extract_from(hidden_states, "h"), resolution_factor)
 
         # u field: requires first derivative + laplace
-        hu, grad_hu, _ = self.variables["hu"].interpolate_superres_at(self.variables.extract_from(hidden_states, "hu"), resolution_factor)
+        u, grad_u, _ = self.variables["u"].interpolate_superres_at(self.variables.extract_from(hidden_states, "u"), resolution_factor)
 
         # v field: requires first derivative + laplace
-        hv, grad_hv, _ = self.variables["hv"].interpolate_superres_at(self.variables.extract_from(hidden_states, "hv"), resolution_factor)
+        v, grad_v, _ = self.variables["v"].interpolate_superres_at(self.variables.extract_from(hidden_states, "v"), resolution_factor)
 
         # s field: requires first derivative + laplace
         s, grad_s, _ = self.variables["s"].interpolate_superres_at(self.variables.extract_from(hidden_states, "s"), resolution_factor)
 
-        return h, grad_h, hu, grad_hu, hv, grad_hv, s, grad_s
+        # b field: requires first derivative + laplace
+        b, grad_b, _ = self.variables["b"].interpolate_superres_at(self.variables.extract_from(hidden_states, "b"), resolution_factor)
+
+        return h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b
