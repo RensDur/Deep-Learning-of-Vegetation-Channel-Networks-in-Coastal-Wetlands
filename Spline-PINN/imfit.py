@@ -7,6 +7,7 @@ from torch.optim import Adam
 from itertools import chain
 from pcgrad.pcgrad import PCGrad
 import numpy as np
+import pandas as pd
 import math
 from spline.spline_variable import SplineVariable
 from spline.spline_array import SplineArray
@@ -28,10 +29,10 @@ class FitDataset:
 
         # Variables in this dataset
         self.variables = SplineArray(
-            SplineVariable("h", 1, requires_derivative=True, requires_laplacian=True),                           # h describes the zero-meaned surface height, on top of H0
+            SplineVariable("h", 2, requires_derivative=True, requires_laplacian=True),                           # h describes the zero-meaned surface height, on top of H0
             SplineVariable("u", 2, requires_derivative=True, requires_laplacian=True),
             SplineVariable("v", 2, requires_derivative=True, requires_laplacian=True),
-            SplineVariable("s", 2, requires_derivative=True, requires_laplacian=True),
+            SplineVariable("s", 3, requires_derivative=True, requires_laplacian=True),
             SplineVariable("b", 2, requires_derivative=True, requires_laplacian=True),
             device=self.device
         )
@@ -445,33 +446,44 @@ def evaluation_loop(torch_device):
 
     input_image = torch.cat([ref_h, ref_u, ref_v, ref_s, ref_b], dim=1)
 
+    # Load loss progression over time
+    loss_h_df = pd.read_csv(f"./numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_h.txt")
+    loss_u_df = pd.read_csv(f"./numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_u.txt")
+    loss_v_df = pd.read_csv(f"./numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_v.txt")
+    loss_s_df = pd.read_csv(f"./numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_s.txt")
+    loss_b_df = pd.read_csv(f"./numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_b.txt")
+
+    losses_df = pd.concat([loss_h_df, loss_u_df, loss_v_df, loss_s_df, loss_b_df], axis=1)    
+
     # Setup visualisation
 
     # Plot domain (first time)
     plt.ion()
 
     # Create subplots
-    figure, axs = plt.subplots(2, 2, figsize=(20, 10))
+    figure, axs = plt.subplots(2, 3, figsize=(20, 10))
 
-    sediment_plot = axs[0, 0].imshow(ref_s[0,0].clone().detach().cpu().numpy(), cmap="gray", vmin=0, vmax=0.02)
-    sediment_plot_under_veg = axs[0, 1].imshow(ref_s[0,0].clone().detach().cpu().numpy(), cmap="gray", vmin=0, vmax=0.2)
-    vegetation_plot = axs[0, 1].imshow(ref_b[0,0].clone().detach().cpu().numpy(), cmap="YlGn", vmin=0, vmax=1500, alpha=0.8)
+    water_plot = axs[0, 0].imshow(ref_h[0,0].clone().detach().cpu().numpy(), cmap="Blues", vmin=0, vmax=0.02)
+    momentum_u_plot = axs[0, 1].imshow(ref_u[0,0].clone().detach().cpu().numpy(), cmap="bwr", vmin=-0.2, vmax=0.2)
+    momentum_v_plot = axs[0, 2].imshow(ref_v[0,0].clone().detach().cpu().numpy(), cmap="bwr", vmin=-0.2, vmax=0.2)
+    sediment_plot = axs[1, 0].imshow(ref_s[0,0].clone().detach().cpu().numpy(), cmap="gray", vmin=0, vmax=0.2)
+    vegetation_plot = axs[1, 1].imshow(ref_b[0,0].clone().detach().cpu().numpy(), cmap="YlGn", vmin=0, vmax=1500)
+    losses_df.plot(ax=axs[1, 2])
 
-    momentum_u_plot = axs[1, 0].imshow(ref_u[0,0].clone().detach().cpu().numpy(), cmap="bwr", vmin=-0.2, vmax=0.2)
-    momentum_v_plot = axs[1, 1].imshow(ref_v[0,0].clone().detach().cpu().numpy(), cmap="bwr", vmin=-0.2, vmax=0.2)
 
     # setting title
-    axs[0, 0].set(title="Sediment bed", xlabel="Cross shore", ylabel="Along shore")
-    axs[0, 1].set(title="Sediment bed with vegetation", xlabel="Cross shore", ylabel="Along shore")
-    axs[1, 0].set(title="Momentum u (x-direction)", xlabel="Cross shore", ylabel="Along shore")
-    axs[1, 1].set(title="Momentum v (y-direction)", xlabel="Cross shore", ylabel="Along shore")
+    axs[0, 0].set(title="Water Layer Thickness", xlabel="Cross shore", ylabel="Along shore")
+    axs[0, 1].set(title="Momentum u (x-direction)", xlabel="Cross shore", ylabel="Along shore")
+    axs[0, 2].set(title="Momentum v (y-direction)", xlabel="Cross shore", ylabel="Along shore")
+    axs[1, 0].set(title="Sediment bed", xlabel="Cross shore", ylabel="Along shore")
+    axs[1, 1].set(title="Vegetation density", xlabel="Cross shore", ylabel="Along shore")
 
     # Color bars
-    plt.colorbar(sediment_plot)
-    plt.colorbar(sediment_plot_under_veg)
-    plt.colorbar(vegetation_plot)
+    plt.colorbar(water_plot)
     plt.colorbar(momentum_u_plot)
     plt.colorbar(momentum_v_plot)
+    plt.colorbar(sediment_plot)
+    plt.colorbar(vegetation_plot)
 
     # In interactive mode, plt.show() immediately returns
     plt.show()
@@ -491,12 +503,11 @@ def evaluation_loop(torch_device):
         loss_s = torch.pow(s - ref_s, 2)
         loss_b = torch.pow(b - ref_b, 2)
 
-        sediment_plot.set_data(loss_b[0,0].detach().cpu().numpy())
-        sediment_plot_under_veg.set_data(s[0,0].detach().cpu().numpy())
-        vegetation_plot.set_data(loss_b[0,0].detach().cpu().numpy())
-
+        water_plot.set_data(h[0,0].detach().cpu().numpy())
         momentum_u_plot.set_data(u[0,0].detach().cpu().numpy())
         momentum_v_plot.set_data(v[0,0].detach().cpu().numpy())
+        sediment_plot.set_data(s[0,0].detach().cpu().numpy())
+        vegetation_plot.set_data(b[0,0].detach().cpu().numpy())
 
         # Plot the domain (update existing plot)
         # Draw updated values
