@@ -82,7 +82,7 @@ def simulation_loop():
 
     # Create the storage directory
     date_time_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    os.makedirs(f"out/{date_time_str}",exist_ok=True)
+    os.makedirs(f"out",exist_ok=True)
 
     iter_sum = 0
     n_iter = 1000
@@ -114,13 +114,13 @@ def simulation_loop():
                 print(f"Writing iteration {store_points[0]} to disk")
 
                 # Store point reached, store a snapshot
-                os.makedirs(f"out/{date_time_str}/{store_points[0]}",exist_ok=True)
+                os.makedirs(f"out/{store_points[0]}",exist_ok=True)
 
-                torch.save(solver.h, f"out/{date_time_str}/{store_points[0]}/h.pt")
-                torch.save(solver.u, f"out/{date_time_str}/{store_points[0]}/u.pt")
-                torch.save(solver.v, f"out/{date_time_str}/{store_points[0]}/v.pt")
-                torch.save(solver.s, f"out/{date_time_str}/{store_points[0]}/s.pt")
-                torch.save(solver.b, f"out/{date_time_str}/{store_points[0]}/b.pt")
+                torch.save(solver.h, f"out/{store_points[0]}/h.pt")
+                torch.save(solver.u, f"out/{store_points[0]}/u.pt")
+                torch.save(solver.v, f"out/{store_points[0]}/v.pt")
+                torch.save(solver.s, f"out/{store_points[0]}/s.pt")
+                torch.save(solver.b, f"out/{store_points[0]}/b.pt")
 
                 # Onto next store_point
                 del store_points[0]

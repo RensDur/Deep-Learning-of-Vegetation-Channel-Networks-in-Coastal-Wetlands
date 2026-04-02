@@ -231,34 +231,35 @@ def training_loop(torch_device):
     optimizer = PCGrad(optimizer)
 
     # Load reference images from disk
-    ref_h = torch.load("numerical_output/2026-03-30 21:24:45/2500000/h.pt").to(torch_device)
-    ref_u = torch.load("numerical_output/2026-03-30 21:24:45/2500000/u.pt").to(torch_device)
-    ref_v = torch.load("numerical_output/2026-03-30 21:24:45/2500000/v.pt").to(torch_device)
-    ref_s = torch.load("numerical_output/2026-03-30 21:24:45/2500000/s.pt").to(torch_device)
-    ref_b = torch.load("numerical_output/2026-03-30 21:24:45/2500000/b.pt").to(torch_device)
+    ref_h = torch.load("numerical_output/2500000/h.pt").to(torch_device)
+    ref_u = torch.load("numerical_output/2500000/u.pt").to(torch_device)
+    ref_v = torch.load("numerical_output/2500000/v.pt").to(torch_device)
+    ref_s = torch.load("numerical_output/2500000/s.pt").to(torch_device)
+    ref_b = torch.load("numerical_output/2500000/b.pt").to(torch_device)
 
     input_image = torch.cat([ref_h, ref_u, ref_v, ref_s, ref_b], dim=1)
 
     # Create a folder for the hidden state output
-    os.makedirs(f"numerical_spline_converted/2026-03-30 21:24:45/2500000",exist_ok=True)
+    output_folder = f"numerical_spline_converted/{dataset.variables.summary()}/2500000"
+    os.makedirs(f"{output_folder}",exist_ok=True)
 
     # Create an empty file for every loss component
-    with open(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_h.txt", "w") as file:
+    with open(f"{output_folder}/loss_h.txt", "w") as file:
         file.write(f"loss_h\n")
-    with open(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_u.txt", "w") as file:
+    with open(f"{output_folder}/loss_u.txt", "w") as file:
         file.write(f"loss_u\n")
-    with open(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_v.txt", "w") as file:
+    with open(f"{output_folder}/loss_v.txt", "w") as file:
         file.write(f"loss_v\n")
-    with open(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_s.txt", "w") as file:
+    with open(f"{output_folder}/loss_s.txt", "w") as file:
         file.write(f"loss_s\n")
-    with open(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_b.txt", "w") as file:
+    with open(f"{output_folder}/loss_b.txt", "w") as file:
         file.write(f"loss_b\n")
-    with open(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_total.txt", "w") as file:
+    with open(f"{output_folder}/loss_total.txt", "w") as file:
         file.write(f"loss_total\n")
 
     # Try to load the latest hidden state
     try:
-        dataset.hidden_state = torch.load(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/hidden_state.pt")
+        dataset.hidden_state = torch.load(f"{output_folder}/hidden_state.pt")
     except:
         print(f"Unable to load previous optimal hidden state from disk")
 
@@ -384,26 +385,26 @@ def training_loop(torch_device):
             dataset.hidden_state = output_hidden_state.detach()
 
             # Report the progression of loss
-            with open(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_h.txt", "a") as file:
+            with open(f"{output_folder}/loss_h.txt", "a") as file:
                 file.write(f"{loss_h}\n")
-            with open(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_u.txt", "a") as file:
+            with open(f"{output_folder}/loss_u.txt", "a") as file:
                 file.write(f"{loss_u}\n")
-            with open(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_v.txt", "a") as file:
+            with open(f"{output_folder}/loss_v.txt", "a") as file:
                 file.write(f"{loss_v}\n")
-            with open(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_s.txt", "a") as file:
+            with open(f"{output_folder}/loss_s.txt", "a") as file:
                 file.write(f"{loss_s}\n")
-            with open(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_b.txt", "a") as file:
+            with open(f"{output_folder}/loss_b.txt", "a") as file:
                 file.write(f"{loss_b}\n")
-            with open(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_total.txt", "a") as file:
+            with open(f"{output_folder}/loss_total.txt", "a") as file:
                 file.write(f"{loss}\n")
 
             # If this was the best run until now, save the state
             if loss < min_loss:
                 min_loss = loss
-                torch.save(dataset.hidden_state, f"numerical_spline_converted/2026-03-30 21:24:45/2500000/hidden_state.pt")
+                torch.save(dataset.hidden_state, f"{output_folder}/hidden_state.pt")
 
                 # Report the loss
-                with open(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/min_loss.txt", "w") as file:
+                with open(f"{output_folder}/min_loss.txt", "w") as file:
                     file.write(f"Minimum loss stored: {min_loss}")
 
         # Report loss
@@ -431,27 +432,30 @@ def evaluation_loop(torch_device):
        
     dataset = FitDataset(200, 200, torch_device)
 
+    # Point to the same output folder used during training
+    output_folder = f"numerical_spline_converted/{dataset.variables.summary()}/2500000"
+
     # Try to load the latest hidden state
     try:
-        dataset.hidden_state = torch.load(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/hidden_state.pt").to(torch_device)
+        dataset.hidden_state = torch.load(f"{output_folder}/hidden_state.pt").to(torch_device)
     except:
         print(f"Unable to load previous optimal hidden state from disk")
 
     # Load reference images from disk
-    ref_h = torch.load("numerical_output/2026-03-30 21:24:45/2500000/h.pt").to(torch_device)
-    ref_u = torch.load("numerical_output/2026-03-30 21:24:45/2500000/u.pt").to(torch_device)
-    ref_v = torch.load("numerical_output/2026-03-30 21:24:45/2500000/v.pt").to(torch_device)
-    ref_s = torch.load("numerical_output/2026-03-30 21:24:45/2500000/s.pt").to(torch_device)
-    ref_b = torch.load("numerical_output/2026-03-30 21:24:45/2500000/b.pt").to(torch_device)
+    ref_h = torch.load("numerical_output/2500000/h.pt").to(torch_device)
+    ref_u = torch.load("numerical_output/2500000/u.pt").to(torch_device)
+    ref_v = torch.load("numerical_output/2500000/v.pt").to(torch_device)
+    ref_s = torch.load("numerical_output/2500000/s.pt").to(torch_device)
+    ref_b = torch.load("numerical_output/2500000/b.pt").to(torch_device)
 
     input_image = torch.cat([ref_h, ref_u, ref_v, ref_s, ref_b], dim=1)
 
     # Load loss progression over time
-    loss_h_df = pd.read_csv(f"./numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_h.txt")
-    loss_u_df = pd.read_csv(f"./numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_u.txt")
-    loss_v_df = pd.read_csv(f"./numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_v.txt")
-    loss_s_df = pd.read_csv(f"./numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_s.txt")
-    loss_b_df = pd.read_csv(f"./numerical_spline_converted/2026-03-30 21:24:45/2500000/loss_b.txt")
+    loss_h_df = pd.read_csv(f"./{output_folder}/loss_h.txt")
+    loss_u_df = pd.read_csv(f"./{output_folder}/loss_u.txt")
+    loss_v_df = pd.read_csv(f"./{output_folder}/loss_v.txt")
+    loss_s_df = pd.read_csv(f"./{output_folder}/loss_s.txt")
+    loss_b_df = pd.read_csv(f"./{output_folder}/loss_b.txt")
 
     losses_df = pd.concat([loss_h_df, loss_u_df, loss_v_df, loss_s_df, loss_b_df], axis=1)    
 

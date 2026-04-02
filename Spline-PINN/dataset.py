@@ -41,7 +41,7 @@ class Dataset:
 
         # Variables in this dataset
         self.variables = SplineArray(
-            SplineVariable("h", 1, requires_derivative=True),                           # h describes the zero-meaned surface height, on top of H0
+            SplineVariable("h", 2, requires_derivative=True),                           # h describes the zero-meaned surface height, on top of H0
             SplineVariable("u", 2, requires_derivative=True, requires_laplacian=True),
             SplineVariable("v", 2, requires_derivative=True, requires_laplacian=True),
             SplineVariable("s", 2, requires_derivative=True, requires_laplacian=True),
@@ -65,7 +65,7 @@ class Dataset:
         self.opened_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
 
         # Load the saltmarsh numerical solution, pre-fitted to a hidden spline representation
-        self.prefit_saltmarsh = torch.load(f"numerical_spline_converted/2026-03-30 21:24:45/2500000/hidden_state.pt").cpu()
+        self.prefit_saltmarsh = torch.load(f"numerical_spline_converted/{self.variables.summary()}/2500000/hidden_state.pt").cpu()
 
         # Environment information
         self.types = [
