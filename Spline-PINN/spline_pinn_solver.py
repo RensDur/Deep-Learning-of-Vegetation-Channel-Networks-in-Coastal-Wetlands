@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from pcgrad.pcgrad import PCGrad
 import os
 import psutil
+from window import MultiWindow
 
 def _dbg(_desc='',_expr=None):
     print(f"DBG! >> {_desc}: {_expr}")
@@ -568,7 +569,7 @@ class SplinePINNSolver:
                     self.logger.save_state("vegetation_net", self.vegetation_net, self.optimizer, epoch + 1)
 
 
-    def visualize(self, window):
+    def visualize(self):
         """
         VISUALIZING RESULTS
         """
@@ -595,10 +596,10 @@ class SplinePINNSolver:
         print(f"Loaded {self.params.net}: {date_time}, index: {index}")
 
         # Open a visualization window
-        window.set_data_range(-1,1)
+        window = MultiWindow(self.params.width * self.params.resolution_factor, self.params.height * self.params.resolution_factor)
 
         # Simulation loop
-        while window.is_open():
+        while window.is_open:
 
             # Ask for a batch from the dataset
             old_hidden_state, closed_mask, opened_mask, grid_offsets, sample_closed_masks, sample_opened_masks = self.dataset.ask()
@@ -631,13 +632,7 @@ class SplinePINNSolver:
             self.dataset.tell(new_hidden_state)
 
             # Display water level thickness h
-            h = h[0, 0].clone()
-            # h = h - torch.min(h)
-            # h = h / torch.max(h)
-            h = h.detach().cpu().numpy()
-
-            window.put_image(h)
-            window.update()
+            window.set_data(h, u, v, s, b)
 
 
     def visualize_numerical(self, window):

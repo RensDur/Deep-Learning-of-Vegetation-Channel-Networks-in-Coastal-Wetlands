@@ -3,7 +3,106 @@ import numpy as np
 import time
 import colormaps
 
-class Window:
+import torch
+import matplotlib.pyplot as plt
+import threading
+
+
+# MATPLOTLIB MULTI-WINDOW
+class MultiWindow:
+
+    def __init__(self, width, height):
+
+        self.width = width
+        self.height = height
+
+        # Initial blank images
+        self.h = torch.zeros(1, 1, height, width)
+        self.u = torch.zeros(1, 1, height, width)
+        self.v = torch.zeros(1, 1, height, width)
+        self.s = torch.zeros(1, 1, height, width)
+        self.b = torch.zeros(1, 1, height, width)
+
+        # Matplotlib interactive mode
+        plt.ion()
+
+        # Create subplots
+        self.figure, self.axs = plt.subplots(2, 3, figsize=(20, 10))
+
+        self.water_plot = self.axs[0, 0].imshow(self.h[0,0].clone().detach().cpu().numpy(), cmap="Blues", vmin=0, vmax=0.02)
+        self.momentum_u_plot = self.axs[0, 1].imshow(self.u[0,0].clone().detach().cpu().numpy(), cmap="bwr", vmin=-0.2, vmax=0.2)
+        self.momentum_v_plot = self.axs[0, 2].imshow(self.v[0,0].clone().detach().cpu().numpy(), cmap="bwr", vmin=-0.2, vmax=0.2)
+        self.sediment_plot = self.axs[1, 0].imshow(self.s[0,0].clone().detach().cpu().numpy(), cmap="gray", vmin=0, vmax=0.2)
+        self.vegetation_plot = self.axs[1, 1].imshow(self.b[0,0].clone().detach().cpu().numpy(), cmap="YlGn", vmin=0, vmax=1500)
+        # self.losses_df.plot(ax=self.axs[1, 2])
+
+        # Title and axes configuration
+        self.axs[0, 0].set(title="Water Layer Thickness", xlabel="Cross shore", ylabel="Along shore")
+        self.axs[0, 1].set(title="Momentum u (x-direction)", xlabel="Cross shore", ylabel="Along shore")
+        self.axs[0, 2].set(title="Momentum v (y-direction)", xlabel="Cross shore", ylabel="Along shore")
+        self.axs[1, 0].set(title="Sediment bed", xlabel="Cross shore", ylabel="Along shore")
+        self.axs[1, 1].set(title="Vegetation density", xlabel="Cross shore", ylabel="Along shore")
+
+        # Color bars
+        plt.colorbar(water_plot)
+        plt.colorbar(momentum_u_plot)
+        plt.colorbar(momentum_v_plot)
+        plt.colorbar(sediment_plot)
+        plt.colorbar(vegetation_plot)
+        
+        # Window status
+        self.is_open = False
+
+    def open(self):
+
+        # Toggle the window open
+        self.is_open = True
+
+        # Define the closing event and connect it to the figure canvas
+        def __on_figure_close():
+            self.is_open = False
+
+        self.figure.canvas.mpl_connect('close_event', __on_figure_close)
+
+        # UI loop
+        def __thread_handle():
+            # In interactive mode, plt.show() immediately returns
+            self.plt.show()
+
+            while self.is_open:
+
+                # Plot the domain (update existing plot)
+                # Draw updated values
+                self.figure.canvas.draw()
+
+                # UI Loop: process all pending UI events
+                self.figure.canvas.flush_events()
+
+        # Start the UI thread
+        self.ui_thread = threading.Thread(target=__thread_handle)
+        self.ui_thread.start()
+
+        return
+
+    def close(self):
+        # Toggling the window closed will stop the ui thread
+        self.is_open = False
+
+    def set_data(self, h, u, v, s, b):
+
+        self.water_plot.set_data(h[0,0].detach().cpu().numpy())
+        self.momentum_u_plot.set_data(u[0,0].detach().cpu().numpy())
+        self.momentum_v_plot.set_data(v[0,0].detach().cpu().numpy())
+        self.sediment_plot.set_data(s[0,0].detach().cpu().numpy())
+        self.vegetation_plot.set_data(b[0,0].detach().cpu().numpy())
+
+
+
+
+
+
+# OPENCV WINDOW
+class CVWindow:
 
     def __init__(self, name, width, height):
         self.name = name
@@ -107,7 +206,7 @@ class Window:
 
 
 if __name__ == "__main__":
-    win = Window("test", 1000, 500)
+    win = CVWindow("test", 1000, 500)
 
     colormap = colormaps.BLACK_WHITE
 
