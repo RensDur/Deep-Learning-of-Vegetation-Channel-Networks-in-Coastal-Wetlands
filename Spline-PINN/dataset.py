@@ -41,7 +41,7 @@ class Dataset:
 
         # Variables in this dataset
         self.variables = SplineArray(
-            SplineVariable("h", 2, requires_derivative=True),                           # h describes the zero-meaned surface height, on top of H0
+            SplineVariable("h", 1, requires_derivative=True),                           # h describes the zero-meaned surface height, on top of H0
             SplineVariable("u", 2, requires_derivative=True, requires_laplacian=True),
             SplineVariable("v", 2, requires_derivative=True, requires_laplacian=True),
             SplineVariable("s", 2, requires_derivative=True, requires_laplacian=True),

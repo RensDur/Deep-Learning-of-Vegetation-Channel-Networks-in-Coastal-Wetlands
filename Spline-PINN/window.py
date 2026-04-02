@@ -5,7 +5,6 @@ import colormaps
 
 import torch
 import matplotlib.pyplot as plt
-import threading
 
 
 # MATPLOTLIB MULTI-WINDOW
@@ -44,45 +43,38 @@ class MultiWindow:
         self.axs[1, 1].set(title="Vegetation density", xlabel="Cross shore", ylabel="Along shore")
 
         # Color bars
-        plt.colorbar(water_plot)
-        plt.colorbar(momentum_u_plot)
-        plt.colorbar(momentum_v_plot)
-        plt.colorbar(sediment_plot)
-        plt.colorbar(vegetation_plot)
+        plt.colorbar(self.water_plot)
+        plt.colorbar(self.momentum_u_plot)
+        plt.colorbar(self.momentum_v_plot)
+        plt.colorbar(self.sediment_plot)
+        plt.colorbar(self.vegetation_plot)
         
         # Window status
         self.is_open = False
 
     def open(self):
 
+        def __on_figure_close(event):
+            self.is_open = False
+
+        # In interactive mode, plt.show() immediately returns
+        plt.show()
+
+        # Connect the on-close event
+        self.figure.canvas.mpl_connect('close_event', __on_figure_close)
+
         # Toggle the window open
         self.is_open = True
 
-        # Define the closing event and connect it to the figure canvas
-        def __on_figure_close():
-            self.is_open = False
 
-        self.figure.canvas.mpl_connect('close_event', __on_figure_close)
+    def update(self):
+        if self.is_open:
+            # Plot the domain (update existing plot)
+            # Draw updated values
+            self.figure.canvas.draw()
 
-        # UI loop
-        def __thread_handle():
-            # In interactive mode, plt.show() immediately returns
-            self.plt.show()
-
-            while self.is_open:
-
-                # Plot the domain (update existing plot)
-                # Draw updated values
-                self.figure.canvas.draw()
-
-                # UI Loop: process all pending UI events
-                self.figure.canvas.flush_events()
-
-        # Start the UI thread
-        self.ui_thread = threading.Thread(target=__thread_handle)
-        self.ui_thread.start()
-
-        return
+            # UI Loop: process all pending UI events
+            self.figure.canvas.flush_events()
 
     def close(self):
         # Toggling the window closed will stop the ui thread

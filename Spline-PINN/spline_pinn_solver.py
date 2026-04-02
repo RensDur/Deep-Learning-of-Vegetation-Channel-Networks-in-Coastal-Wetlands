@@ -11,6 +11,7 @@ from pcgrad.pcgrad import PCGrad
 import os
 import psutil
 from window import MultiWindow
+import threading
 
 def _dbg(_desc='',_expr=None):
     print(f"DBG! >> {_desc}: {_expr}")
@@ -597,42 +598,55 @@ class SplinePINNSolver:
 
         # Open a visualization window
         window = MultiWindow(self.params.width * self.params.resolution_factor, self.params.height * self.params.resolution_factor)
+        window.open()
 
         # Simulation loop
+        def simulation_loop():
+            while window.is_open:
+
+                # Ask for a batch from the dataset
+                old_hidden_state, closed_mask, opened_mask, grid_offsets, sample_closed_masks, sample_opened_masks = self.dataset.ask()
+
+                # Predict the new domain state by performing a forward pass through the network
+                # Water
+                new_hidden_state_water = self.water_net(old_hidden_state, closed_mask, opened_mask)
+
+                # Sediment
+                if self.training_sediment:
+                    new_hidden_state_sediment = self.sediment_net(old_hidden_state, closed_mask, opened_mask)
+                else:
+                    new_hidden_state_sediment = self.dataset.variables.extract_from(old_hidden_state, "s")
+
+                # Vegetation
+                if self.training_vegetation:
+                    new_hidden_state_vegetation = self.vegetation_net(old_hidden_state, closed_mask, opened_mask)
+                else:
+                    new_hidden_state_vegetation = self.dataset.variables.extract_from(old_hidden_state, "b")
+
+                # Compile the full new hidden state
+                new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment, new_hidden_state_vegetation], dim=1)
+
+                # loss_h, loss_u, loss_v, loss_bound, loss_damp = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks)
+
+                # Interpolate spline coefficients to obtain the necessary quantities
+                h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = self.dataset.interpolate_superres(new_hidden_state, self.params.resolution_factor)
+
+                # Store the newly obtained result in the dataset
+                self.dataset.tell(new_hidden_state)
+
+                # Display water level thickness h
+                window.set_data(h, u, v, s, b)
+
+        # Start the simulation thread
+        sim_thread = threading.Thread(target=simulation_loop)
+        sim_thread.start()
+
+        # Window main thread until closed
         while window.is_open:
+            window.update()
 
-            # Ask for a batch from the dataset
-            old_hidden_state, closed_mask, opened_mask, grid_offsets, sample_closed_masks, sample_opened_masks = self.dataset.ask()
-
-            # Predict the new domain state by performing a forward pass through the network
-            # Water
-            new_hidden_state_water = self.water_net(old_hidden_state, closed_mask, opened_mask)
-
-            # Sediment
-            if self.training_sediment:
-                new_hidden_state_sediment = self.sediment_net(old_hidden_state, closed_mask, opened_mask)
-            else:
-                new_hidden_state_sediment = self.dataset.variables.extract_from(old_hidden_state, "s")
-
-            # Vegetation
-            if self.training_vegetation:
-                new_hidden_state_vegetation = self.vegetation_net(old_hidden_state, closed_mask, opened_mask)
-            else:
-                new_hidden_state_vegetation = self.dataset.variables.extract_from(old_hidden_state, "b")
-
-            # Compile the full new hidden state
-            new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment, new_hidden_state_vegetation], dim=1)
-
-            # loss_h, loss_u, loss_v, loss_bound, loss_damp = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks)
-
-            # Interpolate spline coefficients to obtain the necessary quantities
-            h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = self.dataset.interpolate_superres(new_hidden_state, self.params.resolution_factor)
-
-            # Store the newly obtained result in the dataset
-            self.dataset.tell(new_hidden_state)
-
-            # Display water level thickness h
-            window.set_data(h, u, v, s, b)
+        # Join the sim thread
+        sim_thread.join()
 
 
     def visualize_numerical(self, window):
