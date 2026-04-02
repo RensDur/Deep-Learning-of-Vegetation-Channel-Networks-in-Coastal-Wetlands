@@ -85,9 +85,11 @@ class Logger():
 				append_write = 'a'
 			else:
 				append_write = 'w'
-				log_file.write(f"Index,{item}\n")
 			
 			with open(filename, append_write) as log_file:
+				if append_write == 'w':
+					log_file.write(f"Index,{item}\n")
+
 				log_file.write("{}, {}\n".format(index,value))
 		
 		if self.use_tensorboard:
