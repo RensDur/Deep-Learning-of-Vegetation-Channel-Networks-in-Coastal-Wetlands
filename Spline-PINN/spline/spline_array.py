@@ -16,6 +16,12 @@ class SplineArray:
 		for v in self.variables:
 			v.to(self.device)
 
+	def summary(self):
+		sum = ""
+		for var in self.variables:
+			sum += var.summary()
+		return sum
+
 	def append(self, variable: SplineVariable):
 		self.variables.append(variable)
 

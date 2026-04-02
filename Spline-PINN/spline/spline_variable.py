@@ -50,6 +50,9 @@ class SplineVariable:
         except:
             print(f"No buffers available for SplineVariable '{self.name}'")
 
+    def summary(self):
+        return f"{self.name}{self.orders[0]}"
+
     def to(self, torch_device):
         self.device = torch_device
 
