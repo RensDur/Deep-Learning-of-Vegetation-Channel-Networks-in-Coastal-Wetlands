@@ -656,6 +656,14 @@ class SplinePINNSolver:
                 loss_b = loss_b - torch.min(loss_b)
                 loss_b = loss_b / torch.max(loss_b)
 
+                # Apply a high-pass filter to losses
+                hp_threshold = 0.7
+                loss_h[torch.where(loss_h < hp_threshold)] = 0
+                loss_u[torch.where(loss_u < hp_threshold)] = 0
+                loss_v[torch.where(loss_v < hp_threshold)] = 0
+                loss_s[torch.where(loss_s < hp_threshold)] = 0
+                loss_b[torch.where(loss_b < hp_threshold)] = 0
+
                 # Interpolate spline coefficients to obtain the necessary quantities
                 h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = self.dataset.interpolate_superres(new_hidden_state, self.params.resolution_factor)
 
