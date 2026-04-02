@@ -585,7 +585,7 @@ class SplinePINNSolver:
         # Load the trained model state
         date_time, index = self.logger.load_state("water_net", self.water_net, None, datetime=self.params.load_date_time, index=self.params.load_index)
         date_time, index = self.logger.load_state("sediment_net", self.sediment_net, None, datetime=self.params.load_date_time, index=self.params.load_index)
-        date_time, index = self.logger.load_state("vegetation_net", self.vegetation_net, None, datetime=self.params.load_date_time, index=self.params.load_index)
+        # date_time, index = self.logger.load_state("vegetation_net", self.vegetation_net, None, datetime=self.params.load_date_time, index=self.params.load_index)
 
         # Enable evaluation of the model
         self.water_net.eval()
@@ -601,25 +601,31 @@ class SplinePINNSolver:
         while window.is_open():
 
             # Ask for a batch from the dataset
-            old_hidden_state, h_cond, h_mask, hu_cond, hu_mask, hv_cond, hv_mask, s_cond, s_mask, grid_offsets, sample_h_conds, sample_h_masks, sample_hu_conds, sample_hu_masks, sample_hv_conds, sample_hv_masks, sample_s_conds, sample_s_masks = self.dataset.ask()
+            old_hidden_state, closed_mask, opened_mask, grid_offsets, sample_closed_masks, sample_opened_masks = self.dataset.ask()
 
             # Predict the new domain state by performing a forward pass through the network
             # Water
-            new_hidden_state_water = self.water_net(old_hidden_state, h_cond, h_mask, hu_cond, hu_mask, hv_cond, hv_mask)
+            new_hidden_state_water = self.water_net(old_hidden_state, closed_mask, opened_mask)
 
             # Sediment
             if self.training_sediment:
-                new_hidden_state_sediment = self.sediment_net(old_hidden_state, s_cond, s_mask)
+                new_hidden_state_sediment = self.sediment_net(old_hidden_state, closed_mask, opened_mask)
             else:
                 new_hidden_state_sediment = self.dataset.variables.extract_from(old_hidden_state, "s")
 
+            # Vegetation
+            if self.training_vegetation:
+                new_hidden_state_vegetation = self.vegetation_net(old_hidden_state, closed_mask, opened_mask)
+            else:
+                new_hidden_state_vegetation = self.dataset.variables.extract_from(old_hidden_state, "b")
+
             # Compile the full new hidden state
-            new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment], dim=1)
+            new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment, new_hidden_state_vegetation], dim=1)
 
             # loss_h, loss_u, loss_v, loss_bound, loss_damp = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks)
 
             # Interpolate spline coefficients to obtain the necessary quantities
-            h, grad_h, hu, grad_hu, hv, grad_hv, s, grad_s = self.dataset.interpolate_superres(new_hidden_state, self.params.resolution_factor)
+            h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = self.dataset.interpolate_superres(new_hidden_state, self.params.resolution_factor)
 
             # Store the newly obtained result in the dataset
             self.dataset.tell(new_hidden_state)

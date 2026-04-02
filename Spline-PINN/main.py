@@ -37,7 +37,7 @@ def main():
     print(f"Parameters: {vars(params)}")
 
     # Create dataset
-    data = dataset.Dataset(params, torch_device, types=["right-open-outflow"])
+    data = dataset.Dataset(params, torch_device, types=["numerical-saltmarsh"])
 
     # print(data.env_info[0])
 
