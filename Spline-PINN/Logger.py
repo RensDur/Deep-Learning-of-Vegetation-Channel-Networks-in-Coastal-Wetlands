@@ -12,6 +12,7 @@ from statsmodels.nonparametric.smoothers_lowess import lowess
 import warnings
 from natsort import natsorted
 import pickle
+import pandas as pd
 
 class Logger():
 	
@@ -42,6 +43,23 @@ class Logger():
 			os.makedirs(directory,exist_ok=True)
 			self.writer = SummaryWriter(directory)
 	
+	def load_logs(self, items):
+		"""
+		Load logs into pandas dataframe
+		Initially built to load training loss during visualisation
+		"""
+
+		collection = []
+
+		for item in items:
+			filename = 'Logger/{}/{}/logs/{}.log'.format(self.name,self.datetime,item)
+
+			# Read the logs from the csv file and add the value column to the collection
+			item_df = pd.read_csv(filename)
+			collection.append(item_df[item])
+		
+		return pd.concat(collection, axis=1)
+
 	
 	def log(self,item,value,index):
 		"""
@@ -58,6 +76,7 @@ class Logger():
 				append_write = 'a'
 			else:
 				append_write = 'w'
+				log_file.write(f"Index,{item}\n")
 			
 			with open(filename, append_write) as log_file:
 				log_file.write("{}, {}\n".format(index,value))

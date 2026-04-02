@@ -52,6 +52,9 @@ class MultiWindow:
         # Window status
         self.is_open = False
 
+    def set_training_loss(self, training_loss):
+        training_loss.plot(ax=self.axs[1, 2])
+
     def open(self):
 
         def __on_figure_close(event):
