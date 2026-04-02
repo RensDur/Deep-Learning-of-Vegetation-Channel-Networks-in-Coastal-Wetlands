@@ -586,11 +586,11 @@ class SplinePINNSolver:
 
         # Load the trained model state
         date_time, index = self.logger.load_state("water_net", self.water_net, None, datetime=self.params.load_date_time, index=self.params.load_index)
-        date_time, index = self.logger.load_state("sediment_net", self.sediment_net, None, datetime=self.params.load_date_time, index=self.params.load_index)
+        # date_time, index = self.logger.load_state("sediment_net", self.sediment_net, None, datetime=self.params.load_date_time, index=self.params.load_index)
         # date_time, index = self.logger.load_state("vegetation_net", self.vegetation_net, None, datetime=self.params.load_date_time, index=self.params.load_index)
 
         # Load loss progression in pandas dataframe
-        training_loss = self.logger.load_logs("loss_h", "loss_u", "loss_v", "loss_s", "loss_b", "loss_bound")
+        training_loss = self.logger.load_logs("loss_h", "loss_momentum", "loss_sediment", "loss_vegetation", "loss_bound")
 
         # Enable evaluation of the model
         self.water_net.eval()

@@ -43,16 +43,25 @@ class Logger():
 			os.makedirs(directory,exist_ok=True)
 			self.writer = SummaryWriter(directory)
 	
-	def load_logs(self, items):
+	def load_logs(self, *items):
 		"""
 		Load logs into pandas dataframe
 		Initially built to load training loss during visualisation
 		"""
 
+		for _,dirs,_ in os.walk('Logger/{}/'.format(self.name)):
+			datetime = sorted(dirs)[-1]
+			if datetime == self.datetime:
+				datetime = sorted(dirs)[-2]
+			break
+
+		if datetime == None:
+			raise Exception("Unable to walk logger directory to find latest date-time")
+
 		collection = []
 
 		for item in items:
-			filename = 'Logger/{}/{}/logs/{}.log'.format(self.name,self.datetime,item)
+			filename = 'Logger/{}/{}/logs/{}.log'.format(self.name,datetime,item)
 
 			# Read the logs from the csv file and add the value column to the collection
 			item_df = pd.read_csv(filename)
