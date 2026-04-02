@@ -29,11 +29,16 @@ class MultiWindow:
         self.figure, self.axs = plt.subplots(2, 3, figsize=(20, 10))
 
         self.water_plot = self.axs[0, 0].imshow(self.h[0,0].clone().detach().cpu().numpy(), cmap="Blues", vmin=0, vmax=0.02)
-        self.momentum_u_plot = self.axs[0, 1].imshow(self.u[0,0].clone().detach().cpu().numpy(), cmap="bwr", vmin=-0.2, vmax=0.2)
-        self.momentum_v_plot = self.axs[0, 2].imshow(self.v[0,0].clone().detach().cpu().numpy(), cmap="bwr", vmin=-0.2, vmax=0.2)
+        self.momentum_u_plot = self.axs[0, 1].imshow(self.u[0,0].clone().detach().cpu().numpy(), cmap="managua", vmin=-0.2, vmax=0.2)
+        self.momentum_v_plot = self.axs[0, 2].imshow(self.v[0,0].clone().detach().cpu().numpy(), cmap="managua", vmin=-0.2, vmax=0.2)
         self.sediment_plot = self.axs[1, 0].imshow(self.s[0,0].clone().detach().cpu().numpy(), cmap="gray", vmin=0, vmax=0.2)
         self.vegetation_plot = self.axs[1, 1].imshow(self.b[0,0].clone().detach().cpu().numpy(), cmap="YlGn", vmin=0, vmax=1500)
-        # self.losses_df.plot(ax=self.axs[1, 2])
+
+        self.loss_h_plot = self.axs[0, 0].imshow(self.h[0,0].clone().detach().cpu().numpy(), cmap="YlOrRd", vmin=0, vmax=1, alpha=0.3)
+        self.loss_u_plot = self.axs[0, 1].imshow(self.u[0,0].clone().detach().cpu().numpy(), cmap="YlOrRd", vmin=0, vmax=1, alpha=0.3)
+        self.loss_v_plot = self.axs[0, 2].imshow(self.v[0,0].clone().detach().cpu().numpy(), cmap="YlOrRd", vmin=0, vmax=1, alpha=0.3)
+        self.loss_s_plot = self.axs[1, 0].imshow(self.s[0,0].clone().detach().cpu().numpy(), cmap="YlOrRd", vmin=0, vmax=1, alpha=0.3)
+        self.loss_b_plot = self.axs[1, 1].imshow(self.b[0,0].clone().detach().cpu().numpy(), cmap="YlOrRd", vmin=0, vmax=1, alpha=0.3)
 
         # Title and axes configuration
         self.axs[0, 0].set(title="Water Layer Thickness", xlabel="Cross shore", ylabel="Along shore")
@@ -85,11 +90,19 @@ class MultiWindow:
 
     def set_data(self, h, u, v, s, b):
 
-        self.water_plot.set_data(h[0,0].detach().cpu().numpy())
-        self.momentum_u_plot.set_data(u[0,0].detach().cpu().numpy())
-        self.momentum_v_plot.set_data(v[0,0].detach().cpu().numpy())
-        self.sediment_plot.set_data(s[0,0].detach().cpu().numpy())
-        self.vegetation_plot.set_data(b[0,0].detach().cpu().numpy())
+        self.water_plot.set_data(h.detach().cpu().numpy())
+        self.momentum_u_plot.set_data(u.detach().cpu().numpy())
+        self.momentum_v_plot.set_data(v.detach().cpu().numpy())
+        self.sediment_plot.set_data(s.detach().cpu().numpy())
+        self.vegetation_plot.set_data(b.detach().cpu().numpy())
+
+    def set_loss(self, loss_h, loss_u, loss_v, loss_s, loss_b):
+
+        self.loss_h_plot.set_data(loss_h.detach().cpu().numpy())
+        self.loss_u_plot.set_data(loss_u.detach().cpu().numpy())
+        self.loss_v_plot.set_data(loss_v.detach().cpu().numpy())
+        self.loss_s_plot.set_data(loss_s.detach().cpu().numpy())
+        self.loss_b_plot.set_data(loss_b.detach().cpu().numpy())
 
 
 

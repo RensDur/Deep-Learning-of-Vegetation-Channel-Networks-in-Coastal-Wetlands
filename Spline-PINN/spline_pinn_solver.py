@@ -630,7 +630,31 @@ class SplinePINNSolver:
                 # Compile the full new hidden state
                 new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment, new_hidden_state_vegetation], dim=1)
 
-                # loss_h, loss_u, loss_v, loss_bound, loss_damp = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks)
+                dim = [1]
+                loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, dim)
+
+                # Images work better with log loss
+                loss_h = torch.log(loss_h)
+                loss_u = torch.log(loss_u)
+                loss_v = torch.log(loss_v)
+                loss_s = torch.log(loss_s)
+                loss_b = torch.log(loss_b)
+
+                # Scale the loss so they can be projected in the images
+                loss_h = loss_h - torch.min(loss_h)
+                loss_h = loss_h / torch.max(loss_h)
+
+                loss_u = loss_u - torch.min(loss_u)
+                loss_u = loss_u / torch.max(loss_u)
+
+                loss_v = loss_v - torch.min(loss_v)
+                loss_v = loss_v / torch.max(loss_v)
+
+                loss_s = loss_s - torch.min(loss_s)
+                loss_s = loss_s / torch.max(loss_s)
+
+                loss_b = loss_b - torch.min(loss_b)
+                loss_b = loss_b / torch.max(loss_b)
 
                 # Interpolate spline coefficients to obtain the necessary quantities
                 h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = self.dataset.interpolate_superres(new_hidden_state, self.params.resolution_factor)
@@ -639,7 +663,8 @@ class SplinePINNSolver:
                 self.dataset.tell(new_hidden_state)
 
                 # Display water level thickness h
-                window.set_data(h, u, v, s, b)
+                window.set_data(h[0,0], u[0,0], v[0,0], s[0,0], b[0,0])
+                window.set_loss(loss_h[0], loss_u[0], loss_v[0], loss_s[0], loss_b[0])
 
         # Start the simulation thread
         sim_thread = threading.Thread(target=simulation_loop)
