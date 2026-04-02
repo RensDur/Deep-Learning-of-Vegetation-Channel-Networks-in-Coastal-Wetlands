@@ -201,27 +201,40 @@ class SplinePINNSolver:
             ), dim)
 
             # Open boundary
-            loss_bound_open = torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
+            loss_bound_open = torch.mean(sample_opened_mask[:,:,1:-1,1:-1] * self.loss_function(
                 grad_h
             ), dim)
 
-            loss_bound_open = loss_bound_open + torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
+            loss_bound_open = loss_bound_open + torch.mean(sample_opened_mask[:,:,1:-1,1:-1] * self.loss_function(
                 grad_u
             ), dim)
 
-            loss_bound_open = loss_bound_open + torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
+            loss_bound_open = loss_bound_open + torch.mean(sample_opened_mask[:,:,1:-1,1:-1] * self.loss_function(
                 grad_v
             ), dim)
 
-            loss_bound_open = loss_bound_open + torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
+            loss_bound_open = loss_bound_open + torch.mean(sample_opened_mask[:,:,1:-1,1:-1] * self.loss_function(
                 s # S = 0
             ), dim)
 
-            loss_bound_open = loss_bound_open + torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
+            loss_bound_open = loss_bound_open + torch.mean(sample_opened_mask[:,:,1:-1,1:-1] * self.loss_function(
                 grad_b
             ), dim)
 
-            loss_bound = loss_bound + loss_bound_closed + loss_bound_open
+            # Auxilary boundary loss
+            loss_bound_aux = torch.mean(self.loss_function(
+                F.relu(-h) # water level thickness can never be negative
+            ), dim)
+
+            loss_bound_aux = loss_bound_aux + torch.mean(self.loss_function(
+                F.relu(-s) # sedimentary bed elevation can never be negative
+            ), dim)
+
+            loss_bound_aux = loss_bound_aux + torch.mean(self.loss_function(
+                F.relu(-b) # vegetation density can never be negative
+            ), dim)
+
+            loss_bound = loss_bound + loss_bound_closed + loss_bound_open + loss_bound_aux
 
         # Multiply by the loss weights
         loss_h = loss_h * self.params.loss_h
