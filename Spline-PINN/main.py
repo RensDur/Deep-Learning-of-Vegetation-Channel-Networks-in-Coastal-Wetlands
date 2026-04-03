@@ -4,6 +4,7 @@ import numpy as np
 import parameters
 import dataset
 import spline_pinn_solver
+from window import MultiWindow
 
 def main():
 
@@ -43,10 +44,11 @@ def main():
     # Create solver
     solver = spline_pinn_solver.SplinePINNSolver(data, params, torch_device)
 
-    # Visualize the output
-    solver.visualize()
+    # Spawn a MultiView window
+    window = MultiWindow(params.width * params.resolution_factor, params.height * params.resolution_factor)
 
-    # meuk
+    # Visualize the output
+    solver.visualize(window)
 
 
 if __name__ == "__main__":

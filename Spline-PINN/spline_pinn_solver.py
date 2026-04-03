@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 from pcgrad.pcgrad import PCGrad
 import os
 import psutil
-from window import MultiWindow
 import threading
 
 def _dbg(_desc='',_expr=None):
@@ -583,7 +582,7 @@ class SplinePINNSolver:
                     self.logger.save_state("vegetation_net", self.vegetation_net, self.optimizer, epoch + 1)
 
 
-    def visualize(self):
+    def visualize(self, window):
         """
         VISUALIZING RESULTS
         """
@@ -622,8 +621,7 @@ class SplinePINNSolver:
 
         print(f"Loaded {self.params.net}: {date_time}, index: {index}")
 
-        # Open a visualization window
-        window = MultiWindow(self.params.width * self.params.resolution_factor, self.params.height * self.params.resolution_factor)
+        # Open the visualization window
         window.set_training_loss(training_loss)
         window.open()
 
