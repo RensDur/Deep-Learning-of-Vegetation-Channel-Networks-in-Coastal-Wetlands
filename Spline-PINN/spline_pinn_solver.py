@@ -115,6 +115,7 @@ class SplinePINNSolver:
             h, grad_h, dh_dt, u, grad_u, laplacian_u, du_dt, v, grad_v, laplacian_v, dv_dt, s, grad_s, laplacian_s, ds_dt, b, grad_b, laplacian_b, db_dt = self.dataset.interpolate_states(old_hidden_state, new_hidden_state, offset)
 
             # Add mean water level height
+            h_before_relu = h
             h = F.relu(h - self.params.Hc) + self.params.Hc
 
             #
@@ -222,7 +223,7 @@ class SplinePINNSolver:
 
             # Auxilary boundary loss
             loss_bound_aux = torch.mean(self.loss_function(
-                F.relu(-h) # water level thickness can never be negative
+                F.relu(-h_before_relu) # water level thickness can never be negative
             ), dim)
 
             loss_bound_aux = loss_bound_aux + torch.mean(self.loss_function(
