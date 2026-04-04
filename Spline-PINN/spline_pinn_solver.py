@@ -192,13 +192,15 @@ class SplinePINNSolver:
                 v
             ), dim)
 
-            loss_bound_closed = loss_bound_closed + torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
-                grad_s
-            ), dim)
+            if self.training_sediment:
+                loss_bound_closed = loss_bound_closed + torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
+                    grad_s
+                ), dim)
 
-            loss_bound_closed = loss_bound_closed + torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
-                grad_b
-            ), dim)
+            if self.training_vegetation:
+                loss_bound_closed = loss_bound_closed + torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
+                    grad_b / self.params.k  # Normalize any loss related to b by max. carrying capacity to match scale-difference
+                ), dim)
 
             # Open boundary
             loss_bound_open = torch.mean(sample_opened_mask[:,:,1:-1,1:-1] * self.loss_function(
@@ -213,26 +215,30 @@ class SplinePINNSolver:
                 grad_v
             ), dim)
 
-            loss_bound_open = loss_bound_open + torch.mean(sample_opened_mask[:,:,1:-1,1:-1] * self.loss_function(
-                s # S = 0
-            ), dim)
+            if self.training_sediment:
+                loss_bound_open = loss_bound_open + torch.mean(sample_opened_mask[:,:,1:-1,1:-1] * self.loss_function(
+                    s # S = 0
+                ), dim)
 
-            loss_bound_open = loss_bound_open + torch.mean(sample_opened_mask[:,:,1:-1,1:-1] * self.loss_function(
-                grad_b
-            ), dim)
+            if self.training_vegetation:
+                loss_bound_open = loss_bound_open + torch.mean(sample_opened_mask[:,:,1:-1,1:-1] * self.loss_function(
+                    grad_b / self.params.k  # Normalize any loss related to b by max. carrying capacity to match scale-difference
+                ), dim)
 
             # Auxilary boundary loss
             loss_bound_aux = torch.mean(self.loss_function(
                 F.relu(-h_before_relu) # water level thickness can never be negative
             ), dim)
 
-            loss_bound_aux = loss_bound_aux + torch.mean(self.loss_function(
-                F.relu(-s) # sedimentary bed elevation can never be negative
-            ), dim)
+            if self.training_sediment:
+                loss_bound_aux = loss_bound_aux + torch.mean(self.loss_function(
+                    F.relu(-s) # sedimentary bed elevation can never be negative
+                ), dim)
 
-            loss_bound_aux = loss_bound_aux + torch.mean(self.loss_function(
-                F.relu(-b) # vegetation density can never be negative
-            ), dim)
+            if self.training_vegetation:
+                loss_bound_aux = loss_bound_aux + torch.mean(self.loss_function(
+                    F.relu(-b) / self.params.k  # Normalize any loss related to b by max. carrying capacity to match scale-difference # vegetation density can never be negative
+                ), dim)
 
             loss_bound = loss_bound + loss_bound_closed + loss_bound_open + loss_bound_aux
 
