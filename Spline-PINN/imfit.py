@@ -507,11 +507,11 @@ def evaluation_loop(SELECTED_NUMERICAL_OUTPUT, torch_device):
         loss_s = torch.pow(s - ref_s, 2)
         loss_b = torch.pow(b - ref_b, 2)
 
-        water_plot.set_data(h[0,0].detach().cpu().numpy())
-        momentum_u_plot.set_data(u[0,0].detach().cpu().numpy())
-        momentum_v_plot.set_data(v[0,0].detach().cpu().numpy())
-        sediment_plot.set_data(s[0,0].detach().cpu().numpy())
-        vegetation_plot.set_data(b[0,0].detach().cpu().numpy())
+        # water_plot.set_data(h[0,0].detach().cpu().numpy())
+        # momentum_u_plot.set_data(u[0,0].detach().cpu().numpy())
+        # momentum_v_plot.set_data(v[0,0].detach().cpu().numpy())
+        # sediment_plot.set_data(s[0,0].detach().cpu().numpy())
+        # vegetation_plot.set_data(b[0,0].detach().cpu().numpy())
 
         # Plot the domain (update existing plot)
         # Draw updated values
@@ -526,7 +526,7 @@ def evaluation_loop(SELECTED_NUMERICAL_OUTPUT, torch_device):
 
 if __name__ == "__main__":
 
-    SELECTED_NUMERICAL_OUTPUT = 650_000
+    SELECTED_NUMERICAL_OUTPUT = 250000
 
     
     # Program mode

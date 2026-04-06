@@ -34,7 +34,7 @@ class MultiWindow:
         self.loss_s_plot = self.axs[1, 0].imshow(self.s[0,0].clone().detach().cpu().numpy(), cmap="gray", vmin=-0.5, vmax=1)
         self.loss_b_plot = self.axs[1, 1].imshow(self.b[0,0].clone().detach().cpu().numpy(), cmap="gray", vmin=-0.5, vmax=1)
 
-        self.img_alpha = 0.5
+        self.img_alpha = 1
 
         self.water_plot = self.axs[0, 0].imshow(self.h[0,0].clone().detach().cpu().numpy(), cmap="Blues", vmin=0, vmax=0.02, alpha=self.img_alpha)
         self.momentum_u_plot = self.axs[0, 1].imshow(self.u[0,0].clone().detach().cpu().numpy(), cmap="bwr", vmin=-0.2, vmax=0.2, alpha=self.img_alpha)
