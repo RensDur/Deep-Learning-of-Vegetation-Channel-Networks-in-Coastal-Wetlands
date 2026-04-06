@@ -217,7 +217,7 @@ class CompoundFitNet(nn.Module):
         return out
 
 
-def training_loop(torch_device):
+def training_loop(SELECTED_NUMERICAL_OUTPUT, torch_device):
     
     dataset = FitDataset(200, 200, torch_device)
 
@@ -231,16 +231,16 @@ def training_loop(torch_device):
     optimizer = PCGrad(optimizer)
 
     # Load reference images from disk
-    ref_h = torch.load("numerical_output/2500000/h.pt").to(torch_device)
-    ref_u = torch.load("numerical_output/2500000/u.pt").to(torch_device)
-    ref_v = torch.load("numerical_output/2500000/v.pt").to(torch_device)
-    ref_s = torch.load("numerical_output/2500000/s.pt").to(torch_device)
-    ref_b = torch.load("numerical_output/2500000/b.pt").to(torch_device)
+    ref_h = torch.load(f"numerical_output/{SELECTED_NUMERICAL_OUTPUT}/h.pt").to(torch_device)
+    ref_u = torch.load(f"numerical_output/{SELECTED_NUMERICAL_OUTPUT}/u.pt").to(torch_device)
+    ref_v = torch.load(f"numerical_output/{SELECTED_NUMERICAL_OUTPUT}/v.pt").to(torch_device)
+    ref_s = torch.load(f"numerical_output/{SELECTED_NUMERICAL_OUTPUT}/s.pt").to(torch_device)
+    ref_b = torch.load(f"numerical_output/{SELECTED_NUMERICAL_OUTPUT}/b.pt").to(torch_device)
 
     input_image = torch.cat([ref_h, ref_u, ref_v, ref_s, ref_b], dim=1)
 
     # Create a folder for the hidden state output
-    output_folder = f"numerical_spline_converted/{dataset.variables.summary()}/2500000"
+    output_folder = f"numerical_spline_converted/{dataset.variables.summary()}/{SELECTED_NUMERICAL_OUTPUT}"
     os.makedirs(f"{output_folder}",exist_ok=True)
 
     # Create an empty file for every loss component
@@ -428,12 +428,12 @@ def training_loop(torch_device):
         # figure.canvas.flush_events()
 
 
-def evaluation_loop(torch_device):
+def evaluation_loop(SELECTED_NUMERICAL_OUTPUT, torch_device):
        
     dataset = FitDataset(200, 200, torch_device)
 
     # Point to the same output folder used during training
-    output_folder = f"numerical_spline_converted/{dataset.variables.summary()}/2500000"
+    output_folder = f"numerical_spline_converted/{dataset.variables.summary()}/{SELECTED_NUMERICAL_OUTPUT}"
 
     # Try to load the latest hidden state
     try:
@@ -442,11 +442,11 @@ def evaluation_loop(torch_device):
         print(f"Unable to load previous optimal hidden state from disk")
 
     # Load reference images from disk
-    ref_h = torch.load("numerical_output/2500000/h.pt").to(torch_device)
-    ref_u = torch.load("numerical_output/2500000/u.pt").to(torch_device)
-    ref_v = torch.load("numerical_output/2500000/v.pt").to(torch_device)
-    ref_s = torch.load("numerical_output/2500000/s.pt").to(torch_device)
-    ref_b = torch.load("numerical_output/2500000/b.pt").to(torch_device)
+    ref_h = torch.load(f"numerical_output/{SELECTED_NUMERICAL_OUTPUT}/h.pt").to(torch_device)
+    ref_u = torch.load(f"numerical_output/{SELECTED_NUMERICAL_OUTPUT}/u.pt").to(torch_device)
+    ref_v = torch.load(f"numerical_output/{SELECTED_NUMERICAL_OUTPUT}/v.pt").to(torch_device)
+    ref_s = torch.load(f"numerical_output/{SELECTED_NUMERICAL_OUTPUT}/s.pt").to(torch_device)
+    ref_b = torch.load(f"numerical_output/{SELECTED_NUMERICAL_OUTPUT}/b.pt").to(torch_device)
 
     input_image = torch.cat([ref_h, ref_u, ref_v, ref_s, ref_b], dim=1)
 
@@ -507,11 +507,11 @@ def evaluation_loop(torch_device):
         loss_s = torch.pow(s - ref_s, 2)
         loss_b = torch.pow(b - ref_b, 2)
 
-        water_plot.set_data(h[0,0].detach().cpu().numpy())
-        momentum_u_plot.set_data(u[0,0].detach().cpu().numpy())
-        momentum_v_plot.set_data(v[0,0].detach().cpu().numpy())
-        sediment_plot.set_data(s[0,0].detach().cpu().numpy())
-        vegetation_plot.set_data(b[0,0].detach().cpu().numpy())
+        # water_plot.set_data(h[0,0].detach().cpu().numpy())
+        # momentum_u_plot.set_data(u[0,0].detach().cpu().numpy())
+        # momentum_v_plot.set_data(v[0,0].detach().cpu().numpy())
+        # sediment_plot.set_data(s[0,0].detach().cpu().numpy())
+        # vegetation_plot.set_data(b[0,0].detach().cpu().numpy())
 
         # Plot the domain (update existing plot)
         # Draw updated values
@@ -525,6 +525,9 @@ def evaluation_loop(torch_device):
 
 
 if __name__ == "__main__":
+
+    SELECTED_NUMERICAL_OUTPUT = 300_000
+
     
     # Program mode
     mode = "train"
@@ -544,8 +547,8 @@ if __name__ == "__main__":
 
 
     if mode == "train":
-        training_loop(torch_device)
+        training_loop(SELECTED_NUMERICAL_OUTPUT, torch_device)
     elif mode == "eval":
-        evaluation_loop(torch_device)
+        evaluation_loop(SELECTED_NUMERICAL_OUTPUT, torch_device)
     else:
         raise Exception(f"Unrecognized mode: {mode}")
