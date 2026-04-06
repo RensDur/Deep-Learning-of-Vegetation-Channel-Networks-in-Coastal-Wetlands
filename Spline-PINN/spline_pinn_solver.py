@@ -278,7 +278,7 @@ class SplinePINNSolver:
         self.optimizer = Adam(self.water_net.parameters(), lr=self.params.lr)   # Initially, we only train the water net
         self.optimizer = PCGrad(self.optimizer)
 
-        torch.autograd.set_detect_anomaly(True)
+        # torch.autograd.set_detect_anomaly(True)
 
         #
         # Logger
