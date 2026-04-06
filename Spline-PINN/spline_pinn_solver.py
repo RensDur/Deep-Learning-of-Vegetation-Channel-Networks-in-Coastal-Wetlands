@@ -108,8 +108,8 @@ class SplinePINNSolver:
 
             # Put additional border_weight on domain boundaries:
             # Important: weighed by parameter 'border_weight'
-            sample_closed_mask = (sample_closed_mask + sample_closed_mask*self.diffuse(sample_closed_domain_mask)*self.params.border_weight).detach()
-            sample_opened_mask = (sample_opened_mask + sample_opened_mask*self.diffuse(sample_opened_domain_mask)*self.params.border_weight).detach()
+            # sample_closed_mask = (sample_closed_mask + sample_closed_mask*self.diffuse(sample_closed_domain_mask)*self.params.border_weight).detach()
+            # sample_opened_mask = (sample_opened_mask + sample_opened_mask*self.diffuse(sample_opened_domain_mask)*self.params.border_weight).detach()
 
             # Interpolate spline coefficients to obtain the necessary quantities
             h, grad_h, dh_dt, u, grad_u, laplacian_u, du_dt, v, grad_v, laplacian_v, dv_dt, s, grad_s, laplacian_s, ds_dt, b, grad_b, laplacian_b, db_dt = self.dataset.interpolate_states(old_hidden_state, new_hidden_state, offset)
