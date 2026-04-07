@@ -526,7 +526,7 @@ def evaluation_loop(SELECTED_NUMERICAL_OUTPUT, torch_device):
 
 if __name__ == "__main__":
 
-    SELECTED_NUMERICAL_OUTPUT = 2_500_000
+    SELECTED_NUMERICAL_OUTPUT = 650000
 
     
     # Program mode
