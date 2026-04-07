@@ -29,7 +29,7 @@ class FitDataset:
 
         # Variables in this dataset
         self.variables = SplineArray(
-            SplineVariable("h", 2, requires_derivative=True, requires_laplacian=True),                           # h describes the zero-meaned surface height, on top of H0
+            SplineVariable("h", 1, requires_derivative=True, requires_laplacian=True),                           # h describes the zero-meaned surface height, on top of H0
             SplineVariable("u", 2, requires_derivative=True, requires_laplacian=True),
             SplineVariable("v", 2, requires_derivative=True, requires_laplacian=True),
             SplineVariable("s", 2, requires_derivative=True, requires_laplacian=True),
@@ -299,7 +299,7 @@ def training_loop(SELECTED_NUMERICAL_OUTPUT, torch_device):
         return torch.pow(x, 2)
 
     # Training loop
-    EPOCHS = 150
+    EPOCHS = 1000
     N_BATCHES = 10
     N_SAMPLES = 50
     resolution_factor = 4
@@ -507,11 +507,11 @@ def evaluation_loop(SELECTED_NUMERICAL_OUTPUT, torch_device):
         loss_s = torch.pow(s - ref_s, 2)
         loss_b = torch.pow(b - ref_b, 2)
 
-        # water_plot.set_data(h[0,0].detach().cpu().numpy())
-        # momentum_u_plot.set_data(u[0,0].detach().cpu().numpy())
-        # momentum_v_plot.set_data(v[0,0].detach().cpu().numpy())
-        # sediment_plot.set_data(s[0,0].detach().cpu().numpy())
-        # vegetation_plot.set_data(b[0,0].detach().cpu().numpy())
+        water_plot.set_data(h[0,0].detach().cpu().numpy())
+        momentum_u_plot.set_data(u[0,0].detach().cpu().numpy())
+        momentum_v_plot.set_data(v[0,0].detach().cpu().numpy())
+        sediment_plot.set_data(s[0,0].detach().cpu().numpy())
+        vegetation_plot.set_data(b[0,0].detach().cpu().numpy())
 
         # Plot the domain (update existing plot)
         # Draw updated values
@@ -526,7 +526,7 @@ def evaluation_loop(SELECTED_NUMERICAL_OUTPUT, torch_device):
 
 if __name__ == "__main__":
 
-    SELECTED_NUMERICAL_OUTPUT = 250000
+    SELECTED_NUMERICAL_OUTPUT = 2_500_000
 
     
     # Program mode
