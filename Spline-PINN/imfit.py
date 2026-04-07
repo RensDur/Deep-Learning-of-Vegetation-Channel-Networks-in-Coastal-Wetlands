@@ -401,7 +401,7 @@ def training_loop(SELECTED_NUMERICAL_OUTPUT, torch_device):
             # If this was the best run until now, save the state
             if loss < min_loss:
                 min_loss = loss
-                torch.save(dataset.hidden_state, f"{output_folder}/hidden_state.pt")
+                torch.save(dataset.hidden_state.cpu(), f"{output_folder}/hidden_state.pt")
 
                 # Report the loss
                 with open(f"{output_folder}/min_loss.txt", "w") as file:
