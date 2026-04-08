@@ -65,18 +65,18 @@ class Dataset:
         self.opened_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
 
         # Load the saltmarsh numerical solution, pre-fitted to a hidden spline representation
-        # self.prefit_saltmarsh_250_000 = torch.load(f"numerical_spline_converted/{self.variables.summary()}/250000/hidden_state.pt").cpu()
-        # self.prefit_saltmarsh_300_000 = torch.load(f"numerical_spline_converted/{self.variables.summary()}/300000/hidden_state.pt").cpu()
-        # self.prefit_saltmarsh_650_000 = torch.load(f"numerical_spline_converted/{self.variables.summary()}/650000/hidden_state.pt").cpu()
-        # self.prefit_saltmarsh_750_000 = torch.load(f"numerical_spline_converted/{self.variables.summary()}/750000/hidden_state.pt").cpu()
+        self.prefit_saltmarsh_250_000 = torch.load(f"numerical_spline_converted/{self.variables.summary()}/250000/hidden_state.pt").cpu()
+        self.prefit_saltmarsh_300_000 = torch.load(f"numerical_spline_converted/{self.variables.summary()}/300000/hidden_state.pt").cpu()
+        self.prefit_saltmarsh_650_000 = torch.load(f"numerical_spline_converted/{self.variables.summary()}/650000/hidden_state.pt").cpu()
+        self.prefit_saltmarsh_1_300_000 = torch.load(f"numerical_spline_converted/{self.variables.summary()}/1300000/hidden_state.pt").cpu()
         self.prefit_saltmarsh_2_500_000 = torch.load(f"numerical_spline_converted/{self.variables.summary()}/2500000/hidden_state.pt").cpu()
 
         # Environment information
         self.types = [
-            # "numerical-saltmarsh-250_000",
-            # "numerical-saltmarsh-300_000",
-            # "numerical-saltmarsh-650_000",
-            # "numerical-saltmarsh-750_000",
+            "numerical-saltmarsh-250_000",
+            "numerical-saltmarsh-300_000",
+            "numerical-saltmarsh-650_000",
+            "numerical-saltmarsh-1_300_000",
             "numerical-saltmarsh-2_500_000",
         ] if types is None else types
 
@@ -210,12 +210,12 @@ class Dataset:
                 # The right edge is open
                 self.opened_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
 
-            if typename == "numerical-saltmarsh-750_000":
+            if typename == "numerical-saltmarsh-1_300_000":
 
                 #
                 # Set the initial condition
                 #
-                self.hidden_states[group_indices] = self.prefit_saltmarsh_750_000.clone()
+                self.hidden_states[group_indices] = self.prefit_saltmarsh_1_300_000.clone()
 
                 #
                 # Set the boundary conditions

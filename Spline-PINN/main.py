@@ -37,7 +37,7 @@ def main():
     print(f"Parameters: {vars(params)}")
 
     # Create dataset
-    data = dataset.Dataset(params, torch_device, types=["numerical-saltmarsh-2_500_000"])
+    data = dataset.Dataset(params, torch_device, types=["numerical-saltmarsh-1_300_000"])
 
     # print(data.env_info[0])
 
