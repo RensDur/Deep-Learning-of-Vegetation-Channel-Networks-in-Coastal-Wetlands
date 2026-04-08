@@ -60,9 +60,13 @@ class Dataset:
         # Boundary conditions and masking
         self.closed_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
         self.opened_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.h_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.h_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
 
         self.closed_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.opened_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
+        self.h_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
+        self.h_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
 
         # Load the saltmarsh numerical solution, pre-fitted to a hidden spline representation
         self.prefit_saltmarsh_250_000 = torch.load(f"numerical_spline_converted/{self.variables.summary()}/250000/hidden_state.pt").cpu()
@@ -78,6 +82,7 @@ class Dataset:
             "numerical-saltmarsh-650_000",
             "numerical-saltmarsh-1_300_000",
             "numerical-saltmarsh-2_500_000",
+            "reservoir"
         ] if types is None else types
 
         print(f"Running with types: {self.types}")
@@ -137,6 +142,8 @@ class Dataset:
         # Reset all masks and conditions
         self.closed_mask_fullres[indices] = 0
         self.opened_mask_fullres[indices] = 0
+        self.h_mask_fullres[indices] = 0
+        self.h_cond_fullres[indices] = 0
 
         # Randomly choose a new type for each environment
         self.env_type[indices] = np.random.choice(self.types, indices.shape)
@@ -246,6 +253,48 @@ class Dataset:
                 # The right edge is open
                 self.opened_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
 
+            #
+            # RESERVOIR SETTING
+            #
+            if typename == "reservoir":
+
+                #
+                # Set the initial condition
+                #
+                self.hidden_states[group_indices, self.variables.get_singular_slice_for("h"), :, :] = 0.2
+                
+                wall_position = 175
+                wall_width = 20
+
+                wall_component = torch.sin(torch.arange(wall_width)/wall_width * math.pi) * 0.2
+
+                self.hidden_states[group_indices, self.variables.get_singular_slice_for("s"), :, (wall_position-wall_width//2):(wall_position+wall_width//2)] = wall_component.repeat(1, 1, self.height-1, 1)
+
+                #
+                # Set the boundary conditions
+                #
+
+                # All sides are closed, except the right edge
+                self.closed_mask_fullres[group_indices] = 1
+                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:] = 0
+
+                # The right edge is open
+                self.opened_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
+
+                # Install the oscillator
+                oscillator_center_x = 80 * self.resolution_factor
+                oscillator_center_y = 100 * self.resolution_factor
+                oscillator_radius = 10 * self.resolution_factor
+
+                for dx in range(-oscillator_radius, oscillator_radius):
+                    for dy in range(-oscillator_radius, oscillator_radius):
+                        if dx**2 + dy**2 < oscillator_radius**2:
+                            self.h_mask_fullres[group_indices,:,oscillator_center_y+dy,oscillator_center_x+dx] = 1
+                
+                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
+                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+
+
 
         for typename in grouping.keys():
             reset_all_of_type(typename, grouping[typename])
@@ -253,6 +302,8 @@ class Dataset:
         # Average pooling to create downsampled versions of the BCs
         self.closed_mask[indices] = F.avg_pool2d(self.closed_mask_fullres[indices],self.resolution_factor)
         self.opened_mask[indices] = F.avg_pool2d(self.opened_mask_fullres[indices],self.resolution_factor)
+        self.h_mask[indices] = F.avg_pool2d(self.h_mask_fullres[indices],self.resolution_factor)
+        self.h_cond[indices] = F.avg_pool2d(self.h_cond_fullres[indices],self.resolution_factor)
 
 
 
@@ -273,7 +324,10 @@ class Dataset:
             """
             group_indices is guaranteed to be non-empty
             """
-            pass
+            
+            if typename == "reservoir":
+                self.h_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres - 2*self.padding_fullres, self.height_fullres - 2*self.padding_fullres)
+                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
         for typename in grouping.keys():
             reset_all_of_type(typename, grouping[typename])
@@ -281,9 +335,11 @@ class Dataset:
         # Average pooling to create downsampled versions of the BCs
         self.closed_mask[indices] = F.avg_pool2d(self.closed_mask_fullres[indices],self.resolution_factor)
         self.opened_mask[indices] = F.avg_pool2d(self.opened_mask_fullres[indices],self.resolution_factor)
+        self.h_mask[indices] = F.avg_pool2d(self.h_mask_fullres[indices],self.resolution_factor)
+        self.h_cond[indices] = F.avg_pool2d(self.h_cond_fullres[indices],self.resolution_factor)
         
         # Update the time for each environment
-        self.env_time[indices] = self.env_time[indices] + math.pi / 100.0
+        self.env_time[indices] = self.env_time[indices] + math.pi / 10.0
         
 
     def ask(self):
@@ -315,6 +371,8 @@ class Dataset:
         grid_offsets = []
         sample_closed_mask = []
         sample_opened_mask = []
+        sample_h_mask = []
+        sample_h_cond = []
 
         for _ in range(self.n_samples):
 
@@ -327,20 +385,28 @@ class Dataset:
 
             sample_closed_mask.append(self.closed_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
             sample_opened_mask.append(self.opened_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
+            sample_h_mask.append(self.h_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
+            sample_h_cond.append(self.h_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
 
         # Move all data to the desired device
         for i in range(self.n_samples):
             grid_offsets[i] = grid_offsets[i].to(self.device)
             sample_closed_mask[i] = sample_closed_mask[i].to(self.device)
             sample_opened_mask[i] = sample_opened_mask[i].to(self.device)
+            sample_h_mask[i] = sample_h_mask[i].to(self.device)
+            sample_h_cond[i] = sample_h_cond[i].to(self.device)
 
         # Return the hidden states and boundary conditions after moving them to the desired device
         return self.hidden_states[self.asked_indices].to(self.device), \
                 self.closed_mask[self.asked_indices].to(self.device), \
                 self.opened_mask[self.asked_indices].to(self.device), \
+                self.h_mask[self.asked_indices].to(self.device), \
+                self.h_cond[self.asked_indices].to(self.device), \
                 grid_offsets, \
                 sample_closed_mask, \
-                sample_opened_mask
+                sample_opened_mask, \
+                sample_h_mask, \
+                sample_h_cond
     
     def tell(self, hidden_states):
 
