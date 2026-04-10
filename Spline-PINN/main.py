@@ -37,7 +37,7 @@ def main():
     print(f"Parameters: {vars(params)}")
 
     # Create dataset
-    data = dataset.Dataset(params, torch_device, types=["numerical-saltmarsh-2_500_000"])
+    data = dataset.Dataset(params, torch_device, types=["numerical-saltmarsh-250_000"])
 
     # print(data.env_info[0])
 
@@ -45,7 +45,7 @@ def main():
     solver = spline_pinn_solver.SplinePINNSolver(data, params, torch_device)
 
     # Spawn a MultiView window
-    window = PerformanceSummaryWindow(params.width * params.resolution_factor, params.height * params.resolution_factor, 4, 1)
+    window = PerformanceSummaryWindow(params.width * params.resolution_factor, params.height * params.resolution_factor, 10, 20)
 
     # Visualize the output
     solver.visualize(window)

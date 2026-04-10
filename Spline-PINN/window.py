@@ -46,10 +46,39 @@ class PerformanceSummaryWindow:
         self.s_axs = [plt.subplot2grid((6, self.stages), (3, col), colspan=1) for col in range(self.stages)]
         self.b_axs = [plt.subplot2grid((6, self.stages), (4, col), colspan=1) for col in range(self.stages)]
         self.loss_ax = plt.subplot2grid((6, self.stages), (5, 0), colspan=self.stages)
+        plt.tight_layout()
+
+        # Custom spacing
+        plt.subplots_adjust(
+            left=0.05,
+            right=1-0.05,
+            top=1-0.05,
+            bottom=0.05,
+            hspace=0.1,
+            wspace=0.025
+        )
+
+        # Disable axis numbers for image plots
+        for i in range(self.stages):
+            self.h_axs[i].tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+            self.u_axs[i].tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+            self.v_axs[i].tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+            self.s_axs[i].tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+            self.b_axs[i].tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+
+        # Titles and labels
+        self.h_axs[0].set(title=f"Iteration: 0", ylabel="h")
+        for i in range(1, self.stages):
+            self.h_axs[i].set(title=f"{i*self.interval}")
+
+        self.u_axs[0].set(ylabel="u")
+        self.v_axs[0].set(ylabel="v")
+        self.s_axs[0].set(ylabel="s")
+        self.b_axs[0].set(ylabel="b")
 
         # Set loss axis limits
-        self.loss_ax.set_xlim([0, self.stages * self.interval])
-        self.loss_ax.set_ylim([-10, 10])
+        self.loss_ax.set_xlim([-self.interval/2, self.stages * self.interval + self.interval/2])
+        self.loss_ax.set_ylim([-20, 20])
 
         # Create all the image plots
         self.h_img_plots = [self.h_axs[col].imshow(self.h[col,0].detach().cpu().numpy(), cmap="Blues", vmin=0, vmax=0.02) for col in range(self.stages)]
@@ -108,13 +137,13 @@ class PerformanceSummaryWindow:
         if index % self.interval == 0:
             stage = self.current_stage
 
-        if stage < self.stages:
-            self.current_stage += 1
-            self.h_img_plots[stage].set_data(h.detach().cpu().numpy())
-            self.u_img_plots[stage].set_data(u.detach().cpu().numpy())
-            self.v_img_plots[stage].set_data(v.detach().cpu().numpy())
-            self.s_img_plots[stage].set_data(s.detach().cpu().numpy())
-            self.b_img_plots[stage].set_data(b.detach().cpu().numpy())
+            if stage < self.stages:
+                self.current_stage += 1
+                self.h_img_plots[stage].set_data(h.detach().cpu().numpy())
+                self.u_img_plots[stage].set_data(u.detach().cpu().numpy())
+                self.v_img_plots[stage].set_data(v.detach().cpu().numpy())
+                self.s_img_plots[stage].set_data(s.detach().cpu().numpy())
+                self.b_img_plots[stage].set_data(b.detach().cpu().numpy())
 
     def append_loss(self, loss_h, loss_u, loss_v, loss_s, loss_b):
 
