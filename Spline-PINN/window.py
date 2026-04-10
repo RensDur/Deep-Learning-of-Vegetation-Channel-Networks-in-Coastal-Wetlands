@@ -77,8 +77,11 @@ class PerformanceSummaryWindow:
         self.b_axs[0].set(ylabel="b")
 
         # Set loss axis limits
-        self.loss_ax.set_xlim([-self.interval/2, self.stages * self.interval + self.interval/2])
+        self.loss_ax.set_xlim([-self.interval/2, self.stages * self.interval - self.interval/2])
         self.loss_ax.set_ylim([-20, 20])
+
+        # Set loss axis tick positions
+        self.loss_ax.set_xticks(np.arange(0, self.stages * self.interval, self.interval))
 
         # Create all the image plots
         self.h_img_plots = [self.h_axs[col].imshow(self.h[col,0].detach().cpu().numpy(), cmap="Blues", vmin=0, vmax=0.02) for col in range(self.stages)]
