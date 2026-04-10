@@ -629,11 +629,15 @@ class SplinePINNSolver:
         print(f"Loaded {self.params.net}: {date_time}, index: {index}")
 
         # Open the visualization window
-        window.set_training_loss(training_loss)
+        # window.set_training_loss(training_loss)
         window.open()
+
+        
 
         # Simulation loop
         def simulation_loop():
+            sim_index = 0
+            
             while window.is_open:
 
                 # Ask for a batch from the dataset
@@ -662,35 +666,35 @@ class SplinePINNSolver:
                 loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, dim)
 
                 # Images work better with log loss
-                loss_h = torch.log(loss_h)
-                loss_u = torch.log(loss_u)
-                loss_v = torch.log(loss_v)
-                loss_s = torch.log(loss_s)
-                loss_b = torch.log(loss_b)
+                loss_h = torch.mean(torch.log(loss_h))
+                loss_u = torch.mean(torch.log(loss_u))
+                loss_v = torch.mean(torch.log(loss_v))
+                loss_s = torch.mean(torch.log(loss_s))
+                loss_b = torch.mean(torch.log(loss_b))
 
                 # Scale the loss so they can be projected in the images
-                loss_h = loss_h - torch.min(loss_h)
-                loss_h = loss_h / torch.max(loss_h)
+                # loss_h = loss_h - torch.min(loss_h)
+                # loss_h = loss_h / torch.max(loss_h)
 
-                loss_u = loss_u - torch.min(loss_u)
-                loss_u = loss_u / torch.max(loss_u)
+                # loss_u = loss_u - torch.min(loss_u)
+                # loss_u = loss_u / torch.max(loss_u)
 
-                loss_v = loss_v - torch.min(loss_v)
-                loss_v = loss_v / torch.max(loss_v)
+                # loss_v = loss_v - torch.min(loss_v)
+                # loss_v = loss_v / torch.max(loss_v)
 
-                loss_s = loss_s - torch.min(loss_s)
-                loss_s = loss_s / torch.max(loss_s)
+                # loss_s = loss_s - torch.min(loss_s)
+                # loss_s = loss_s / torch.max(loss_s)
 
-                loss_b = loss_b - torch.min(loss_b)
-                loss_b = loss_b / torch.max(loss_b)
+                # loss_b = loss_b - torch.min(loss_b)
+                # loss_b = loss_b / torch.max(loss_b)
 
                 # Apply a high-pass filter to losses
-                hp_threshold = 0.7
-                loss_h[torch.where(loss_h < hp_threshold)] = 0
-                loss_u[torch.where(loss_u < hp_threshold)] = 0
-                loss_v[torch.where(loss_v < hp_threshold)] = 0
-                loss_s[torch.where(loss_s < hp_threshold)] = 0
-                loss_b[torch.where(loss_b < hp_threshold)] = 0
+                # hp_threshold = 0.7
+                # loss_h[torch.where(loss_h < hp_threshold)] = 0
+                # loss_u[torch.where(loss_u < hp_threshold)] = 0
+                # loss_v[torch.where(loss_v < hp_threshold)] = 0
+                # loss_s[torch.where(loss_s < hp_threshold)] = 0
+                # loss_b[torch.where(loss_b < hp_threshold)] = 0
 
                 # Interpolate spline coefficients to obtain the necessary quantities
                 h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = self.dataset.interpolate_superres(new_hidden_state, self.params.resolution_factor)
@@ -699,8 +703,10 @@ class SplinePINNSolver:
                 self.dataset.tell(new_hidden_state)
 
                 # Display water level thickness h
-                window.set_data(h[0,0], u[0,0], v[0,0], s[0,0], b[0,0])
-                window.set_loss(loss_h[0], loss_u[0], loss_v[0], loss_s[0], loss_b[0])
+                window.set_data(h[0,0], u[0,0], v[0,0], s[0,0], b[0,0], sim_index)
+                window.append_loss(loss_h, loss_u, loss_v, loss_s, loss_b)
+
+                sim_index += 1
 
         # Start the simulation thread
         sim_thread = threading.Thread(target=simulation_loop)
