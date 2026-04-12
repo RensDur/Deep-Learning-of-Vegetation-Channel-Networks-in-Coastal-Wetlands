@@ -666,11 +666,11 @@ class SplinePINNSolver:
                 loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, dim)
 
                 # Images work better with log loss
-                loss_h = torch.mean(torch.log(loss_h))
-                loss_u = torch.mean(torch.log(loss_u))
-                loss_v = torch.mean(torch.log(loss_v))
-                loss_s = torch.mean(torch.log(loss_s))
-                loss_b = torch.mean(torch.log(loss_b))
+                loss_h = torch.mean(loss_h)
+                loss_u = torch.mean(loss_u)
+                loss_v = torch.mean(loss_v)
+                loss_s = torch.mean(loss_s)
+                loss_b = torch.mean(loss_b)
 
                 # Scale the loss so they can be projected in the images
                 # loss_h = loss_h - torch.min(loss_h)

@@ -54,7 +54,7 @@ class PerformanceSummaryWindow:
             right=1-0.05,
             top=1-0.05,
             bottom=0.05,
-            hspace=0.1,
+            hspace=0.3,
             wspace=0.025
         )
 
@@ -96,6 +96,8 @@ class PerformanceSummaryWindow:
         self.v_loss_plot = self.loss_ax.plot(range(self.v_loss_data.shape[0]), self.v_loss_data, label="v-loss")[0]
         self.s_loss_plot = self.loss_ax.plot(range(self.s_loss_data.shape[0]), self.s_loss_data, label="s-loss")[0]
         self.b_loss_plot = self.loss_ax.plot(range(self.b_loss_data.shape[0]), self.b_loss_data, label="b-loss")[0]
+        self.loss_ax.legend()
+        self.loss_ax.grid(True, which="major", axis="both", linestyle="--", alpha=0.4)
         
         # Color bars
         plt.colorbar(self.h_img_plots[-1])
@@ -170,6 +172,29 @@ class PerformanceSummaryWindow:
         self.v_loss_plot.set_ydata(self.v_loss_data)
         self.s_loss_plot.set_ydata(self.s_loss_data)
         self.b_loss_plot.set_ydata(self.b_loss_data)
+
+        # Update the axis limits
+        min_y = np.min(np.array([
+            np.min(self.h_loss_data),
+            np.min(self.u_loss_data),
+            np.min(self.v_loss_data),
+            np.min(self.s_loss_data),
+            np.min(self.b_loss_data),
+        ])).item()
+
+        max_y = np.max(np.array([
+            np.max(self.h_loss_data),
+            np.max(self.u_loss_data),
+            np.max(self.v_loss_data),
+            np.max(self.s_loss_data),
+            np.max(self.b_loss_data),
+        ])).item()
+
+        min_max_range = max_y - min_y
+        min_y = min_y - 0.1*min_max_range
+        max_y = max_y + 0.1*min_max_range
+
+        self.loss_ax.set_ylim([min_y, max_y])
 
 
 
