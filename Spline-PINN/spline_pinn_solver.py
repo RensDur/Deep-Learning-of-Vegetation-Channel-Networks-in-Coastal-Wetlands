@@ -116,7 +116,7 @@ class SplinePINNSolver:
 
             # Add mean water level height
             h_before_relu = h
-            h = F.relu(h - self.params.Hc) + self.params.Hc
+            h = F.softplus(h - self.params.Hc) + self.params.Hc
 
             #
             # Derive bed friction coefficients
