@@ -38,16 +38,7 @@ plt.colorbar(momentum_v_plot)
 plt.show()
 
 # Store intermediate results after several number of iterations
-store_points = [
-    250_000,
-    300_000,
-    650_000,
-    750_000,
-    1_300_000,
-    1_500_000,
-    2_500_000,
-    5_000_000
-]
+store_points = [i for i in range(10_000, 2_000_000, 10_000)]
 
 # Let the program run until the 'closing event' has been fired
 running = True
@@ -124,6 +115,10 @@ def simulation_loop():
 
                 # Onto next store_point
                 del store_points[0]
+
+        # Once all requested store-points have passed, stop the simulation
+        if len(store_points) == 0:
+            running = False
 
 
 
