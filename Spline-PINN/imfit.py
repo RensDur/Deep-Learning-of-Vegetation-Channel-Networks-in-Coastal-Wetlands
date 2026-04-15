@@ -408,7 +408,7 @@ def training_loop(SELECTED_NUMERICAL_OUTPUT, torch_device):
                     file.write(f"Minimum loss stored: {min_loss}")
 
         # Report loss
-        print(f"Loss (epoch {epoch}): {loss}")
+        # print(f"Loss (epoch {epoch}): {loss}")
 
         # # Update the visuals
         # h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = dataset.interpolate_superres(output_hidden_state, resolution_factor)
@@ -529,10 +529,12 @@ def multi_gpu_training_main(num_gpus=1):
     def __single_gpu_handle(selected_numerical_outputs, torch_device):
 
         for numerical_output in selected_numerical_outputs:
+            print(f"Start fitting of {numerical_output} on GPU {torch_device}")
             training_loop(numerical_output, torch_device)
+            print(f"Completed {numerical_output} on GPU {torch_device}")
 
     # Split the work
-    numerical_outputs_to_process = [i for i in range(10_000, 100_000, 10_000)]
+    numerical_outputs_to_process = [i for i in range(100_000, 1_000_000, 10_000)]
 
     numerical_outputs_per_gpu = [[] for _ in range(num_gpus)]
 
@@ -561,7 +563,7 @@ def multi_gpu_training_main(num_gpus=1):
 
 if __name__ == "__main__":
 
-    multi_gpu_training_main(2)
+    multi_gpu_training_main(3)
 
 
 
