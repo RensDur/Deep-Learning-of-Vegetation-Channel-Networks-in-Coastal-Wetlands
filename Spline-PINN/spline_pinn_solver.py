@@ -11,6 +11,7 @@ from pcgrad.pcgrad import PCGrad
 import os
 import psutil
 import threading
+import time
 
 def _dbg(_desc='',_expr=None):
     print(f"DBG! >> {_desc}: {_expr}")
@@ -418,6 +419,9 @@ class SplinePINNSolver:
 
         self.damp_loss_factor = 1000
 
+        # Record starting time
+        self.train_start_time = time.time()
+
 
         # Training loop:
         # Start from the most recently finished epoch and train until the configured number
@@ -628,6 +632,9 @@ class SplinePINNSolver:
 
                     # UI Loop: process all pending UI events
                     plot_fig.canvas.flush_events()
+
+            # Print the average time per iteration
+            print(f"Average time per batch: {((time.time() - self.train_start_time)/((epoch+1)*self.params.n_batches_per_epoch)):.2f} seconds")
 
             # Save the training state after each epoch
             if self.params.log:

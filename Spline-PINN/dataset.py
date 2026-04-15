@@ -8,7 +8,7 @@ from spline.spline_array import SplineArray
 
 class Dataset:
     
-    def __init__(self, params, device=torch.device("cpu"), types=None):
+    def __init__(self, params, device=torch.device("cpu"), types=None, orientations=None):
 
         # Local copy of the parameters
         self.params = params
@@ -80,9 +80,17 @@ class Dataset:
             "numerical-saltmarsh-2_500_000",
         ] if types is None else types
 
-        print(f"Running with types: {self.types}")
+        self.orientations = [
+            "north",
+            "east",
+            "south",
+            "west"
+        ] if orientations is None else orientations
+
+        print(f"Running with types {self.types} and orientations {self.orientations}")
 
         self.env_type = np.random.choice(self.types, self.dataset_size)
+        self.env_orientation = np.random.choice(self.orientations, self.dataset_size)
         self.env_seed = 2.0 * math.pi * torch.floor(1000 * torch.rand(self.dataset_size))
         self.env_time = torch.zeros(self.dataset_size)
 
@@ -120,6 +128,28 @@ class Dataset:
                 grouping.pop(g)
 
         return grouping
+    
+    def group_by_orientation(self, indices):
+        """
+        This function outputs a dictionary grouping environments with the same orientation together
+        """
+
+        grouping = {}
+
+        # Initialize groups with empty lists
+        for t in self.orientations:
+            grouping[t] = []
+
+        # Group environments
+        for i in indices:
+            grouping[self.env_orientation[i]].append(i)
+
+        # Remove any empty groups
+        for g in list(grouping):
+            if not grouping[g]:
+                grouping.pop(g)
+
+        return grouping
 
     def reset(self, indices):
         """
@@ -140,13 +170,11 @@ class Dataset:
 
         # Randomly choose a new type for each environment
         self.env_type[indices] = np.random.choice(self.types, indices.shape)
+        self.env_orientation[indices] = np.random.choice(self.orientations, indices.shape)
         self.env_seed[indices] = 2.0 * math.pi * torch.floor(1000 * torch.rand(indices.shape))
         self.env_time[indices] = torch.zeros(indices.shape)
 
-        # Group environments by their type [Groups are guaranteed to be non-empty]
-        grouping = self.group_by_type(indices)
-
-        # Helper function
+        # Helper function 1/2 -- Reset the type of environment (grouped)
         def reset_all_of_type(typename, group_indices):
             """
             group_indices is guaranteed to be non-empty
@@ -246,9 +274,46 @@ class Dataset:
                 # The right edge is open
                 self.opened_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
 
+        # Helper function 2/2 -- Reset the orientation of environment (grouped)
+        def rotate_all_of_orientation(orientation, group_indices):
+            """
+            group_indices is guaranteed to be non-empty
+            """
 
+            num_turns = 0
+            
+            if orientation == "east":
+                # East is the default orientation of every environment
+                pass
+
+            if orientation == "north":
+                # Rotate PI/2 rads (1 turn) to orient the open boundary towards north
+                num_turns = 1
+
+            if orientation == "west":
+                # Rotate PI rads (2 turns) to orient the open boundary towards west
+                num_turns = 2
+            
+            if orientation == "south":
+                # Rotate -PI/2 rads (-1 turns) to orient the open boundary towards south
+                num_turns = -1
+            
+            # Rotate the initial condition
+            self.hidden_states[group_indices] = torch.rot90(self.hidden_states[group_indices], k=num_turns, dims=(2,3))
+
+            # Rotate the boundary conditions
+            self.closed_mask_fullres[group_indices] = torch.rot90(self.closed_mask_fullres[group_indices], k=num_turns, dims=(2,3))
+            self.opened_mask_fullres[group_indices] = torch.rot90(self.opened_mask_fullres[group_indices], k=num_turns, dims=(2,3))
+
+        # Group environments by their type [Groups are guaranteed to be non-empty]
+        grouping = self.group_by_type(indices)
         for typename in grouping.keys():
             reset_all_of_type(typename, grouping[typename])
+
+        # Group environments by their orientation [Groups are guaranteed to be non-empty]
+        grouping = self.group_by_orientation(indices)
+        for orientation in grouping.keys():
+            rotate_all_of_orientation(orientation, grouping[orientation])
     
         # Average pooling to create downsampled versions of the BCs
         self.closed_mask[indices] = F.avg_pool2d(self.closed_mask_fullres[indices],self.resolution_factor)
