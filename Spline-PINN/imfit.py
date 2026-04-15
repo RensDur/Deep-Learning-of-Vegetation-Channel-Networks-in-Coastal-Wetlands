@@ -12,7 +12,7 @@ import math
 from spline.spline_variable import SplineVariable
 from spline.spline_array import SplineArray
 import matplotlib.pyplot as plt
-
+import threading
 
 
 
@@ -299,7 +299,7 @@ def training_loop(SELECTED_NUMERICAL_OUTPUT, torch_device):
         return torch.pow(x, 2)
 
     # Training loop
-    EPOCHS = 1000
+    EPOCHS = 300
     N_BATCHES = 10
     N_SAMPLES = 50
     resolution_factor = 4
@@ -523,32 +523,71 @@ def evaluation_loop(SELECTED_NUMERICAL_OUTPUT, torch_device):
 
 
 
+def multi_gpu_training_main(num_gpus=1):
+
+    # This function gets called once for each GPU and simply walks through all assigned numerical outputs one by one on that GPU
+    def __single_gpu_handle(selected_numerical_outputs, torch_device):
+
+        for numerical_output in selected_numerical_outputs:
+            training_loop(numerical_output, torch_device)
+
+    # Split the work
+    numerical_outputs_to_process = [i for i in range(10_000, 100_000, 10_000)]
+
+    numerical_outputs_per_gpu = [[] for _ in range(num_gpus)]
+
+    assignee = 0
+    for i in numerical_outputs_to_process:
+        # Assign this task to the assignee
+        numerical_outputs_per_gpu[assignee].append(i)
+
+        # Next assignee
+        assignee = (assignee + 1) % num_gpus
+
+    # Start a separate thread for each gpu
+    threads = []
+
+    for i in range(num_gpus):
+        th = threading.Thread(target=__single_gpu_handle, args=(numerical_outputs_per_gpu[i], torch.device(f"cuda:{i}")))
+        th.start()
+        threads.append(th)
+
+    for th in threads:
+        th.join()
+    
+
+
+
 
 if __name__ == "__main__":
 
-    SELECTED_NUMERICAL_OUTPUT = 250_000
+    multi_gpu_training_main(2)
+
+
+
+    # SELECTED_NUMERICAL_OUTPUT = 250_000
 
     
-    # Program mode
-    mode = "train"
-    if '--vis' in sys.argv:
-        mode = "eval"
+    # # Program mode
+    # mode = "train"
+    # if '--vis' in sys.argv:
+    #     mode = "eval"
     
-    # GPU acceleration
-    torch_device = torch.device("cpu")
+    # # GPU acceleration
+    # torch_device = torch.device("cpu")
 
-    if not '--nogpu' in sys.argv:
-        if torch.backends.mps.is_available():
-            torch_device = torch.device("mps")
-        elif torch.cuda.is_available():
-            torch_device = torch.device("cuda")
+    # if not '--nogpu' in sys.argv:
+    #     if torch.backends.mps.is_available():
+    #         torch_device = torch.device("mps")
+    #     elif torch.cuda.is_available():
+    #         torch_device = torch.device("cuda")
 
-    print(f"Using torch device {torch_device}")
+    # print(f"Using torch device {torch_device}")
 
 
-    if mode == "train":
-        training_loop(SELECTED_NUMERICAL_OUTPUT, torch_device)
-    elif mode == "eval":
-        evaluation_loop(SELECTED_NUMERICAL_OUTPUT, torch_device)
-    else:
-        raise Exception(f"Unrecognized mode: {mode}")
+    # if mode == "train":
+    #     training_loop(SELECTED_NUMERICAL_OUTPUT, torch_device)
+    # elif mode == "eval":
+    #     evaluation_loop(SELECTED_NUMERICAL_OUTPUT, torch_device)
+    # else:
+    #     raise Exception(f"Unrecognized mode: {mode}")
