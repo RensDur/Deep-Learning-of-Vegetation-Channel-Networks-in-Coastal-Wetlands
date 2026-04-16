@@ -534,7 +534,7 @@ def multi_gpu_training_main(num_gpus=1):
             print(f"Completed {numerical_output} on GPU {torch_device}")
 
     # Split the work
-    numerical_outputs_to_process = [i for i in range(100_000, 1_000_000, 10_000)]
+    numerical_outputs_to_process = [i for i in range(250_000, 1_000_000, 10_000)]
 
     numerical_outputs_per_gpu = [[] for _ in range(num_gpus)]
 
