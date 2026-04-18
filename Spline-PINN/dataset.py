@@ -279,8 +279,6 @@ class Dataset:
             """
             group_indices is guaranteed to be non-empty
             """
-
-            num_turns = 0
             
             if orientation == "east":
                 # East is the default orientation of every environment
@@ -288,22 +286,52 @@ class Dataset:
 
             if orientation == "north":
                 # Rotate PI/2 rads (1 turn) to orient the open boundary towards north
-                num_turns = 1
+                # Rotate the initial condition
+                self.hidden_states[group_indices] = torch.rot90(self.hidden_states[group_indices], k=1, dims=(2,3))
+
+                # Swap u and v
+                temp = self.hidden_states[group_indices, self.variables.get_slice_for("u")]
+                self.hidden_states[group_indices, self.variables.get_slice_for("u")] = self.hidden_states[group_indices, self.variables.get_slice_for("v")]
+                self.hidden_states[group_indices, self.variables.get_slice_for("v")] = temp
+
+                # Multiply v by -1 to align the flow velocities with this new orientation
+                self.hidden_states[group_indices, self.variables.get_slice_for("v")] *= -1
+
+                # Rotate the boundary conditions
+                self.closed_mask_fullres[group_indices] = torch.rot90(self.closed_mask_fullres[group_indices], k=1, dims=(2,3))
+                self.opened_mask_fullres[group_indices] = torch.rot90(self.opened_mask_fullres[group_indices], k=1, dims=(2,3))
 
             if orientation == "west":
                 # Rotate PI rads (2 turns) to orient the open boundary towards west
-                num_turns = 2
+                # Rotate the initial condition
+                self.hidden_states[group_indices] = torch.rot90(self.hidden_states[group_indices], k=2, dims=(2,3))
+
+                # Multiply u and v by -1 to align the flow velocities with this new orientation
+                self.hidden_states[group_indices, self.variables.get_slice_for("u")] *= -1
+                self.hidden_states[group_indices, self.variables.get_slice_for("v")] *= -1
+
+                # Rotate the boundary conditions
+                self.closed_mask_fullres[group_indices] = torch.rot90(self.closed_mask_fullres[group_indices], k=2, dims=(2,3))
+                self.opened_mask_fullres[group_indices] = torch.rot90(self.opened_mask_fullres[group_indices], k=2, dims=(2,3))
             
             if orientation == "south":
                 # Rotate -PI/2 rads (-1 turns) to orient the open boundary towards south
-                num_turns = -1
-            
-            # Rotate the initial condition
-            self.hidden_states[group_indices] = torch.rot90(self.hidden_states[group_indices], k=num_turns, dims=(2,3))
+                # Rotate the initial condition
+                self.hidden_states[group_indices] = torch.rot90(self.hidden_states[group_indices], k=-1, dims=(2,3))
 
-            # Rotate the boundary conditions
-            self.closed_mask_fullres[group_indices] = torch.rot90(self.closed_mask_fullres[group_indices], k=num_turns, dims=(2,3))
-            self.opened_mask_fullres[group_indices] = torch.rot90(self.opened_mask_fullres[group_indices], k=num_turns, dims=(2,3))
+                # Swap u and v
+                temp = self.hidden_states[group_indices, self.variables.get_slice_for("u")]
+                self.hidden_states[group_indices, self.variables.get_slice_for("u")] = self.hidden_states[group_indices, self.variables.get_slice_for("v")]
+                self.hidden_states[group_indices, self.variables.get_slice_for("v")] = temp
+
+                # Multiply u by -1 to align the flow velocities with this new orientation
+                self.hidden_states[group_indices, self.variables.get_slice_for("u")] *= -1
+
+                # Rotate the boundary conditions
+                self.closed_mask_fullres[group_indices] = torch.rot90(self.closed_mask_fullres[group_indices], k=-1, dims=(2,3))
+                self.opened_mask_fullres[group_indices] = torch.rot90(self.opened_mask_fullres[group_indices], k=-1, dims=(2,3))
+            
+            
 
         # Group environments by their type [Groups are guaranteed to be non-empty]
         grouping = self.group_by_type(indices)
