@@ -260,11 +260,11 @@ class SplinePINNSolver:
         ), dim)
 
         loss_bound_open = loss_bound_open + torch.mean(sample_opened_mask[:,:,1:-1,1:-1] * self.loss_function(
-            laplace_u
+            laplacian_u
         ), dim)
 
         loss_bound_open = loss_bound_open + torch.mean(sample_opened_mask[:,:,1:-1,1:-1] * self.loss_function(
-            laplace_v
+            laplacian_v
         ), dim)
 
         if self.training_sediment:
