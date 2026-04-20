@@ -534,7 +534,23 @@ def multi_gpu_training_main(num_gpus=1):
             print(f"Completed {numerical_output} on GPU {torch_device}")
 
     # Split the work
-    numerical_outputs_to_process = [i for i in range(250_000, 1_000_000, 10_000)]
+    numerical_outputs_to_process = [
+        40_000,
+        50_000,
+        210_000,
+        220_000,
+        260_000,
+        270_000,
+        310_000,
+        380_000,
+        430_000,
+        460_000,
+        480_000,
+        490_000
+    ]
+
+    for i in [j for j in range(520_000, 1_000_000, 10_000)]:
+        numerical_outputs_to_process.append(i)
 
     numerical_outputs_per_gpu = [[] for _ in range(num_gpus)]
 
@@ -563,33 +579,31 @@ def multi_gpu_training_main(num_gpus=1):
 
 if __name__ == "__main__":
 
-    multi_gpu_training_main(3)
+    SELECTED_NUMERICAL_OUTPUT = 520_000
 
-
-
-    # SELECTED_NUMERICAL_OUTPUT = 250_000
-
+    # Program mode
+    mode = "train"
+    if '--vis' in sys.argv:
+        mode = "eval"
     
-    # # Program mode
-    # mode = "train"
-    # if '--vis' in sys.argv:
-    #     mode = "eval"
-    
-    # # GPU acceleration
-    # torch_device = torch.device("cpu")
+    # GPU acceleration
+    torch_device = torch.device("cpu")
 
-    # if not '--nogpu' in sys.argv:
-    #     if torch.backends.mps.is_available():
-    #         torch_device = torch.device("mps")
-    #     elif torch.cuda.is_available():
-    #         torch_device = torch.device("cuda")
+    if not '--nogpu' in sys.argv:
+        if torch.backends.mps.is_available():
+            torch_device = torch.device("mps")
+        elif torch.cuda.is_available():
+            torch_device = torch.device("cuda")
 
-    # print(f"Using torch device {torch_device}")
+    print(f"Using torch device {torch_device}")
 
+    # Initialize randomization seeds
+    torch.manual_seed(0)
+    np.random.seed(0)
 
-    # if mode == "train":
-    #     training_loop(SELECTED_NUMERICAL_OUTPUT, torch_device)
-    # elif mode == "eval":
-    #     evaluation_loop(SELECTED_NUMERICAL_OUTPUT, torch_device)
-    # else:
-    #     raise Exception(f"Unrecognized mode: {mode}")
+    if mode == "train":
+        multi_gpu_training_main(3)
+    elif mode == "eval":
+        evaluation_loop(SELECTED_NUMERICAL_OUTPUT, torch_device)
+    else:
+        raise Exception(f"Unrecognized mode: {mode}")
