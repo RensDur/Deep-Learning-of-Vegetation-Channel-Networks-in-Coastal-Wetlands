@@ -82,45 +82,53 @@ def main():
     xs = np.arange(output_selection_range[0], output_selection_range[1]+1, 10_000)
 
     # Subplots
-    figure, axs = plt.subplots(8, 1, figsize=(20, 10))
+    figure, axs = plt.subplots(8, 1, figsize=(20, 11))
 
     mean_hs = extract_all(characteristics, "mean_h")
     min_hs = extract_all(characteristics, "min_h")
     max_hs = extract_all(characteristics, "max_h")
     axs[0].semilogx(xs, mean_hs, color="tab:blue")
     axs[0].fill_between(xs, min_hs, max_hs, alpha=0.3, facecolor="tab:blue")
+    axs[0].set(title="[h] Water layer thickness: min - mean - max")
 
     variability_hs = extract_all(characteristics, "variability_h")
     axs[1].semilogx(xs, variability_hs, color="tab:blue")
+    axs[1].set(title="[h] Water layer thickness: total variability")
 
     mean_flow_velocitys = extract_all(characteristics, "mean_flow_velocity")
     min_flow_velocitys = extract_all(characteristics, "min_flow_velocity")
     max_flow_velocitys = extract_all(characteristics, "max_flow_velocity")
     axs[2].semilogx(xs, mean_flow_velocitys, color="tab:orange")
     axs[2].fill_between(xs, min_flow_velocitys, max_flow_velocitys, alpha=0.3, facecolor="tab:orange")
+    axs[2].set(title="[√(u^2 + v^2)] Flow velocity magnitude: min - mean - max]")
 
     variability_flow_velocitys = extract_all(characteristics, "variability_flow_velocity")
     axs[3].semilogx(xs, variability_flow_velocitys, color="tab:orange")
+    axs[3].set(title="[√(u^2 + v^2)] Flow velocity magnitude: total variability")
 
     mean_ss = extract_all(characteristics, "mean_s")
     min_ss = extract_all(characteristics, "min_s")
     max_ss = extract_all(characteristics, "max_s")
     axs[4].semilogx(xs, mean_ss, color="tab:brown")
     axs[4].fill_between(xs, min_ss, max_ss, alpha=0.3, facecolor="tab:brown")
+    axs[4].set(title="[S] Sedimentary bed elevation: min - mean - max]")
 
     variability_ss = extract_all(characteristics, "variability_s")
     axs[5].semilogx(xs, variability_ss, color="tab:brown")
+    axs[5].set(title="[S] Sedimentary bed elevation: total variability")
 
     mean_bs = extract_all(characteristics, "mean_b")
     min_bs = extract_all(characteristics, "min_b")
     max_bs = extract_all(characteristics, "max_b")
     axs[6].semilogx(xs, mean_bs, color="tab:green")
     axs[6].fill_between(xs, min_bs, max_bs, alpha=0.3, facecolor="tab:green")
+    axs[6].set(title="[B] Vegetation stem density: min - mean - max]")
 
     variability_bs = extract_all(characteristics, "variability_b")
     axs[7].semilogx(xs, variability_bs, color="tab:green")
+    axs[7].set(title="[B] Vegetation stem density: total variability", xlabel="Simulation time (iterations) [LOG-SCALE]")
 
-    
+    figure.tight_layout()
 
 
     plt.show()

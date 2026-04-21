@@ -547,19 +547,12 @@ def multi_gpu_training_main(num_gpus=1):
 
     # Split the work
     numerical_outputs_to_process = [
-        220_000,
         430_000,
-        460_000,
-        490_000,
         550_000,
-        570_000,
-        600_000,
-        610_000,
-        640_000,
-        650_000
+        610_000
     ]
 
-    for i in [j for j in range(660_000, 1_000_000, 10_000)]:
+    for i in [j for j in range(740_000, 1_000_000, 10_000)]:
         numerical_outputs_to_process.append(i)
 
     numerical_outputs_per_gpu = [[] for _ in range(num_gpus)]
@@ -589,7 +582,7 @@ def multi_gpu_training_main(num_gpus=1):
 
 if __name__ == "__main__":
 
-    SELECTED_NUMERICAL_OUTPUT = 650_000
+    SELECTED_NUMERICAL_OUTPUT = 760_000
 
     # Program mode
     mode = "train"
