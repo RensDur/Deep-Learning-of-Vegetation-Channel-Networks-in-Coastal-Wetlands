@@ -589,7 +589,7 @@ def multi_gpu_training_main(num_gpus=1):
 
 if __name__ == "__main__":
 
-    SELECTED_NUMERICAL_OUTPUT = 690_000
+    SELECTED_NUMERICAL_OUTPUT = 650_000
 
     # Program mode
     mode = "train"
