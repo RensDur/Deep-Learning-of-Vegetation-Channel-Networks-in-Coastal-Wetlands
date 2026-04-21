@@ -1,1 +1,1 @@
-Minimum loss stored: -50.55754470825195
+Minimum loss stored: -53.50558090209961
