@@ -495,7 +495,16 @@ def evaluation_loop(SELECTED_NUMERICAL_OUTPUT, torch_device):
     # Resolution factor
     resolution_factor = 4
 
-    while True:
+    global running
+    running = True
+    
+    def __on_figure_close(event):
+        global running
+        running = False
+
+    figure.canvas.mpl_connect('close_event', __on_figure_close)
+
+    while running:
 
         # Update the visuals
         h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = dataset.interpolate_superres(dataset.hidden_state, resolution_factor)
@@ -579,7 +588,7 @@ def multi_gpu_training_main(num_gpus=1):
 
 if __name__ == "__main__":
 
-    SELECTED_NUMERICAL_OUTPUT = 10_000
+    SELECTED_NUMERICAL_OUTPUT = 40_000
 
     # Program mode
     mode = "train"
