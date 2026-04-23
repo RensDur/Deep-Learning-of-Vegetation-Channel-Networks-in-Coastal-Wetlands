@@ -551,7 +551,7 @@ def multi_gpu_training_main(num_gpus=1):
         850_000
     ]
 
-    for i in [j for j in range(870_000, 1_000_000, 10_000)]:
+    for i in [j for j in range(910_000, 1_000_000, 10_000)]:
         numerical_outputs_to_process.append(i)
 
     numerical_outputs_per_gpu = [[] for _ in range(num_gpus)]
@@ -581,7 +581,7 @@ def multi_gpu_training_main(num_gpus=1):
 
 if __name__ == "__main__":
 
-    SELECTED_NUMERICAL_OUTPUT = 890_000
+    SELECTED_NUMERICAL_OUTPUT = 910_000
 
     # Program mode
     mode = "train"
@@ -600,8 +600,8 @@ if __name__ == "__main__":
     print(f"Using torch device {torch_device}")
 
     # Initialize randomization seeds
-    torch.manual_seed(0)
-    np.random.seed(0)
+    # torch.manual_seed(0)
+    # np.random.seed(0)
 
     if mode == "train":
         multi_gpu_training_main(3)
