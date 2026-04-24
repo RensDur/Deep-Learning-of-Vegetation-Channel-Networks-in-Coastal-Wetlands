@@ -546,12 +546,9 @@ def multi_gpu_training_main(num_gpus=1):
             print(f"Completed {numerical_output} on GPU {torch_device}")
 
     # Split the work
-    numerical_outputs_to_process = [
-        610_000,
-        850_000
-    ]
+    numerical_outputs_to_process = []
 
-    for i in [j for j in range(910_000, 1_000_000, 10_000)]:
+    for i in [j for j in range(990_000, 1_210_000 + 1, 10_000)]:
         numerical_outputs_to_process.append(i)
 
     numerical_outputs_per_gpu = [[] for _ in range(num_gpus)]
@@ -581,7 +578,7 @@ def multi_gpu_training_main(num_gpus=1):
 
 if __name__ == "__main__":
 
-    SELECTED_NUMERICAL_OUTPUT = 910_000
+    SELECTED_NUMERICAL_OUTPUT = 980_000
 
     # Program mode
     mode = "train"
