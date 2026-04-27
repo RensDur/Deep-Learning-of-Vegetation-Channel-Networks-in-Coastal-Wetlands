@@ -77,8 +77,8 @@ class Dataset:
         ] if types is None else types
 
         # Numerical outputs included in this dataset
-        start_iteration = 50_000
-        end_iteration = 130_000
+        start_iteration = 130_000
+        end_iteration = 300_000
         self.active_numerical_outputs = [i for i in range(start_iteration, end_iteration+1, 10_000)]
 
         self.orientations = [
