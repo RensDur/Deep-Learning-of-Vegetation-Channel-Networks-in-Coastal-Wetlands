@@ -65,11 +65,11 @@ class Dataset:
         self.opened_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
 
         # Load the saltmarsh numerical solution, pre-fitted to a hidden spline representation
-        self.prefit_saltmarsh_250_000 = torch.load(f"numerical_spline_converted/{self.variables.summary()}/250000/hidden_state.pt").cpu()
-        self.prefit_saltmarsh_300_000 = torch.load(f"numerical_spline_converted/{self.variables.summary()}/300000/hidden_state.pt").cpu()
-        self.prefit_saltmarsh_650_000 = torch.load(f"numerical_spline_converted/{self.variables.summary()}/650000/hidden_state.pt").cpu()
-        self.prefit_saltmarsh_1_300_000 = torch.load(f"numerical_spline_converted/{self.variables.summary()}/1300000/hidden_state.pt").cpu()
-        self.prefit_saltmarsh_2_500_000 = torch.load(f"numerical_spline_converted/{self.variables.summary()}/2500000/hidden_state.pt").cpu()
+        # self.prefit_saltmarsh_250_000 = torch.load(f"numerical_spline_converted/{self.variables.summary()}/250000/hidden_state.pt").cpu()
+        # self.prefit_saltmarsh_300_000 = torch.load(f"numerical_spline_converted/{self.variables.summary()}/300000/hidden_state.pt").cpu()
+        # self.prefit_saltmarsh_650_000 = torch.load(f"numerical_spline_converted/{self.variables.summary()}/650000/hidden_state.pt").cpu()
+        # self.prefit_saltmarsh_1_300_000 = torch.load(f"numerical_spline_converted/{self.variables.summary()}/1300000/hidden_state.pt").cpu()
+        # self.prefit_saltmarsh_2_500_000 = torch.load(f"numerical_spline_converted/{self.variables.summary()}/2500000/hidden_state.pt").cpu()
 
         # Environment information
         self.types = [
@@ -77,8 +77,8 @@ class Dataset:
         ] if types is None else types
 
         # Numerical outputs included in this dataset
-        start_iteration = 10_000
-        end_iteration = 50_000
+        start_iteration = 50_000
+        end_iteration = 130_000
         self.active_numerical_outputs = [i for i in range(start_iteration, end_iteration+1, 10_000)]
 
         self.orientations = [
