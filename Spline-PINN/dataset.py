@@ -73,12 +73,13 @@ class Dataset:
 
         # Environment information
         self.types = [
-            "numerical-saltmarsh-250_000",
-            "numerical-saltmarsh-300_000",
-            "numerical-saltmarsh-650_000",
-            "numerical-saltmarsh-1_300_000",
-            "numerical-saltmarsh-2_500_000",
+            "numerical-saltmarsh",
         ] if types is None else types
+
+        # Numerical outputs included in this dataset
+        start_iteration = 10_000
+        end_iteration = 50_000
+        self.active_numerical_outputs = [i for i in range(start_iteration, end_iteration+1, 10_000)]
 
         self.orientations = [
             "north",
@@ -88,6 +89,12 @@ class Dataset:
         ] if orientations is None else orientations
 
         print(f"Running with types {self.types} and orientations {self.orientations}")
+        print(f"Active numerical outputs: {self.active_numerical_outputs}")
+
+        # Preload all active numerical outputs, pre-fitted to a hidden spline representation
+        self.preload_numerical_outputs = torch.cat([
+            torch.load(f"numerical_spline_converted/{self.variables.summary()}/{i}/hidden_state.pt").cpu() for i in self.active_numerical_outputs
+        ], dim=0)
 
         self.env_type = np.random.choice(self.types, self.dataset_size)
         self.env_orientation = np.random.choice(self.orientations, self.dataset_size)
@@ -183,12 +190,21 @@ class Dataset:
             #
             # SALTMARSH SETTING
             #
-            if typename == "numerical-saltmarsh-250_000":
+            if typename == "numerical-saltmarsh":
+
+                # Randomly select the right number of saltmarsh outputs
+                group_size = len(group_indices)
+
+                group_sample_idx = torch.randint(
+                    low=0,
+                    high=len(self.active_numerical_outputs),
+                    size=(group_size,)
+                )
 
                 #
                 # Set the initial condition
                 #
-                self.hidden_states[group_indices] = self.prefit_saltmarsh_250_000.clone()
+                self.hidden_states[group_indices] = self.preload_numerical_outputs[group_sample_idx]
 
                 #
                 # Set the boundary conditions
@@ -201,78 +217,6 @@ class Dataset:
                 # The right edge is open
                 self.opened_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
 
-            
-            if typename == "numerical-saltmarsh-300_000":
-
-                #
-                # Set the initial condition
-                #
-                self.hidden_states[group_indices] = self.prefit_saltmarsh_300_000.clone()
-
-                #
-                # Set the boundary conditions
-                #
-
-                # All sides are closed, except the right edge
-                self.closed_mask_fullres[group_indices] = 1
-                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:] = 0
-
-                # The right edge is open
-                self.opened_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
-
-            if typename == "numerical-saltmarsh-650_000":
-
-                #
-                # Set the initial condition
-                #
-                self.hidden_states[group_indices] = self.prefit_saltmarsh_650_000.clone()
-
-                #
-                # Set the boundary conditions
-                #
-
-                # All sides are closed, except the right edge
-                self.closed_mask_fullres[group_indices] = 1
-                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:] = 0
-
-                # The right edge is open
-                self.opened_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
-
-            if typename == "numerical-saltmarsh-1_300_000":
-
-                #
-                # Set the initial condition
-                #
-                self.hidden_states[group_indices] = self.prefit_saltmarsh_1_300_000.clone()
-
-                #
-                # Set the boundary conditions
-                #
-
-                # All sides are closed, except the right edge
-                self.closed_mask_fullres[group_indices] = 1
-                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:] = 0
-
-                # The right edge is open
-                self.opened_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
-
-            if typename == "numerical-saltmarsh-2_500_000":
-
-                #
-                # Set the initial condition
-                #
-                self.hidden_states[group_indices] = self.prefit_saltmarsh_2_500_000.clone()
-
-                #
-                # Set the boundary conditions
-                #
-
-                # All sides are closed, except the right edge
-                self.closed_mask_fullres[group_indices] = 1
-                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:] = 0
-
-                # The right edge is open
-                self.opened_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
 
         # Helper function 2/2 -- Reset the orientation of environment (grouped)
         def rotate_all_of_orientation(orientation, group_indices):
