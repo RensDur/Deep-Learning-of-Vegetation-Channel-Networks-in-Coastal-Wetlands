@@ -43,20 +43,21 @@ class Logger():
 			os.makedirs(directory,exist_ok=True)
 			self.writer = SummaryWriter(directory)
 	
-	def load_logs(self, *items):
+	def load_logs(self, *items, datetime=None):
 		"""
 		Load logs into pandas dataframe
 		Initially built to load training loss during visualisation
 		"""
 
-		for _,dirs,_ in os.walk('Logger/{}/'.format(self.name)):
-			datetime = sorted(dirs)[-1]
-			if datetime == self.datetime:
-				datetime = sorted(dirs)[-2]
-			break
-
 		if datetime == None:
-			raise Exception("Unable to walk logger directory to find latest date-time")
+			for _,dirs,_ in os.walk('Logger/{}/'.format(self.name)):
+				datetime = sorted(dirs)[-1]
+				if datetime == self.datetime:
+					datetime = sorted(dirs)[-2]
+				break
+
+			if datetime == None:
+				raise Exception("Unable to walk logger directory to find latest date-time")
 
 		collection = []
 

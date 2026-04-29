@@ -36,6 +36,9 @@ class PerformanceSummaryWindow:
         # Matplotlib interactive mode
         plt.ion()
 
+        # Create window for training loss
+        self.loss_figure = plt.figure(figsize=(5, 5))
+
         # Create subplots
         self.figure = plt.figure(figsize=(20, 10))
 
@@ -108,6 +111,9 @@ class PerformanceSummaryWindow:
         # Window status
         self.is_open = False
 
+    def set_training_loss(self, training_loss):
+        training_loss.plot(ax=self.loss_figure.add_subplot(111))
+
     def open(self):
 
         def __on_figure_close(event):
@@ -125,6 +131,11 @@ class PerformanceSummaryWindow:
 
     def update(self):
         if self.is_open:
+
+            # Plot training loss
+            self.loss_figure.canvas.draw()
+            self.loss_figure.canvas.flush_events()
+
             # Plot the domain (update existing plot)
             # Draw updated values
             self.figure.canvas.draw()
