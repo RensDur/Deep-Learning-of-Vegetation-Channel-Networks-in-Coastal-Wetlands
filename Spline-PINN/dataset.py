@@ -225,7 +225,7 @@ class Dataset:
 
                 # Model tides at the open boundary
                 self.h_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
-                self.h_cond_fullres[group_indices] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
+                self.h_cond_fullres[group_indices] = self.params.wave_size * torch.pow(torch.sin(self.env_seed[group_indices]), 2).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
                 self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
 
@@ -336,7 +336,7 @@ class Dataset:
             #
             if typename == "numerical-saltmarsh":
 
-                self.h_cond_fullres[group_indices] = self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
+                self.h_cond_fullres[group_indices] = self.params.wave_size * torch.pow(torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]), 2).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
                 self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
         for typename in grouping.keys():
