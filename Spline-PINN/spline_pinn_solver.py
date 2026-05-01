@@ -85,12 +85,14 @@ class SplinePINNSolver:
         # return F.huber_loss(x, torch.zeros_like(x), reduction="none", delta=self.params.huber_delta)
         return x**2
     
-    def compute_batch_loss(self, old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, dim=[1,2,3]):
+    def compute_batch_loss(self, old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, sample_h_masks, sample_h_conds, dim=[1,2,3]):
 
 
         # Stack all the masks in batch dimension
         sample_closed_mask = torch.cat([sample_closed_masks[j] for j in range(len(sample_closed_masks))], dim=0)
         sample_opened_mask = torch.cat([sample_opened_masks[j] for j in range(len(sample_opened_masks))], dim=0)
+        sample_h_mask = torch.cat([sample_h_masks[j] for j in range(len(sample_h_masks))], dim=0)
+        sample_h_cond = torch.cat([sample_h_conds[j] for j in range(len(sample_h_conds))], dim=0)
 
         all_samples__h = []
         all_samples__grad_h = []
@@ -277,6 +279,11 @@ class SplinePINNSolver:
                 grad_b / self.params.k  # Normalize any loss related to b by max. carrying capacity to match scale-difference
             ), dim)
 
+        # Water level BC loss
+        loss_bound_h = torch.mean(sample_h_mask[:,:,1:-1,1:-1] * self.loss_function(
+            h - sample_h_cond[:,:,1:-1,1:-1]
+        ), dim)
+
         # Auxilary boundary loss
         loss_bound_aux = torch.mean(self.loss_function(
             F.relu(-h_before_relu) # water level thickness can never be negative
@@ -292,7 +299,7 @@ class SplinePINNSolver:
                 F.relu(-b) / self.params.k  # Normalize any loss related to b by max. carrying capacity to match scale-difference # vegetation density can never be negative
             ), dim)
 
-        loss_bound = loss_bound_closed + loss_bound_open + loss_bound_aux
+        loss_bound = loss_bound_closed + loss_bound_open + loss_bound_h + loss_bound_aux
 
         # Multiply by the loss weights
         loss_h = loss_h * self.params.loss_h
@@ -462,11 +469,11 @@ class SplinePINNSolver:
             for i in range(self.params.n_batches_per_epoch):
 
                 # Ask for a batch from the dataset
-                old_hidden_state, closed_mask, opened_mask, grid_offsets, sample_closed_masks, sample_opened_masks = self.dataset.ask()
+                old_hidden_state, closed_mask, opened_mask, h_mask, h_cond, grid_offsets, sample_closed_masks, sample_opened_masks, sample_h_masks, sample_h_conds = self.dataset.ask()
 
                 # Predict the new domain state by performing a forward pass through the network
                 # Water
-                new_hidden_state_water = self.water_net(old_hidden_state, closed_mask, opened_mask)
+                new_hidden_state_water = self.water_net(old_hidden_state, closed_mask, opened_mask, h_mask, h_cond)
 
                 # Sediment
                 if self.training_sediment:
@@ -487,7 +494,7 @@ class SplinePINNSolver:
                 if self.params.plot_loss:
                     dim = [1]
 
-                loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, dim)
+                loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, sample_h_masks, sample_h_conds, dim)
 
 
                 if self.params.plot_loss:

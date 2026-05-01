@@ -60,9 +60,13 @@ class Dataset:
         # Boundary conditions and masking
         self.closed_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
         self.opened_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.h_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.h_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
 
         self.closed_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.opened_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
+        self.h_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
+        self.h_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
 
         # Load the saltmarsh numerical solution, pre-fitted to a hidden spline representation
         # self.prefit_saltmarsh_250_000 = torch.load(f"numerical_spline_converted/{self.variables.summary()}/250000/hidden_state.pt").cpu()
@@ -174,6 +178,8 @@ class Dataset:
         # Reset all masks and conditions
         self.closed_mask_fullres[indices] = 0
         self.opened_mask_fullres[indices] = 0
+        self.h_mask_fullres[indices] = 0
+        self.h_cond_fullres[indices] = 0
 
         # Randomly choose a new type for each environment
         self.env_type[indices] = np.random.choice(self.types, indices.shape)
@@ -217,6 +223,12 @@ class Dataset:
                 # The right edge is open
                 self.opened_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
 
+                # Model tides at the open boundary
+                self.h_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
+                self.h_cond_fullres[group_indices] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
+                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+
+
 
         # Helper function 2/2 -- Reset the orientation of environment (grouped)
         def rotate_all_of_orientation(orientation, group_indices):
@@ -244,6 +256,8 @@ class Dataset:
                 # Rotate the boundary conditions
                 self.closed_mask_fullres[group_indices] = torch.rot90(self.closed_mask_fullres[group_indices], k=1, dims=(2,3))
                 self.opened_mask_fullres[group_indices] = torch.rot90(self.opened_mask_fullres[group_indices], k=1, dims=(2,3))
+                self.h_mask_fullres[group_indices] = torch.rot90(self.h_mask_fullres[group_indices], k=1, dims=(2,3))
+                self.h_cond_fullres[group_indices] = torch.rot90(self.h_cond_fullres[group_indices], k=1, dims=(2,3))
 
             if orientation == "west":
                 # Rotate PI rads (2 turns) to orient the open boundary towards west
@@ -257,6 +271,8 @@ class Dataset:
                 # Rotate the boundary conditions
                 self.closed_mask_fullres[group_indices] = torch.rot90(self.closed_mask_fullres[group_indices], k=2, dims=(2,3))
                 self.opened_mask_fullres[group_indices] = torch.rot90(self.opened_mask_fullres[group_indices], k=2, dims=(2,3))
+                self.h_mask_fullres[group_indices] = torch.rot90(self.h_mask_fullres[group_indices], k=2, dims=(2,3))
+                self.h_cond_fullres[group_indices] = torch.rot90(self.h_cond_fullres[group_indices], k=2, dims=(2,3))
             
             if orientation == "south":
                 # Rotate -PI/2 rads (-1 turns) to orient the open boundary towards south
@@ -274,6 +290,8 @@ class Dataset:
                 # Rotate the boundary conditions
                 self.closed_mask_fullres[group_indices] = torch.rot90(self.closed_mask_fullres[group_indices], k=-1, dims=(2,3))
                 self.opened_mask_fullres[group_indices] = torch.rot90(self.opened_mask_fullres[group_indices], k=-1, dims=(2,3))
+                self.h_mask_fullres[group_indices] = torch.rot90(self.h_mask_fullres[group_indices], k=-1, dims=(2,3))
+                self.h_cond_fullres[group_indices] = torch.rot90(self.h_cond_fullres[group_indices], k=-1, dims=(2,3))
             
             
 
@@ -290,6 +308,8 @@ class Dataset:
         # Average pooling to create downsampled versions of the BCs
         self.closed_mask[indices] = F.avg_pool2d(self.closed_mask_fullres[indices],self.resolution_factor)
         self.opened_mask[indices] = F.avg_pool2d(self.opened_mask_fullres[indices],self.resolution_factor)
+        self.h_mask[indices] = F.avg_pool2d(self.h_mask_fullres[indices],self.resolution_factor)
+        self.h_cond[indices] = F.avg_pool2d(self.h_cond_fullres[indices],self.resolution_factor)
 
 
 
@@ -310,7 +330,14 @@ class Dataset:
             """
             group_indices is guaranteed to be non-empty
             """
-            pass
+            
+            #
+            # SALTMARSH SETTING
+            #
+            if typename == "numerical-saltmarsh":
+
+                self.h_cond_fullres[group_indices] = self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
+                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
         for typename in grouping.keys():
             reset_all_of_type(typename, grouping[typename])
@@ -318,6 +345,8 @@ class Dataset:
         # Average pooling to create downsampled versions of the BCs
         self.closed_mask[indices] = F.avg_pool2d(self.closed_mask_fullres[indices],self.resolution_factor)
         self.opened_mask[indices] = F.avg_pool2d(self.opened_mask_fullres[indices],self.resolution_factor)
+        self.h_mask[indices] = F.avg_pool2d(self.h_mask_fullres[indices],self.resolution_factor)
+        self.h_cond[indices] = F.avg_pool2d(self.h_cond_fullres[indices],self.resolution_factor)
         
         # Update the time for each environment
         self.env_time[indices] = self.env_time[indices] + math.pi / 100.0
@@ -352,6 +381,8 @@ class Dataset:
         grid_offsets = []
         sample_closed_mask = []
         sample_opened_mask = []
+        sample_h_mask = []
+        sample_h_cond = []
 
         for _ in range(self.n_samples):
 
@@ -364,20 +395,28 @@ class Dataset:
 
             sample_closed_mask.append(self.closed_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
             sample_opened_mask.append(self.opened_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
+            sample_h_mask.append(self.h_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
+            sample_h_cond.append(self.h_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
 
         # Move all data to the desired device
         for i in range(self.n_samples):
             grid_offsets[i] = grid_offsets[i].to(self.device)
             sample_closed_mask[i] = sample_closed_mask[i].to(self.device)
             sample_opened_mask[i] = sample_opened_mask[i].to(self.device)
+            sample_h_mask[i] = sample_h_mask[i].to(self.device)
+            sample_h_cond[i] = sample_h_cond[i].to(self.device)
 
         # Return the hidden states and boundary conditions after moving them to the desired device
         return self.hidden_states[self.asked_indices].to(self.device), \
                 self.closed_mask[self.asked_indices].to(self.device), \
                 self.opened_mask[self.asked_indices].to(self.device), \
+                self.h_mask[self.asked_indices].to(self.device), \
+                self.h_cond[self.asked_indices].to(self.device), \
                 grid_offsets, \
                 sample_closed_mask, \
-                sample_opened_mask
+                sample_opened_mask, \
+                sample_h_mask, \
+                sample_h_cond
     
     def tell(self, hidden_states):
 
