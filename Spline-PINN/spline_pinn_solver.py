@@ -677,7 +677,7 @@ class SplinePINNSolver:
             self.training_vegetation = False
 
         # Load loss progression in pandas dataframe
-        training_loss = self.logger.load_logs("loss_h", "loss_momentum", "loss_sediment", "loss_vegetation", "loss_bound")
+        training_loss = self.logger.load_logs("loss_h", "loss_momentum", "loss_sediment", "loss_vegetation", "loss_bound", datetime=self.params.load_date_time)
 
         # Enable evaluation of the model
         self.water_net.eval()
@@ -687,7 +687,7 @@ class SplinePINNSolver:
         print(f"Loaded {self.params.net}: {date_time}, index: {index}")
 
         # Open the visualization window
-        # window.set_training_loss(training_loss)
+        window.set_training_loss(training_loss)
         window.open()
 
         

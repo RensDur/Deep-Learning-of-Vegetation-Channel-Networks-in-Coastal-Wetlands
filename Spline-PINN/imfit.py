@@ -129,9 +129,10 @@ class FitNet(nn.Module):
 
         # Downsampling layers
         self.down1 = nn.Conv2d(self.hidden_size*2, self.hidden_size*2, kernel_size=9, padding=4)  # Maintain resolution, capture large-distance influences
-        self.down2 = nn.Conv2d(self.hidden_size*2, self.hidden_size*2, kernel_size=4, stride=4, padding=0) # Downsample to /4 times the original dimensions
-        self.down3 = nn.Conv2d(self.hidden_size*2, self.hidden_size, kernel_size=2, padding=0)
-        self.down4 = nn.Conv2d(self.hidden_size, out_channels, kernel_size=3, padding=1)
+        self.down2 = nn.Conv2d(self.hidden_size*2, self.hidden_size*2, kernel_size=9, padding=4)  # Maintain resolution, capture large-distance influences
+        self.down3 = nn.Conv2d(self.hidden_size*2, self.hidden_size*2, kernel_size=4, stride=4, padding=0) # Downsample to /4 times the original dimensions
+        self.down4 = nn.Conv2d(self.hidden_size*2, self.hidden_size, kernel_size=2, padding=0)
+        self.down5 = nn.Conv2d(self.hidden_size, out_channels, kernel_size=3, padding=1)
 
         self.output_scalar = output_scalar
 
@@ -161,6 +162,8 @@ class FitNet(nn.Module):
         x = self.down3(x)
         x = torch.relu(x)
         x = self.down4(x)
+        x = torch.relu(x)
+        x = self.down5(x)
 
 
         out = self.output_scalar * torch.tanh(x / self.output_scalar)
@@ -495,7 +498,16 @@ def evaluation_loop(SELECTED_NUMERICAL_OUTPUT, torch_device):
     # Resolution factor
     resolution_factor = 4
 
-    while True:
+    global running
+    running = True
+    
+    def __on_figure_close(event):
+        global running
+        running = False
+
+    figure.canvas.mpl_connect('close_event', __on_figure_close)
+
+    while running:
 
         # Update the visuals
         h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = dataset.interpolate_superres(dataset.hidden_state, resolution_factor)
@@ -534,22 +546,9 @@ def multi_gpu_training_main(num_gpus=1):
             print(f"Completed {numerical_output} on GPU {torch_device}")
 
     # Split the work
-    numerical_outputs_to_process = [
-        40_000,
-        50_000,
-        210_000,
-        220_000,
-        260_000,
-        270_000,
-        310_000,
-        380_000,
-        430_000,
-        460_000,
-        480_000,
-        490_000
-    ]
+    numerical_outputs_to_process = []
 
-    for i in [j for j in range(520_000, 1_000_000, 10_000)]:
+    for i in [j for j in range(990_000, 1_210_000 + 1, 10_000)]:
         numerical_outputs_to_process.append(i)
 
     numerical_outputs_per_gpu = [[] for _ in range(num_gpus)]
@@ -579,7 +578,7 @@ def multi_gpu_training_main(num_gpus=1):
 
 if __name__ == "__main__":
 
-    SELECTED_NUMERICAL_OUTPUT = 520_000
+    SELECTED_NUMERICAL_OUTPUT = 980_000
 
     # Program mode
     mode = "train"
@@ -598,8 +597,8 @@ if __name__ == "__main__":
     print(f"Using torch device {torch_device}")
 
     # Initialize randomization seeds
-    torch.manual_seed(0)
-    np.random.seed(0)
+    # torch.manual_seed(0)
+    # np.random.seed(0)
 
     if mode == "train":
         multi_gpu_training_main(3)
