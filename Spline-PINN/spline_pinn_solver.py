@@ -281,7 +281,7 @@ class SplinePINNSolver:
 
         # Water level BC loss
         loss_bound_h = torch.mean(sample_h_mask[:,:,1:-1,1:-1] * self.loss_function(
-            h - sample_h_cond[:,:,1:-1,1:-1]
+            h_before_relu - sample_h_cond[:,:,1:-1,1:-1]
         ), dim)
 
         # Auxilary boundary loss
