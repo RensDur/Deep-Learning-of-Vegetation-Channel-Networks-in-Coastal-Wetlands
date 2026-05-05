@@ -212,6 +212,11 @@ class Dataset:
                 #
                 self.hidden_states[group_indices] = self.preload_numerical_outputs[group_sample_idx]
 
+                # Remove all the water initially and set velocities to zero
+                self.hidden_states[group_indices, self.variables.get_slice_for("h")] = 0
+                self.hidden_states[group_indices, self.variables.get_slice_for("u")] = 0
+                self.hidden_states[group_indices, self.variables.get_slice_for("v")] = 0
+
                 #
                 # Set the boundary conditions
                 #
