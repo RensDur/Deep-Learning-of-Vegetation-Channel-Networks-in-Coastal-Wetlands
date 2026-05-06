@@ -77,7 +77,10 @@ class Dataset:
 
         # Environment information
         self.types = [
-            "numerical-saltmarsh",
+            # "numerical-saltmarsh",
+            "topoflat-closed-oscillator",
+            "topoflat-closed-oscillator-multiple",
+            "topoflat-closed-oscillator-reflection"
         ] if types is None else types
 
         # Numerical outputs included in this dataset
@@ -234,6 +237,117 @@ class Dataset:
                 self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
 
+            #
+            # TOPOGRAPHIC FLAT BASIN WITH OSCILLATOR
+            #
+            if typename == "topoflat-closed-oscillator":
+
+                #
+                # Initially, constant water level and zero constant sediment
+                #
+
+                # Reset the hidden state
+                self.hidden_states[group_indices] = 0
+
+                self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] = self.params.H0
+
+                #
+                # Set the boundary conditions
+                # >>> All 4 closed sides
+                #
+                self.closed_mask_fullres[group_indices] = 1
+                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 0
+
+                self.opened_mask_fullres[group_indices] = 0
+
+                # Model the oscillator
+                xpos = np.random.choice(range(self.width_fullres//8, 7*self.width_fullres//8+1, self.resolution_factor), 1)[0]
+                ypos = np.random.choice(range(self.height_fullres//8, 7*self.height_fullres//8+1, self.resolution_factor), 1)[0]
+
+                oscillator_size = 10 * self.resolution_factor
+
+                self.closed_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
+                self.h_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
+                self.h_cond_fullres[group_indices] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
+                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+
+            #
+            # TOPOGRAPHIC FLAT BASIN WITH MULTIPLE OSCILLATORS
+            #
+            if typename == "topoflat-closed-oscillator-multiple":
+
+                #
+                # Initially, constant water level and zero constant sediment
+                #
+
+                # Reset the hidden state
+                self.hidden_states[group_indices] = 0
+
+                self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] = self.params.H0
+
+                #
+                # Set the boundary conditions
+                # >>> All 4 closed sides
+                #
+                self.closed_mask_fullres[group_indices] = 1
+                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 0
+
+                self.opened_mask_fullres[group_indices] = 0
+
+                # Model the oscillator
+                for _ in range(5):
+                    xpos = np.random.choice(range(self.width_fullres//8, 7*self.width_fullres//8+1, self.resolution_factor), 1)[0]
+                    ypos = np.random.choice(range(self.height_fullres//8, 7*self.height_fullres//8+1, self.resolution_factor), 1)[0]
+
+                    oscillator_size = 10 * self.resolution_factor
+
+                    self.closed_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
+                    self.h_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
+
+
+                self.h_cond_fullres[group_indices] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
+                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+
+            #
+            # TOPOGRAPHIC FLAT BASIN WITH OSCILLATOR AND REFLECTIVE WALL
+            #
+            if typename == "topoflat-closed-oscillator-reflection":
+
+                #
+                # Initially, constant water level and zero constant sediment
+                #
+
+                # Reset the hidden state
+                self.hidden_states[group_indices] = 0
+
+                self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] = self.params.H0
+
+                #
+                # Set the boundary conditions
+                # >>> All 4 closed sides
+                #
+                self.closed_mask_fullres[group_indices] = 1
+                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 0
+
+                self.opened_mask_fullres[group_indices] = 0
+
+                # Reflecting wall
+                wall_thickness = 10 * self.resolution_factor
+                self.closed_mask_fullres[group_indices,:,0:self.height_fullres//2,(self.width_fullres//2 - wall_thickness//2):(self.width_fullres//2 + wall_thickness//2+1)] = 1
+
+                # Model the oscillator
+                xpos = np.random.choice(range(self.height_fullres//4, 3*self.height_fullres//4+1, self.resolution_factor), 1)[0]
+                ypos = np.random.choice([50, 150], 1)[0]
+
+                oscillator_size = 10 * self.resolution_factor
+
+                self.closed_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
+                self.h_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
+                self.h_cond_fullres[group_indices] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
+                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+                
+
+
 
         # Helper function 2/2 -- Reset the orientation of environment (grouped)
         def rotate_all_of_orientation(orientation, group_indices):
@@ -344,6 +458,14 @@ class Dataset:
                 self.h_cond_fullres[group_indices] = self.params.wave_size * torch.pow(torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]), 2).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
                 self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
+            #
+            # TOPOGRAPHIC FLAT BASIN WITH OSCILLATOR
+            #
+            if "oscillator" in typename:
+
+                self.h_cond_fullres[group_indices] = self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
+                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+
         for typename in grouping.keys():
             reset_all_of_type(typename, grouping[typename])
     
@@ -354,7 +476,7 @@ class Dataset:
         self.h_cond[indices] = F.avg_pool2d(self.h_cond_fullres[indices],self.resolution_factor)
         
         # Update the time for each environment
-        self.env_time[indices] = self.env_time[indices] + math.pi / 100.0
+        self.env_time[indices] = self.env_time[indices] + math.pi / 10.0
         
 
     def ask(self):

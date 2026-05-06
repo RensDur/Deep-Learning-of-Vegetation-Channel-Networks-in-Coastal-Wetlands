@@ -27,7 +27,7 @@ def params():
 	parser.add_argument('--average_sequence_length', default=5000, type=int, help='average sequence length in dataset (default: 5000)')
 	parser.add_argument('--resolution_factor', default=8, type=int, help='resolution factor for superres / kernels (default: 8)')
 
-	parser.add_argument('--loss_bound', default=1e2, type=float, help='loss factor for boundary conditions')
+	parser.add_argument('--loss_bound', default=100, type=float, help='loss factor for boundary conditions')
 	parser.add_argument('--loss_h', default=1, type=float, help='loss factor for wave equation')
 	parser.add_argument('--loss_momentum', default=1, type=float, help='loss factor to connect dz_dt and v')
 	parser.add_argument('--loss_s', default=1, type=float, help='loss factor for sediment equation')
@@ -58,7 +58,7 @@ def params():
     # Domain parameters
 	parser.add_argument('--Hin', default=1e-5, type=float, help="")
 	parser.add_argument('--Hc', default=1e-3, type=float, help="")
-	parser.add_argument('--H0', default=0.02, type=float, help="Initial water thickness")
+	parser.add_argument('--H0', default=1, type=float, help="Initial water thickness")
 	parser.add_argument("--wave_size", default=0.5, type=float, help="Wave height for SWE")
 	# parser.add_argument("--epsilon", default=0.0001, type=float, help="Wave damping factor epsilon")
 	# parser.add_argument("--k_epsilon", default=0.001, type=float, help="Wave damping factor k")
