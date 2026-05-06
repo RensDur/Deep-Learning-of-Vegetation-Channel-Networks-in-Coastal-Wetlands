@@ -299,7 +299,7 @@ class SplinePINNSolver:
                 F.relu(-b) / self.params.k  # Normalize any loss related to b by max. carrying capacity to match scale-difference # vegetation density can never be negative
             ), dim)
 
-        loss_bound = loss_bound_closed + loss_bound_open + loss_bound_h + loss_bound_aux
+        loss_bound = loss_bound_closed + loss_bound_open + loss_bound_h
 
         # Multiply by the loss weights
         loss_h = loss_h * self.params.loss_h
