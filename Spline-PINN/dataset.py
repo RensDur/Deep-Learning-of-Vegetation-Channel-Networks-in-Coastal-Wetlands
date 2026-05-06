@@ -80,7 +80,10 @@ class Dataset:
             # "numerical-saltmarsh",
             "topoflat-closed-oscillator",
             "topoflat-closed-oscillator-multiple",
-            "topoflat-closed-oscillator-reflection"
+            "topoflat-closed-oscillator-reflection",
+            "toposlope-closed-oscillator",
+            "toposlope-closed-oscillator-multiple",
+            "toposlope-closed-oscillator-reflection"
         ] if types is None else types
 
         # Numerical outputs included in this dataset
@@ -321,6 +324,124 @@ class Dataset:
                 self.hidden_states[group_indices] = 0
 
                 self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] = self.params.H0
+
+                #
+                # Set the boundary conditions
+                # >>> All 4 closed sides
+                #
+                self.closed_mask_fullres[group_indices] = 1
+                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 0
+
+                self.opened_mask_fullres[group_indices] = 0
+
+                # Reflecting wall
+                wall_thickness = 10 * self.resolution_factor
+                self.closed_mask_fullres[group_indices,:,0:self.height_fullres//2,(self.width_fullres//2 - wall_thickness//2):(self.width_fullres//2 + wall_thickness//2+1)] = 1
+
+                # Model the oscillator
+                xpos = np.random.choice(range(self.height_fullres//4, 3*self.height_fullres//4+1, self.resolution_factor), 1)[0]
+                ypos = np.random.choice([50, 150], 1)[0]
+
+                oscillator_size = 10 * self.resolution_factor
+
+                self.closed_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
+                self.h_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
+                self.h_cond_fullres[group_indices] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
+                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+
+            #
+            # TOPOGRAPHIC SLOPE IN A CLOSED BASIN
+            #
+            if typename == "toposlope-closed-oscillator":
+
+                #
+                # Initially, constant water level and slight slope in sedimentary topography
+                #
+
+                # Reset the hidden state
+                self.hidden_states[group_indices] = 0
+
+                self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] = self.params.H0
+
+                for x in range(self.width-1):
+                    self.hidden_states[group_indices, self.variables.get_singular_slice_for("s"),:,x] = (1 - (x/(self.width-1))) * 0.1
+
+                #
+                # Set the boundary conditions
+                # >>> All 4 closed sides
+                #
+                self.closed_mask_fullres[group_indices] = 1
+                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 0
+
+                self.opened_mask_fullres[group_indices] = 0
+
+                # Model the oscillator
+                xpos = np.random.choice(range(self.width_fullres//8, 7*self.width_fullres//8+1, self.resolution_factor), 1)[0]
+                ypos = np.random.choice(range(self.height_fullres//8, 7*self.height_fullres//8+1, self.resolution_factor), 1)[0]
+
+                oscillator_size = 10 * self.resolution_factor
+
+                self.closed_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
+                self.h_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
+                self.h_cond_fullres[group_indices] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
+                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+
+            #
+            # TOPOGRAPHIC SLOPE IN A CLOSED BASIN WITH MULTIPLE OSCILLATORS
+            #
+            if typename == "toposlope-closed-oscillator-multiple":
+
+                #
+                # Initially, constant water level and slight slope in sedimentary topography
+                #
+
+                # Reset the hidden state
+                self.hidden_states[group_indices] = 0
+
+                self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] = self.params.H0
+
+                for x in range(self.width-1):
+                    self.hidden_states[group_indices, self.variables.get_singular_slice_for("s"),:,x] = (1 - (x/(self.width-1))) * 0.1
+
+                #
+                # Set the boundary conditions
+                # >>> All 4 closed sides
+                #
+                self.closed_mask_fullres[group_indices] = 1
+                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 0
+
+                self.opened_mask_fullres[group_indices] = 0
+
+                # Model the oscillator
+                for _ in range(5):
+                    xpos = np.random.choice(range(self.width_fullres//8, 7*self.width_fullres//8+1, self.resolution_factor), 1)[0]
+                    ypos = np.random.choice(range(self.height_fullres//8, 7*self.height_fullres//8+1, self.resolution_factor), 1)[0]
+
+                    oscillator_size = 10 * self.resolution_factor
+
+                    self.closed_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
+                    self.h_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
+
+
+                self.h_cond_fullres[group_indices] = self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
+                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+
+            #
+            # TOPOGRAPHIC SLOPE IN A CLOSED BASIN WITH OSCILLATOR AND REFLECTIVE WALL
+            #
+            if typename == "toposlope-closed-oscillator-reflection":
+
+                #
+                # Initially, constant water level and slight slope in sedimentary topography
+                #
+
+                # Reset the hidden state
+                self.hidden_states[group_indices] = 0
+
+                self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] = self.params.H0
+
+                for x in range(self.width-1):
+                    self.hidden_states[group_indices, self.variables.get_singular_slice_for("s"),:,x] = (1 - (x/(self.width-1))) * 0.1
 
                 #
                 # Set the boundary conditions
