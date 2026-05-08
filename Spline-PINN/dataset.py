@@ -77,7 +77,7 @@ class Dataset:
 
         # Environment information
         self.types = [
-            # "numerical-saltmarsh",
+            "numerical-saltmarsh",
             "topoflat-closed-oscillator",
             "topoflat-closed-oscillator-multiple",
             "topoflat-closed-oscillator-reflection",
@@ -236,7 +236,7 @@ class Dataset:
 
                 # Model tides at the open boundary
                 self.h_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
-                self.h_cond_fullres[group_indices] = self.params.wave_size * torch.pow(torch.sin(self.env_seed[group_indices]), 2).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
+                self.h_cond_fullres[group_indices] = self.params.wave_size * torch.clamp(torch.sin(self.env_seed[group_indices]), min=0).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
                 self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
 
@@ -576,7 +576,7 @@ class Dataset:
             #
             if typename == "numerical-saltmarsh":
 
-                self.h_cond_fullres[group_indices] = self.params.wave_size * torch.pow(torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]), 2).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
+                self.h_cond_fullres[group_indices] = self.params.wave_size * torch.clamp(torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]/10.0), min=0).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
                 self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
             #
