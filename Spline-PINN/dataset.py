@@ -81,9 +81,9 @@ class Dataset:
             "topoflat-closed-oscillator",
             "topoflat-closed-oscillator-multiple",
             "topoflat-closed-oscillator-reflection",
-            # "toposlope-closed-oscillator",
-            # "toposlope-closed-oscillator-multiple",
-            # "toposlope-closed-oscillator-reflection"
+            "toposlope-closed-oscillator",
+            "toposlope-closed-oscillator-multiple",
+            "toposlope-closed-oscillator-reflection"
         ] if types is None else types
 
         # Numerical outputs included in this dataset
