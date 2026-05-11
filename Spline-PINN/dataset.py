@@ -78,12 +78,12 @@ class Dataset:
         # Environment information
         self.types = [
             "numerical-saltmarsh",
-            "topoflat-closed-oscillator",
-            "topoflat-closed-oscillator-multiple",
-            "topoflat-closed-oscillator-reflection",
-            "toposlope-closed-oscillator",
-            "toposlope-closed-oscillator-multiple",
-            "toposlope-closed-oscillator-reflection"
+            # "topoflat-closed-oscillator",
+            # "topoflat-closed-oscillator-multiple",
+            # "topoflat-closed-oscillator-reflection",
+            # "toposlope-closed-oscillator",
+            # "toposlope-closed-oscillator-multiple",
+            # "toposlope-closed-oscillator-reflection"
         ] if types is None else types
 
         # Numerical outputs included in this dataset
@@ -236,7 +236,7 @@ class Dataset:
 
                 # Model tides at the open boundary
                 self.h_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
-                self.h_cond_fullres[group_indices] = self.params.wave_size * torch.clamp(torch.sin(self.env_seed[group_indices]), min=0).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
+                self.h_cond_fullres[group_indices] = self.params.wave_size * torch.clamp(torch.sin(self.env_seed[group_indices]), min=0.01).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
                 self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
 
@@ -576,7 +576,7 @@ class Dataset:
             #
             if typename == "numerical-saltmarsh":
 
-                self.h_cond_fullres[group_indices] = self.params.wave_size * torch.clamp(torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]/10.0), min=0).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
+                self.h_cond_fullres[group_indices] = self.params.wave_size * torch.clamp(torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]/10.0), min=0.01).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
                 self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
             #
