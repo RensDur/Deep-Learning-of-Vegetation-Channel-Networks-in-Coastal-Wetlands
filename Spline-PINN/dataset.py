@@ -77,13 +77,16 @@ class Dataset:
 
         # Environment information
         self.types = [
-            "numerical-saltmarsh",
-            # "topoflat-closed-oscillator",
-            # "topoflat-closed-oscillator-multiple",
-            # "topoflat-closed-oscillator-reflection",
-            # "toposlope-closed-oscillator",
-            # "toposlope-closed-oscillator-multiple",
-            # "toposlope-closed-oscillator-reflection"
+            # "numerical-saltmarsh",
+            "topoflat-closed-oscillator",
+            "topoflat-closed-oscillator-multiple",
+            "topoflat-closed-oscillator-reflection",
+            "toposlope-closed-oscillator",
+            "toposlope-closed-oscillator-multiple",
+            "toposlope-closed-oscillator-reflection",
+            "topoveg-closed-oscillator",
+            "topoveg-closed-oscillator",
+            "topoveg-closed-oscillator"
         ] if types is None else types
 
         # Numerical outputs included in this dataset
@@ -466,6 +469,54 @@ class Dataset:
                 self.h_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
                 self.h_cond_fullres[group_indices] = self.params.H0 + self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
                 self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+
+            #
+            # TOPOGRAPHIC TRIANGLE WITH VEGETATION IN A CLOSED BASIN WITH OSCILLATOR
+            #
+            if typename == "topoveg-closed-oscillator":
+                
+                #
+                # Initially, constant water level and slight slope in sedimentary topography
+                #
+
+                # Reset the hidden state
+                self.hidden_states[group_indices] = 0
+
+                self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] = self.params.H0
+
+                shift_distance = 20
+
+                for x in range(self.width-1-shift_distance):
+                    
+                    # Upper triangle
+                    self.hidden_states[group_indices, self.variables.get_singular_slice_for("s"), :(self.height//2 - (x + shift_distance)//2), x] = 0.2
+                    self.hidden_states[group_indices, self.variables.get_singular_slice_for("b"), :(self.height//2 - (x + shift_distance)//2), x] = self.params.k
+
+                    # Lower triangle
+                    self.hidden_states[group_indices, self.variables.get_singular_slice_for("s"), -(self.height//2 - (x + shift_distance)//2):, x] = 0.2
+                    self.hidden_states[group_indices, self.variables.get_singular_slice_for("b"), -(self.height//2 - (x + shift_distance)//2):, x] = self.params.k
+
+                #
+                # Set the boundary conditions
+                # >>> All 4 closed sides
+                #
+                self.closed_mask_fullres[group_indices] = 1
+                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 0
+
+                self.opened_mask_fullres[group_indices] = 0
+
+                # Model the oscillator
+                xpos = 100 * self.resolution_factor
+                ypos = 150 * self.resolution_factor
+
+                oscillator_size = 10 * self.resolution_factor
+
+                self.closed_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
+                self.h_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
+                self.h_cond_fullres[group_indices] = self.params.H0 + self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
+                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+
+
                 
 
 
