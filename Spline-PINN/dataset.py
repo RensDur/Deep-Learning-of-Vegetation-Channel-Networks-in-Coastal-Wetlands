@@ -77,16 +77,16 @@ class Dataset:
 
         # Environment information
         self.types = [
-            # "numerical-saltmarsh",
-            "topoflat-closed-oscillator",
-            "topoflat-closed-oscillator-multiple",
-            "topoflat-closed-oscillator-reflection",
-            "toposlope-closed-oscillator",
-            "toposlope-closed-oscillator-multiple",
-            "toposlope-closed-oscillator-reflection",
-            "topoveg-closed-oscillator",
-            "topoveg-closed-oscillator",
-            "topoveg-closed-oscillator"
+            "numerical-saltmarsh",
+            # "topoflat-closed-oscillator",
+            # "topoflat-closed-oscillator-multiple",
+            # "topoflat-closed-oscillator-reflection",
+            # "toposlope-closed-oscillator",
+            # "toposlope-closed-oscillator-multiple",
+            # "toposlope-closed-oscillator-reflection",
+            # "topoveg-closed-oscillator",
+            # "topoveg-closed-oscillator",
+            # "topoveg-closed-oscillator"
         ] if types is None else types
 
         # Numerical outputs included in this dataset
@@ -223,6 +223,7 @@ class Dataset:
 
                 # Remove all the water initially and set velocities to zero
                 self.hidden_states[group_indices, self.variables.get_slice_for("h")] = 0
+                self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] = self.params.H0
                 self.hidden_states[group_indices, self.variables.get_slice_for("u")] = 0
                 self.hidden_states[group_indices, self.variables.get_slice_for("v")] = 0
 
@@ -238,9 +239,9 @@ class Dataset:
                 self.opened_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
 
                 # Model tides at the open boundary
-                self.h_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
-                self.h_cond_fullres[group_indices] = self.params.wave_size * torch.clamp(torch.sin(self.env_seed[group_indices]), min=0.01).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+                # self.h_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
+                # self.h_cond_fullres[group_indices] = self.params.wave_size * torch.clamp(torch.sin(self.env_seed[group_indices]), min=0.01).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
+                # self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
 
             #
@@ -627,8 +628,11 @@ class Dataset:
             #
             if typename == "numerical-saltmarsh":
 
-                self.h_cond_fullres[group_indices] = self.params.wave_size * torch.clamp(torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]/10.0), min=0.01).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+                # Add Hin to the full domain
+                self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] = self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] + self.params.Hin
+
+                # self.h_cond_fullres[group_indices] = self.params.wave_size * torch.clamp(torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]/10.0), min=0.01).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
+                # self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
             #
             # TOPOGRAPHIC FLAT BASIN WITH OSCILLATOR
