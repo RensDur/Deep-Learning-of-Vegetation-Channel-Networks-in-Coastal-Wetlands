@@ -8,7 +8,7 @@ from spline.spline_array import SplineArray
 
 class Dataset:
     
-    def __init__(self, params, device=torch.device("cpu"), types=None, orientations=None):
+    def __init__(self, params, device=torch.device("cpu"), types=None, water_strategies=None, orientations=None):
 
         # Local copy of the parameters
         self.params = params
@@ -78,6 +78,12 @@ class Dataset:
         # Environment information
         self.types = [
             "numerical-saltmarsh",
+            "topoflat",
+            "toposlope",
+            "toposlope-curved",
+            "toposharp-vegmax",
+            "toposharp-vegslope"
+
             # "topoflat-closed-oscillator",
             # "topoflat-closed-oscillator-multiple",
             # "topoflat-closed-oscillator-reflection",
@@ -94,6 +100,12 @@ class Dataset:
         end_iteration = 1_000_000
         self.active_numerical_outputs = [i for i in range(start_iteration, end_iteration+1, 10_000)]
 
+        # Water in- and outflow strategies
+        self.water_strategies = [
+            "Hin",
+            "tidal-flow"
+        ] if water_strategies is None else water_strategies
+
         self.orientations = [
             "north",
             "east",
@@ -101,7 +113,7 @@ class Dataset:
             "west"
         ] if orientations is None else orientations
 
-        print(f"Running with types {self.types} and orientations {self.orientations}")
+        print(f"Running with types {self.types}, water strategies {self.water_strategies} and orientations {self.orientations}")
         print(f"Active numerical outputs: {self.active_numerical_outputs}")
 
         # Preload all active numerical outputs, pre-fitted to a hidden spline representation
@@ -110,6 +122,7 @@ class Dataset:
         ], dim=0)
 
         self.env_type = np.random.choice(self.types, self.dataset_size)
+        self.env_water_strategy = np.random.choice(self.water_strategies, self.dataset_size)
         self.env_orientation = np.random.choice(self.orientations, self.dataset_size)
         self.env_seed = 2.0 * math.pi * torch.floor(1000 * torch.rand(self.dataset_size))
         self.env_time = torch.zeros(self.dataset_size)
@@ -141,6 +154,28 @@ class Dataset:
         # Group environments
         for i in indices:
             grouping[self.env_type[i]].append(i)
+
+        # Remove any empty groups
+        for g in list(grouping):
+            if not grouping[g]:
+                grouping.pop(g)
+
+        return grouping
+    
+    def group_by_water_strategy(self, indices):
+        """
+        This function outputs a dictionary grouping environments with the same water strategy together
+        """
+
+        grouping = {}
+
+        # Initialize groups with empty lists
+        for t in self.water_strategies:
+            grouping[t] = []
+
+        # Group environments
+        for i in indices:
+            grouping[self.env_water_strategy[i]].append(i)
 
         # Remove any empty groups
         for g in list(grouping):
@@ -192,11 +227,12 @@ class Dataset:
 
         # Randomly choose a new type for each environment
         self.env_type[indices] = np.random.choice(self.types, indices.shape)
+        self.env_water_strategy[indices] = np.random.choice(self.water_strategies, indices.shape)
         self.env_orientation[indices] = np.random.choice(self.orientations, indices.shape)
         self.env_seed[indices] = 2.0 * math.pi * torch.floor(1000 * torch.rand(indices.shape))
         self.env_time[indices] = torch.zeros(indices.shape)
 
-        # Helper function 1/2 -- Reset the type of environment (grouped)
+        # Helper function 1/3 -- Reset the type of environment (grouped)
         def reset_all_of_type(typename, group_indices):
             """
             group_indices is guaranteed to be non-empty
@@ -238,16 +274,11 @@ class Dataset:
                 # The right edge is open
                 self.opened_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
 
-                # Model tides at the open boundary
-                # self.h_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
-                # self.h_cond_fullres[group_indices] = self.params.wave_size * torch.clamp(torch.sin(self.env_seed[group_indices]), min=0.01).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
-                # self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
-
 
             #
-            # TOPOGRAPHIC FLAT BASIN WITH OSCILLATOR
+            # TOPOGRAPHIC FLAT
             #
-            if typename == "topoflat-closed-oscillator":
+            if typename == "topoflat":
 
                 #
                 # Initially, constant water level and zero constant sediment
@@ -260,103 +291,20 @@ class Dataset:
 
                 #
                 # Set the boundary conditions
-                # >>> All 4 closed sides
                 #
+
+                # All sides are closed, except the right edge
                 self.closed_mask_fullres[group_indices] = 1
-                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 0
+                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:] = 0
 
-                self.opened_mask_fullres[group_indices] = 0
+                # The right edge is open
+                self.opened_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
 
-                # Model the oscillator
-                xpos = np.random.choice(range(self.width_fullres//8, 7*self.width_fullres//8+1, self.resolution_factor), 1)[0]
-                ypos = np.random.choice(range(self.height_fullres//8, 7*self.height_fullres//8+1, self.resolution_factor), 1)[0]
-
-                oscillator_size = 10 * self.resolution_factor
-
-                self.closed_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
-                self.h_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
-                self.h_cond_fullres[group_indices] = self.params.H0 + self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
             #
-            # TOPOGRAPHIC FLAT BASIN WITH MULTIPLE OSCILLATORS
+            # TOPOGRAPHIC SLOPE
             #
-            if typename == "topoflat-closed-oscillator-multiple":
-
-                #
-                # Initially, constant water level and zero constant sediment
-                #
-
-                # Reset the hidden state
-                self.hidden_states[group_indices] = 0
-
-                self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] = self.params.H0
-
-                #
-                # Set the boundary conditions
-                # >>> All 4 closed sides
-                #
-                self.closed_mask_fullres[group_indices] = 1
-                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 0
-
-                self.opened_mask_fullres[group_indices] = 0
-
-                # Model the oscillator
-                for _ in range(5):
-                    xpos = np.random.choice(range(self.width_fullres//8, 7*self.width_fullres//8+1, self.resolution_factor), 1)[0]
-                    ypos = np.random.choice(range(self.height_fullres//8, 7*self.height_fullres//8+1, self.resolution_factor), 1)[0]
-
-                    oscillator_size = 10 * self.resolution_factor
-
-                    self.closed_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
-                    self.h_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
-
-
-                self.h_cond_fullres[group_indices] = self.params.H0 + self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
-
-            #
-            # TOPOGRAPHIC FLAT BASIN WITH OSCILLATOR AND REFLECTIVE WALL
-            #
-            if typename == "topoflat-closed-oscillator-reflection":
-
-                #
-                # Initially, constant water level and zero constant sediment
-                #
-
-                # Reset the hidden state
-                self.hidden_states[group_indices] = 0
-
-                self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] = self.params.H0
-
-                #
-                # Set the boundary conditions
-                # >>> All 4 closed sides
-                #
-                self.closed_mask_fullres[group_indices] = 1
-                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 0
-
-                self.opened_mask_fullres[group_indices] = 0
-
-                # Reflecting wall
-                wall_thickness = 10 * self.resolution_factor
-                self.closed_mask_fullres[group_indices,:,0:self.height_fullres//2,(self.width_fullres//2 - wall_thickness//2):(self.width_fullres//2 + wall_thickness//2+1)] = 1
-
-                # Model the oscillator
-                xpos = np.random.choice(range(self.height_fullres//4, 3*self.height_fullres//4+1, self.resolution_factor), 1)[0]
-                ypos = np.random.choice([50, 150], 1)[0]
-
-                oscillator_size = 10 * self.resolution_factor
-
-                self.closed_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
-                self.h_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
-                self.h_cond_fullres[group_indices] = self.params.H0 + self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
-
-            #
-            # TOPOGRAPHIC SLOPE IN A CLOSED BASIN
-            #
-            if typename == "toposlope-closed-oscillator":
+            if typename == "toposlope":
 
                 #
                 # Initially, constant water level and slight slope in sedimentary topography
@@ -368,32 +316,23 @@ class Dataset:
                 self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] = self.params.H0
 
                 for x in range(self.width-1):
-                    self.hidden_states[group_indices, self.variables.get_singular_slice_for("s"),:,x] = (1 - (x/(self.width-1))) * 0.1
+                    self.hidden_states[group_indices, self.variables.get_singular_slice_for("s"),:,x] = (1 - (x/(self.width-1))) * 0.25
 
                 #
                 # Set the boundary conditions
-                # >>> All 4 closed sides
                 #
+
+                # All sides are closed, except the right edge
                 self.closed_mask_fullres[group_indices] = 1
-                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 0
+                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:] = 0
 
-                self.opened_mask_fullres[group_indices] = 0
-
-                # Model the oscillator
-                xpos = np.random.choice(range(self.width_fullres//8, 7*self.width_fullres//8+1, self.resolution_factor), 1)[0]
-                ypos = np.random.choice(range(self.height_fullres//8, 7*self.height_fullres//8+1, self.resolution_factor), 1)[0]
-
-                oscillator_size = 10 * self.resolution_factor
-
-                self.closed_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
-                self.h_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
-                self.h_cond_fullres[group_indices] = self.params.H0 + self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+                # The right edge is open
+                self.opened_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
 
             #
-            # TOPOGRAPHIC SLOPE IN A CLOSED BASIN WITH MULTIPLE OSCILLATORS
+            # TOPOGRAPHIC SLOPE, CURVED
             #
-            if typename == "toposlope-closed-oscillator-multiple":
+            if typename == "toposlope-curved":
 
                 #
                 # Initially, constant water level and slight slope in sedimentary topography
@@ -405,76 +344,25 @@ class Dataset:
                 self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] = self.params.H0
 
                 for x in range(self.width-1):
-                    self.hidden_states[group_indices, self.variables.get_singular_slice_for("s"),:,x] = (1 - (x/(self.width-1))) * 0.1
+                    for y in range(self.height-1):
+
+                        self.hidden_states[group_indices, self.variables.get_singular_slice_for("s"),y,x] = (1 - (x/(self.width-1)) + (0.005 * (y - self.height/2))**2) * 0.2
 
                 #
                 # Set the boundary conditions
-                # >>> All 4 closed sides
                 #
+
+                # All sides are closed, except the right edge
                 self.closed_mask_fullres[group_indices] = 1
-                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 0
+                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:] = 0
 
-                self.opened_mask_fullres[group_indices] = 0
-
-                # Model the oscillator
-                for _ in range(5):
-                    xpos = np.random.choice(range(self.width_fullres//8, 7*self.width_fullres//8+1, self.resolution_factor), 1)[0]
-                    ypos = np.random.choice(range(self.height_fullres//8, 7*self.height_fullres//8+1, self.resolution_factor), 1)[0]
-
-                    oscillator_size = 10 * self.resolution_factor
-
-                    self.closed_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
-                    self.h_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
-
-
-                self.h_cond_fullres[group_indices] = self.params.H0 + self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
+                # The right edge is open
+                self.opened_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
 
             #
-            # TOPOGRAPHIC SLOPE IN A CLOSED BASIN WITH OSCILLATOR AND REFLECTIVE WALL
+            # TOPOGRAPHIC TRIANGLE WITH VEGETATION (SHARP)
             #
-            if typename == "toposlope-closed-oscillator-reflection":
-
-                #
-                # Initially, constant water level and slight slope in sedimentary topography
-                #
-
-                # Reset the hidden state
-                self.hidden_states[group_indices] = 0
-
-                self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] = self.params.H0
-
-                for x in range(self.width-1):
-                    self.hidden_states[group_indices, self.variables.get_singular_slice_for("s"),:,x] = (1 - (x/(self.width-1))) * 0.1
-
-                #
-                # Set the boundary conditions
-                # >>> All 4 closed sides
-                #
-                self.closed_mask_fullres[group_indices] = 1
-                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 0
-
-                self.opened_mask_fullres[group_indices] = 0
-
-                # Reflecting wall
-                wall_thickness = 10 * self.resolution_factor
-                self.closed_mask_fullres[group_indices,:,0:self.height_fullres//2,(self.width_fullres//2 - wall_thickness//2):(self.width_fullres//2 + wall_thickness//2+1)] = 1
-
-                # Model the oscillator
-                xpos = np.random.choice(range(self.height_fullres//4, 3*self.height_fullres//4+1, self.resolution_factor), 1)[0]
-                ypos = np.random.choice([50, 150], 1)[0]
-
-                oscillator_size = 10 * self.resolution_factor
-
-                self.closed_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
-                self.h_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
-                self.h_cond_fullres[group_indices] = self.params.H0 + self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
-                self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
-
-            #
-            # TOPOGRAPHIC TRIANGLE WITH VEGETATION IN A CLOSED BASIN WITH OSCILLATOR
-            #
-            if typename == "topoveg-closed-oscillator":
+            if typename == "toposharp-vegmax":
                 
                 #
                 # Initially, constant water level and slight slope in sedimentary topography
@@ -499,30 +387,81 @@ class Dataset:
 
                 #
                 # Set the boundary conditions
-                # >>> All 4 closed sides
                 #
+
+                # All sides are closed, except the right edge
                 self.closed_mask_fullres[group_indices] = 1
-                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:-self.padding_fullres] = 0
+                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:] = 0
 
-                self.opened_mask_fullres[group_indices] = 0
+                # The right edge is open
+                self.opened_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
 
-                # Model the oscillator
-                xpos = 100 * self.resolution_factor
-                ypos = 150 * self.resolution_factor
+            #
+            # TOPOGRAPHIC TRIANGLE WITH VEGETATION SLOPE
+            #
+            if typename == "toposharp-vegslope":
 
-                oscillator_size = 10 * self.resolution_factor
+                #
+                # Initially, constant water level and slight slope in sedimentary topography
+                #
 
-                self.closed_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
-                self.h_mask_fullres[group_indices,:,(xpos-oscillator_size//2):(xpos+oscillator_size//2+1),(ypos-oscillator_size//2):(ypos+oscillator_size//2+1)] = 1
-                self.h_cond_fullres[group_indices] = self.params.H0 + self.params.wave_size * torch.sin(self.env_seed[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
+                # Reset the hidden state
+                self.hidden_states[group_indices] = 0
+
+                self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] = self.params.H0
+
+                shift_distance = 10
+
+                # Prepare vegetation slope
+                sedmax = 0.2
+                sedslope = torch.linspace(0, sedmax, self.height//2 - shift_distance//2).unsqueeze(0).unsqueeze(1).repeat(len(group_indices), 1, 1)
+                vegslope = torch.linspace(0, self.params.k, self.height//2 - shift_distance//2).unsqueeze(0).unsqueeze(1).repeat(len(group_indices), 1, 1)
+
+                for x in range(self.width-1-shift_distance):
+                    
+                    # Upper triangle
+                    self.hidden_states[group_indices, self.variables.get_singular_slice_for("s"), :(self.height//2 - (x + shift_distance)//2), x] = sedmax - sedslope[:, :, -(self.height//2 - (x + shift_distance)//2):]
+                    self.hidden_states[group_indices, self.variables.get_singular_slice_for("b"), :(self.height//2 - (x + shift_distance)//2), x] = self.params.k - vegslope[:, :, -(self.height//2 - (x + shift_distance)//2):]
+
+                    # Lower triangle
+                    self.hidden_states[group_indices, self.variables.get_singular_slice_for("s"), -(self.height//2 - (x + shift_distance)//2):, x] = sedslope[:, :, :(self.height//2 - (x + shift_distance)//2)]
+                    self.hidden_states[group_indices, self.variables.get_singular_slice_for("b"), -(self.height//2 - (x + shift_distance)//2):, x] = vegslope[:, :, :(self.height//2 - (x + shift_distance)//2)]
+
+                #
+                # Set the boundary conditions
+                #
+
+                # All sides are closed, except the right edge
+                self.closed_mask_fullres[group_indices] = 1
+                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:] = 0
+
+                # The right edge is open
+                self.opened_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
+
+
+
+        # Helper function 2/3 -- Reset the water strategy of the environment (grouped)
+        def reset_all_of_water_strategy(water_strategy, group_indices):
+            
+            #
+            # Hin water strategy
+            #
+            if water_strategy == "Hin":
+                pass
+
+            #
+            # Tidal flow water strategy
+            #
+            if water_strategy == "tidal-flow":
+
+                # Model tides at the open boundary
+                self.h_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
+                self.h_cond_fullres[group_indices] = torch.clamp(self.params.wave_size * torch.sin(self.env_seed[group_indices]), min=0.01).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
                 self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
 
-                
 
-
-
-        # Helper function 2/2 -- Reset the orientation of environment (grouped)
+        # Helper function 3/3 -- Reset the orientation of environment (grouped)
         def rotate_all_of_orientation(orientation, group_indices):
             """
             group_indices is guaranteed to be non-empty
@@ -592,6 +531,11 @@ class Dataset:
         for typename in grouping.keys():
             reset_all_of_type(typename, grouping[typename])
 
+        # Group environments by their water strategy [Groups are guaranteed to be non-empty]
+        grouping = self.group_by_water_strategy(indices)
+        for typename in grouping.keys():
+            reset_all_of_water_strategy(typename, grouping[typename])
+
         # Group environments by their orientation [Groups are guaranteed to be non-empty]
         grouping = self.group_by_orientation(indices)
         for orientation in grouping.keys():
@@ -614,36 +558,42 @@ class Dataset:
         # make sure we can process everything as an np array
         indices = np.array([indices]).flatten()
 
-        # Group environments by their type [Groups are guaranteed to be non-empty]
-        grouping = self.group_by_type(indices)
-
-        # Helper function
-        def reset_all_of_type(typename, group_indices):
+        # Helper function 1/2 -- Update the type of environment (grouped)
+        def update_all_of_type(typename, group_indices):
             """
             group_indices is guaranteed to be non-empty
             """
             
+            pass
+
+        # Helper function 2/2 -- Update the water strategy of environment (grouped)
+        def update_all_of_water_strategy(water_strategy, group_indices):
+            
             #
-            # SALTMARSH SETTING
+            # Hin water strategy
             #
-            if typename == "numerical-saltmarsh":
+            if water_strategy == "Hin":
 
                 # Add Hin to the full domain
                 self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] = self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] + self.params.Hin
 
-                # self.h_cond_fullres[group_indices] = self.params.wave_size * torch.clamp(torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]/10.0), min=0.01).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
-                # self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
-
             #
-            # TOPOGRAPHIC FLAT BASIN WITH OSCILLATOR
+            # Tidal flow water strategy
             #
-            if "oscillator" in typename:
+            if water_strategy == "tidal-flow":
 
-                self.h_cond_fullres[group_indices] = self.params.H0 + self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
+                self.h_cond_fullres[group_indices] = torch.clamp(self.params.wave_size * torch.sin(self.env_seed[group_indices] + self.env_time[group_indices]), min=0.01).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
                 self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
+        # Group environments by their type [Groups are guaranteed to be non-empty]
+        grouping = self.group_by_type(indices)
         for typename in grouping.keys():
-            reset_all_of_type(typename, grouping[typename])
+            update_all_of_type(typename, grouping[typename])
+
+        # Group environments by their water strategy [Groups are guaranteed to be non-empty]
+        grouping = self.group_by_water_strategy(indices)
+        for typename in grouping.keys():
+            update_all_of_water_strategy(typename, grouping[typename])
     
         # Average pooling to create downsampled versions of the BCs
         self.closed_mask[indices] = F.avg_pool2d(self.closed_mask_fullres[indices],self.resolution_factor)
