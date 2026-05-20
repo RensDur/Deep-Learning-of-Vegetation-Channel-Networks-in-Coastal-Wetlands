@@ -345,18 +345,18 @@ class SplinePINNSolver:
         self.logger = Logger(parameters.get_description(self.params), use_csv=self.params.log_csv, use_tensorboard=self.params.log_tensorboard)
         if self.params.load_latest or self.params.load_date_time is not None or self.params.load_index is not None:
 
-            raise Exception("NotImplementedException: Loading state for training is not yet supported")
+            # raise Exception("NotImplementedException: Loading state for training is not yet supported")
 
             self.load_logger = Logger(parameters.get_description(self.params), use_csv=self.params.log_csv, use_tensorboard=self.params.log_tensorboard)
             if self.params.load_optimizer:
-                self.params.load_date_time, self.params.load_index = self.logger.load_state(self.net, self.optimizer,
+                self.params.load_date_time, self.params.load_index = self.logger.load_state("water_net", self.water_net, self.optimizer,
                                                                                   self.params.load_date_time,
                                                                                   self.params.load_index)
             else:
-                self.params.load_date_time, self.params.load_index = self.logger.load_state(self.net, None, self.params.load_date_time,
+                self.params.load_date_time, self.params.load_index = self.logger.load_state("water_net", self.water_net, None, self.params.load_date_time,
                                                                                   self.params.load_index)
             self.params.load_index = int(self.params.load_index)
-            print(f"loaded: {self.params.load_date_time}, {self.params.load_index}")
+            print(f"PRELOAD OF THE PREVIOUS LEARNED STATE IS ENABLED!!! \n\n\nloaded: {self.params.load_date_time}, {self.params.load_index} \n\n\nPRELOAD OF THE PREVIOUS LEARNED STATE IS ENABLED!!!")
 
             # Perform warmup if requested
             if self.params.n_warmup_steps is not None:
