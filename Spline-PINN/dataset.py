@@ -102,8 +102,8 @@ class Dataset:
 
         # Water in- and outflow strategies
         self.water_strategies = [
-            "Hin",
-            # "tidal-flow"
+            # "Hin",
+            "tidal-flow"
         ] if water_strategies is None else water_strategies
 
         self.orientations = [
