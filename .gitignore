@@ -237,3 +237,4 @@ target
 
 # Ignore any logs, as those are kept on a separate storage device
 Logger
+imfit_output
