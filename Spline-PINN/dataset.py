@@ -42,10 +42,10 @@ class Dataset:
         # Variables in this dataset
         self.variables = SplineArray(
             SplineVariable("h", 1, requires_derivative=True),                           # h describes the zero-meaned surface height, on top of H0
-            SplineVariable("u", 2, requires_derivative=True, requires_laplacian=True),
-            SplineVariable("v", 2, requires_derivative=True, requires_laplacian=True),
-            SplineVariable("s", 2, requires_derivative=True, requires_laplacian=True),
-            SplineVariable("b", 2, requires_derivative=True, requires_laplacian=True),
+            SplineVariable("u", 1, requires_derivative=True, requires_laplacian=True),
+            SplineVariable("v", 1, requires_derivative=True, requires_laplacian=True),
+            SplineVariable("s", 1, requires_derivative=True, requires_laplacian=True),
+            SplineVariable("b", 1, requires_derivative=True, requires_laplacian=True),
             device=self.device
         )
 
@@ -77,7 +77,7 @@ class Dataset:
 
         # Environment information
         self.types = [
-            "numerical-saltmarsh",
+            # "numerical-saltmarsh",
             "topoflat",
             "toposlope",
             "toposlope-curved",
@@ -117,9 +117,9 @@ class Dataset:
         print(f"Active numerical outputs: {self.active_numerical_outputs}")
 
         # Preload all active numerical outputs, pre-fitted to a hidden spline representation
-        self.preload_numerical_outputs = torch.cat([
-            torch.load(f"numerical_spline_converted/{self.variables.summary()}/{i}/hidden_state.pt").cpu() for i in self.active_numerical_outputs
-        ], dim=0)
+        # self.preload_numerical_outputs = torch.cat([
+        #     torch.load(f"numerical_spline_converted/{self.variables.summary()}/{i}/hidden_state.pt").cpu() for i in self.active_numerical_outputs
+        # ], dim=0)
 
         self.env_type = np.random.choice(self.types, self.dataset_size)
         self.env_water_strategy = np.random.choice(self.water_strategies, self.dataset_size)
