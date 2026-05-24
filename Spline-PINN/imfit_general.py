@@ -12,7 +12,7 @@ import math
 from spline.spline_variable import SplineVariable
 from spline.spline_array import SplineArray
 import matplotlib.pyplot as plt
-import threading
+import multiprocessing
 
 
 
@@ -28,7 +28,7 @@ class FitNet(nn.Module):
         """
         super(FitNet, self).__init__()
 
-        self.hidden_size = hidden_size
+        self.hidden_size = out_channels
         self.out_channels = out_channels
 
         # Convolutional layers
@@ -153,9 +153,9 @@ class FitDataset:
         )
 
         # Load numerical output images from disk
-        selected_outputs = [i for i in range(10_000, 100_000+1, 10_000)]
+        selected_outputs = [i for i in range(10_000, 1_000_000+1, 10_000)]
         self.dataset_size = len(selected_outputs)
-        self.batch_size = 1
+        self.batch_size = 10
 
         self.numerical_output_states = torch.zeros(
             self.dataset_size,
@@ -271,8 +271,8 @@ def training_routine(torch_device):
 
     last_saved_state = 0
 
-    def save_state(model, optimizer):
-        path = f"{output_folder}/states/{last_saved_state+1}.state"
+    def save_state(model, optimizer, index):
+        path = f"{output_folder}/states/{index}.state"
         state = {}
 
         if type(model)is not list:
@@ -286,7 +286,6 @@ def training_routine(torch_device):
             state.update({'optimizer{}'.format(i):o.state_dict()})
 
         torch.save(state, path)
-        last_saved_state += 1
 
     # Enable training
     net.train()
@@ -301,7 +300,7 @@ def training_routine(torch_device):
         return torch.pow(x, 2)
 
     n_epochs = 300
-    n_batches_per_epoch = 1000
+    n_batches_per_epoch = 100
 
     # TRAINING LOOP
     for epoch in range(n_epochs):
@@ -317,7 +316,7 @@ def training_routine(torch_device):
             loss_u = torch.mean(__loss_function(u - batch[:, 1]))
             loss_v = torch.mean(__loss_function(v - batch[:, 2]))
             loss_s = torch.mean(__loss_function(s - batch[:, 3]))
-            loss_b = torch.mean(__loss_function(b - batch[:, 4]))
+            loss_b = torch.mean(__loss_function(b - batch[:, 4])) / (1500**2)
 
             # Sum loss for stats
             loss = loss_h + loss_u + loss_v + loss_s + loss_b
@@ -357,10 +356,16 @@ def training_routine(torch_device):
                 file.write(f"{loss}\n")
 
         # After each epoch, store the network state
-        save_state(net, optimizer)
+        save_state(net, optimizer, last_saved_state)
+        last_saved_state += 1
 
 
 def main():
+
+    # Find the number of available CPUs, capped at 8
+    NUM_CPUS = min(multiprocessing.cpu_count(), 8)
+    torch.set_num_threads(NUM_CPUS)
+    print(f"Using {NUM_CPUS} threads")
     
     # GPU acceleration
     torch_device = torch.device("cpu")
