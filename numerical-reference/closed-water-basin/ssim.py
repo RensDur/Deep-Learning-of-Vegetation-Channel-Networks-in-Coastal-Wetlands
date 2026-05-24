@@ -17,7 +17,7 @@ def compute_local_mean(x, kernel_size=3):
     # Compute the grouped mean
     return F.conv2d(x, uniform_kernel, padding=kernel_size//2, groups=C)
 
-def ssim(img1, img2, kernel_size=3, k1=0.01, k2=0.03):
+def ssim(img1, img2, kernel_size=11, k1=0.01, k2=0.03):
 
     # Normalize both images to allow working with dynamic range of L=1
     img1 = img1 - torch.min(img1)

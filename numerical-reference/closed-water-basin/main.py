@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from window import MultiWindow
 from ssim import *
-
+import matplotlib.pyplot as plt
 
 
 class ClosedWaterBasin:
@@ -116,9 +116,14 @@ class ClosedWaterBasin:
 
 if __name__ == "__main__":
     
-    window = MultiWindow(200, 200)
+    window = MultiWindow(100, 100)
 
-    basin = ClosedWaterBasin(200, 200, torch.device("mps"))
+    basin = ClosedWaterBasin(100, 100, torch.device("mps"))
+    basin2 = ClosedWaterBasin(100, 100, torch.device("mps"))
+    basin2.epsilon = 0.005
+
+    ssim_scores = []
+    ssim_plot, = window.axs[1, 2].plot([], [])
 
     # Open the window
     window.open()
@@ -128,8 +133,24 @@ if __name__ == "__main__":
 
         # Make a simulation step
         basin.simulate()
+        basin2.simulate()
+
+        # Calculate the ssim score
+        ssim_spatial = ssim(basin.h, basin2.h)
+        ssim_scores.append(torch.mean(ssim_spatial).cpu().item())
 
         # Update the window state
-        window.set_data(basin.h[0, 0], basin.u[0, 0], basin.v[0, 0], ssim(basin.h, basin.u)[0,0], torch.zeros(basin.width, basin.height))
+        window.set_data(
+            basin.h[0, 0],
+            basin.u[0, 0],
+            basin.v[0, 0],
+            basin2.h[0, 0],
+            ssim_spatial[0, 0]
+        )
+
+        ssim_plot.set_xdata(range(len(ssim_scores)))
+        ssim_plot.set_ydata(ssim_scores)
+        window.axs[1, 2].relim()
+        window.axs[1, 2].autoscale_view()
 
         window.update()
