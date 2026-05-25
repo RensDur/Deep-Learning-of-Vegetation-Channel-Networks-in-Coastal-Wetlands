@@ -13,6 +13,7 @@ from spline.spline_variable import SplineVariable
 from spline.spline_array import SplineArray
 import matplotlib.pyplot as plt
 import multiprocessing
+from natsort import natsorted
 
 
 
@@ -174,11 +175,10 @@ class FitDataset:
             composite_image = torch.cat([output_h, output_u, output_v, output_s, output_b], dim=1)
 
             self.numerical_output_states[i] = composite_image
-
         
-    def ask(self):
+    def ask(self, index=None):
 
-        asked_indices = np.random.choice(self.dataset_size, self.batch_size)
+        asked_indices = np.random.choice(self.dataset_size, self.batch_size) if index is None else [index]
 
         return self.numerical_output_states[asked_indices].to(self.device)
 
@@ -360,6 +360,134 @@ def training_routine(torch_device):
         last_saved_state += 1
 
 
+
+def evaluation_routine(torch_device):
+
+    selected_num_output = 99
+
+    dataset = FitDataset(800, 800, torch_device)
+    net = CompoundFitNet(dataset.variables).to(torch_device)
+
+    output_folder = f"imfit_output/{dataset.variables.summary()}"
+
+    def load_state(model,optimizer,index=None):
+
+        if index is None:
+            for _,_,files in os.walk(f"{output_folder}/states/"):
+                index = os.path.splitext(natsorted(files)[-1])[0]
+                break
+
+        path = f"{output_folder}/states/{index}.state"
+        state = torch.load(path, map_location=torch_device)
+
+        if type(model) is not list:
+            model = [model]
+        for i,m in enumerate(model):
+            m.load_state_dict(state['model{}'.format(i)])
+
+        if optimizer is not None:
+            if type(optimizer)is not list:
+                optimizer = [optimizer]
+            for i,o in enumerate(optimizer):
+                o.load_state_dict(state['optimizer{}'.format(i)])
+
+        return index
+    
+    index = load_state(net, None)
+    print(f"Loaded imfit index {index}")
+
+    # Load training loss
+    # Load loss progression over time
+    loss_h_df = pd.read_csv(f"./{output_folder}/loss_h.txt")
+    loss_u_df = pd.read_csv(f"./{output_folder}/loss_u.txt")
+    loss_v_df = pd.read_csv(f"./{output_folder}/loss_v.txt")
+    loss_s_df = pd.read_csv(f"./{output_folder}/loss_s.txt")
+    loss_b_df = pd.read_csv(f"./{output_folder}/loss_b.txt")
+
+    losses_df = pd.concat([loss_h_df, loss_u_df, loss_v_df, loss_s_df, loss_b_df], axis=1) 
+    
+
+    #
+    # EVALUATION
+    #
+
+    net.eval()
+
+    #
+    # Setup visualisation
+    #
+
+    # Plot domain (first time)
+    plt.ion()
+
+    # Create subplots
+    figure, axs = plt.subplots(2, 3, figsize=(20, 10))
+
+    # Initial black image
+    initial_img = torch.zeros(1, 1, 800, 800)
+
+    water_plot = axs[0, 0].imshow(initial_img[0,0].clone().detach().cpu().numpy(), cmap="Blues", vmin=0, vmax=0.02)
+    momentum_u_plot = axs[0, 1].imshow(initial_img[0,0].clone().detach().cpu().numpy(), cmap="bwr", vmin=-0.2, vmax=0.2)
+    momentum_v_plot = axs[0, 2].imshow(initial_img[0,0].clone().detach().cpu().numpy(), cmap="bwr", vmin=-0.2, vmax=0.2)
+    sediment_plot = axs[1, 0].imshow(initial_img[0,0].clone().detach().cpu().numpy(), cmap="gray", vmin=0, vmax=0.2)
+    vegetation_plot = axs[1, 1].imshow(initial_img[0,0].clone().detach().cpu().numpy(), cmap="YlGn", vmin=0, vmax=1500)
+    losses_df.plot(ax=axs[1, 2])
+
+
+    # setting title
+    axs[0, 0].set(title="Water Layer Thickness", xlabel="Cross shore", ylabel="Along shore")
+    axs[0, 1].set(title="Momentum u (x-direction)", xlabel="Cross shore", ylabel="Along shore")
+    axs[0, 2].set(title="Momentum v (y-direction)", xlabel="Cross shore", ylabel="Along shore")
+    axs[1, 0].set(title="Sediment bed", xlabel="Cross shore", ylabel="Along shore")
+    axs[1, 1].set(title="Vegetation density", xlabel="Cross shore", ylabel="Along shore")
+
+    # Color bars
+    plt.colorbar(water_plot)
+    plt.colorbar(momentum_u_plot)
+    plt.colorbar(momentum_v_plot)
+    plt.colorbar(sediment_plot)
+    plt.colorbar(vegetation_plot)
+
+    # In interactive mode, plt.show() immediately returns
+    plt.show()
+
+    # Resolution factor
+    resolution_factor = 4
+
+    global running
+    running = True
+    
+    def __on_figure_close(event):
+        global running
+        running = False
+
+    figure.canvas.mpl_connect('close_event', __on_figure_close)
+
+    while running:
+
+        # Ask for the selected numerical output from the dataset
+        numerical_output = dataset.ask(index=selected_num_output)
+
+        # Obtain the corresponding hidden state from the CNN
+        hidden_state = net(numerical_output)
+
+        # Update the visuals
+        h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = dataset.interpolate_superres(hidden_state, resolution_factor)
+
+        water_plot.set_data(h[0,0].detach().cpu().numpy())
+        momentum_u_plot.set_data(u[0,0].detach().cpu().numpy())
+        momentum_v_plot.set_data(v[0,0].detach().cpu().numpy())
+        sediment_plot.set_data(s[0,0].detach().cpu().numpy())
+        vegetation_plot.set_data(b[0,0].detach().cpu().numpy())
+
+        # Plot the domain (update existing plot)
+        # Draw updated values
+        figure.canvas.draw()
+
+        # UI Loop: process all pending UI events
+        figure.canvas.flush_events()
+
+
 def main():
 
     # Find the number of available CPUs, capped at 8
@@ -382,7 +510,8 @@ def main():
     # torch.manual_seed(0)
     # np.random.seed(0)
 
-    training_routine(torch_device)
+    # training_routine(torch_device)
+    evaluation_routine(torch_device)
 
 
 
