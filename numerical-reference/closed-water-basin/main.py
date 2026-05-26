@@ -27,8 +27,8 @@ class ClosedWaterBasin:
         # Default parameters
         self.H0 = 1
         self.g = 9.81
-        self.epsilon = 0.001
-        self.k = 0.01
+        self.epsilon = 0.0001
+        self.k = 0.001
         self.nu = 0.5
 
         # Initial conditions
@@ -94,14 +94,14 @@ class ClosedWaterBasin:
         h[:,:,0,:] = h[:,:,1,:]
         h[:,:,-1,:] = h[:,:,-2,:]
 
-        oscillator_radius = 10
+        # oscillator_radius = 10
 
-        for x in range(-oscillator_radius, oscillator_radius+1):
-            for y in range(-oscillator_radius, oscillator_radius+1):
-                if (x**2 + y**2 <= oscillator_radius**2):
-                    h[:,:,self.height//2+y,self.width//2+x] = self.H0 + 0.5*torch.sin(torch.Tensor([self.t]))
+        # for x in range(-oscillator_radius, oscillator_radius+1):
+        #     for y in range(-oscillator_radius, oscillator_radius+1):
+        #         if (x**2 + y**2 <= oscillator_radius**2):
+        #             h[:,:,self.height//2+y,self.width//2+x] = self.H0 + 0.5*torch.sin(torch.Tensor([self.t]))
 
-        # h[:,:,(self.height//2 - 5):(self.height//2 + 5),(self.width//2-5):(self.width//2+5)] = self.H0 + 0.5 * torch.sin(torch.Tensor([self.t])).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, 10, 10)
+        h[:,:,(self.height//2 - 5):(self.height//2 + 5),(self.width//2-5):(self.width//2+5)] = self.H0 + 0.5 * torch.sin(torch.Tensor([self.t])).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, 10, 10)
 
         # Update the internal state
         self.h = h

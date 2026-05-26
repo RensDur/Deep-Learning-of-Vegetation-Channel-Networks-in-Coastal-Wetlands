@@ -5,7 +5,7 @@ from ssim import *
 from spline.spline_variable import SplineVariable
 from spline.spline_array import SplineArray
 from main import ClosedWaterBasin
-
+import math
 
 class SplineInterpolator:
 
@@ -82,7 +82,7 @@ if __name__ == "__main__":
     basin = ClosedWaterBasin(200, 200, torch.device("cpu"))
 
     # Load the PINN simulation data from disk
-    pinn_solution = torch.load(f"./swe-std-output/reflection.pt")
+    pinn_solution = torch.load(f"./swe-std-output/center.pt")
 
     interpolator = SplineInterpolator(200, 200, torch.device("cpu"))
 
@@ -94,19 +94,26 @@ if __name__ == "__main__":
     # Open the window
     window.open()
 
+    ssim_spatial = torch.zeros(1, 1, 200, 200)
+    pinn_image = torch.zeros(1, 1, 200, 200)
+
     # As long as the window is open, run the simulation
     while window.is_open:
 
         # Make a simulation step
         basin.simulate()
 
-        # Interpolate pinn solution
-        pinn_image, _, _, _, _, _ = interpolator.interpolate_superres(pinn_solution[simulation_count:(simulation_count+1)], 1)
-        pinn_image = pinn_image.to(torch.device("cpu"))
+        if int(math.floor(basin.t)) == simulation_count:
+            print(f"Hit! ({basin.t})")
+            # Interpolate pinn solution
+            pinn_image, _, _, _, _, _ = interpolator.interpolate_superres(pinn_solution[simulation_count:(simulation_count+1)], 1)
+            pinn_image = pinn_image.to(torch.device("cpu")) + 1
 
-        # Calculate the ssim score
-        ssim_spatial = ssim(basin.h, pinn_image)
-        ssim_scores.append(torch.mean(ssim_spatial).cpu().item())
+            simulation_count += 1
+
+            # Calculate the ssim score
+            ssim_spatial = ssim(basin.h, pinn_image)
+            ssim_scores.append(torch.mean(ssim_spatial).cpu().item())
 
         # Update the window state
         window.set_data(
@@ -116,8 +123,6 @@ if __name__ == "__main__":
             pinn_image[0, 0],
             ssim_spatial[0, 0]
         )
-
-        simulation_count += 1
 
         ssim_plot.set_xdata(range(len(ssim_scores)))
         ssim_plot.set_ydata(ssim_scores)
