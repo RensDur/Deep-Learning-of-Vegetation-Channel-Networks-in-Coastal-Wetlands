@@ -53,8 +53,10 @@ class Window:
         # Slider functionality
         self.axs[2, 0].set_visible(False)
         self.axs[2, 1].set_visible(False)
-        self.snapshot_slider = Slider(self.axs[2, 2], "Snapshot", 10_000, 1_000_000, valfmt="%d", valstep=10_000)
+        self.snapshot_slider = Slider(self.axs[2, 2], "Snapshot", 10_000, 1_000_000, valinit=500_000, valfmt="%d", valstep=10_000)
         self.snapshot_slider.on_changed(self.slider_update)
+        self.current_selected_index = -1
+        self.slider_update(500_000)
         
         # Window status
         self.is_open = False
@@ -76,6 +78,10 @@ class Window:
 
     def slider_update(self, slider_val):
         selected_index = int(slider_val / 10_000) - 1
+
+        if selected_index == self.current_selected_index:
+            return
+
         self.set_data(
             self.snapshots[selected_index, 0],
             self.snapshots[selected_index, 1],
@@ -84,14 +90,18 @@ class Window:
             self.snapshots[selected_index, 4],
         )
 
+        self.current_selected_index = selected_index
+
     def update(self):
         if self.is_open:
             # Plot the domain (update existing plot)
             # Draw updated values
-            self.figure.canvas.draw()
+            # self.figure.canvas.draw()
 
             # UI Loop: process all pending UI events
             self.figure.canvas.flush_events()
+
+            plt.pause(0.05)
 
     def close(self):
         # Toggling the window closed will stop the ui thread
@@ -99,11 +109,13 @@ class Window:
 
     def set_data(self, h, u, v, s, b):
 
-        self.water_plot.set_data(h.detach().cpu().numpy())
-        self.momentum_u_plot.set_data(u.detach().cpu().numpy())
-        self.momentum_v_plot.set_data(v.detach().cpu().numpy())
-        self.sediment_plot.set_data(s.detach().cpu().numpy())
-        self.vegetation_plot.set_data(b.detach().cpu().numpy())
+        self.water_plot.set_data(h.cpu().numpy())
+        self.momentum_u_plot.set_data(u.cpu().numpy())
+        self.momentum_v_plot.set_data(v.cpu().numpy())
+        self.sediment_plot.set_data(s.cpu().numpy())
+        self.vegetation_plot.set_data(b.cpu().numpy())
+
+        self.figure.canvas.draw_idle()
 
 
 
