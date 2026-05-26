@@ -42,6 +42,7 @@ class Window:
         self.axs[1, 0].set(title="Sediment bed", xlabel="Cross shore", ylabel="Along shore")
         self.axs[1, 1].set(title="Vegetation density", xlabel="Cross shore", ylabel="Along shore")
         self.axs[1, 2].set(title="SSIM Similarity between snapshots", xlabel="Iter. count", ylabel="SSIM")
+        self.axs[1, 2].legend()
 
         # Color bars
         plt.colorbar(self.water_plot)
@@ -117,9 +118,23 @@ class Window:
 
         self.figure.canvas.draw_idle()
 
+    def set_ssim_scores(self, ssim_xs, ssim_scores, label):
+        self.axs[1, 2].plot(ssim_xs, ssim_scores, label=label)
+        self.axs[1, 2].legend()
+
 
 
 def main():
+
+    # Find the GPU device for pytorch
+    torch_device = torch.device('cpu')  # Default to CPU
+    # Switch to MPS (Apple Metal) if available
+    if torch.backends.mps.is_available():
+        torch_device = torch.device('mps')
+    # Or CUDA if we're on an Nvidia machine
+    elif torch.cuda.is_available():
+        torch_device = torch.device('cuda')
+    print(f"Using torch device '{torch_device}'")
 
     # Select which images to load
     start_index = 10_000
@@ -146,8 +161,53 @@ def main():
 
         snapshots[i] = compound
 
+    # Compute SSIM of consequtive 10k intervals
+    ssim_scores_h = [1]
+    ssim_scores_u = [1]
+    ssim_scores_v = [1]
+    ssim_scores_s = [1]
+    ssim_scores_b = [1]
+
+    for i in range(1, dataset_size):
+        prev = snapshots[(i-1):i].to(torch_device)
+        curr = snapshots[i:(i+1)].to(torch_device)
+
+        # SSIM
+        ssim_scores_h.append(torch.mean(ssim(prev[:,0:1], curr[:,0:1], kernel_size=11)).cpu().item())
+        ssim_scores_u.append(torch.mean(ssim(prev[:,1:2], curr[:,1:2], kernel_size=11)).cpu().item())
+        ssim_scores_v.append(torch.mean(ssim(prev[:,2:3], curr[:,2:3], kernel_size=11)).cpu().item())
+        ssim_scores_s.append(torch.mean(ssim(prev[:,3:4], curr[:,3:4], kernel_size=11)).cpu().item())
+        ssim_scores_b.append(torch.mean(ssim(prev[:,4:5], curr[:,4:5], kernel_size=11)).cpu().item())
+
+        # Standard MSE
+        # def __normalize(prev, curr):
+        #     prev = prev - torch.min(prev)
+        #     prev = prev / torch.max(prev)
+
+        #     curr = curr - torch.min(curr)
+        #     curr = curr / torch.max(curr)
+            
+        #     return prev, curr
+
+        # prev[:,0:1], curr[:,0:1] = __normalize(prev[:,0:1], curr[:,0:1])
+        # prev[:,1:2], curr[:,1:2] = __normalize(prev[:,1:2], curr[:,1:2])
+        # prev[:,2:3], curr[:,2:3] = __normalize(prev[:,2:3], curr[:,2:3])
+        # prev[:,3:4], curr[:,3:4] = __normalize(prev[:,3:4], curr[:,3:4])
+        # prev[:,4:5], curr[:,4:5] = __normalize(prev[:,4:5], curr[:,4:5])
+
+        # ssim_scores_h.append(torch.mean(torch.pow(prev[:,0:1] - curr[:,0:1], 2)).cpu().item())
+        # ssim_scores_u.append(torch.mean(torch.pow(prev[:,1:2] - curr[:,1:2], 2)).cpu().item())
+        # ssim_scores_v.append(torch.mean(torch.pow(prev[:,2:3] - curr[:,2:3], 2)).cpu().item())
+        # ssim_scores_s.append(torch.mean(torch.pow(prev[:,3:4] - curr[:,3:4], 2)).cpu().item())
+        # ssim_scores_b.append(torch.mean(torch.pow(prev[:,4:5] - curr[:,4:5], 2)).cpu().item())
+
     # Open the window
     win = Window(800, 800, snapshots)
+    win.set_ssim_scores(selected_outputs, ssim_scores_h, "h")
+    win.set_ssim_scores(selected_outputs, ssim_scores_u, "u")
+    win.set_ssim_scores(selected_outputs, ssim_scores_v, "v")
+    win.set_ssim_scores(selected_outputs, ssim_scores_s, "s")
+    win.set_ssim_scores(selected_outputs, ssim_scores_b, "b")
 
     win.open()
 
