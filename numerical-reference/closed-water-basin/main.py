@@ -3,6 +3,7 @@ import torch.nn.functional as F
 from window import MultiWindow
 from ssim import *
 import matplotlib.pyplot as plt
+import math
 
 
 class ClosedWaterBasin:
@@ -36,6 +37,7 @@ class ClosedWaterBasin:
 
         # Keep track of time
         self.t = 0
+        self.oscillator_t = 0
 
         #
         # Define convolution operators
@@ -101,7 +103,7 @@ class ClosedWaterBasin:
         #         if (x**2 + y**2 <= oscillator_radius**2):
         #             h[:,:,self.height//2+y,self.width//2+x] = self.H0 + 0.5*torch.sin(torch.Tensor([self.t]))
 
-        h[:,:,(self.height//2 - 5):(self.height//2 + 5),(self.width//2-5):(self.width//2+5)] = self.H0 + 0.5 * torch.sin(torch.Tensor([self.t])).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, 10, 10)
+        h[:,:,(self.height//2 - 5):(self.height//2 + 5),(self.width//2-5):(self.width//2+5)] = self.H0 + 0.5 * torch.sin(torch.Tensor([self.oscillator_t])).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, 10, 10)
 
         # Update the internal state
         self.h = h
@@ -109,6 +111,7 @@ class ClosedWaterBasin:
         self.v = v
 
         self.t += dt
+        self.oscillator_t += (math.pi / 10.0) * dt
 
 
 
