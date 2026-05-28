@@ -289,22 +289,24 @@ class Dataset:
 
                 self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] = self.params.H0
 
-                # Randomly place some vegetation Gaussians
-                xs = torch.arange(0, self.width-1)
-                ys = torch.arange(0, self.height-1)
-                x, y = torch.meshgrid(xs, ys, indexing='xy')
+                # # Randomly place some vegetation Gaussians
+                # xs = torch.arange(0, self.width-1)
+                # ys = torch.arange(0, self.height-1)
+                # x, y = torch.meshgrid(xs, ys, indexing='xy')
 
-                gauss_stdev = 10
+                # gauss_stdev = 10
 
-                for _ in range(5):
-                    xpos = np.random.choice(range(self.width//8, 7*self.width//8+1), 1)[0]
-                    ypos = np.random.choice(range(self.height//8, 7*self.height//8+1), 1)[0]
+                # for _ in range(5):
+                #     xpos = np.random.choice(range(self.width//8, 7*self.width//8+1), 1)[0]
+                #     ypos = np.random.choice(range(self.height//8, 7*self.height//8+1), 1)[0]
 
-                    self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] \
-                                                                                                    + self.params.k/2 * torch.exp(-(torch.pow(x - xpos, 2)/(2*gauss_stdev**2) + torch.pow(y - ypos, 2)/(2*gauss_stdev**2)))
+                #     self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] \
+                #                                                                                     + self.params.k/2 * torch.exp(-(torch.pow(x - xpos, 2)/(2*gauss_stdev**2) + torch.pow(y - ypos, 2)/(2*gauss_stdev**2)))
 
-                # Ensure that overlapping vegetation tussocks don't reach beyond the maximum carrying capacity
-                self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = torch.clamp(self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")], max=self.params.k)
+                # # Ensure that overlapping vegetation tussocks don't reach beyond the maximum carrying capacity
+                # self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = torch.clamp(self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")], max=self.params.k)
+
+                self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = torch.rand_like(self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")]) * self.params.k
 
                 #
                 # Set the boundary conditions
@@ -335,22 +337,24 @@ class Dataset:
                 for x in range(self.width-1):
                     self.hidden_states[group_indices, self.variables.get_singular_slice_for("s"),:,x] = (1 - (x/(self.width-1))) * 0.25
 
-                # Randomly place some vegetation Gaussians
-                xs = torch.arange(0, self.width-1)
-                ys = torch.arange(0, self.height-1)
-                x, y = torch.meshgrid(xs, ys, indexing='xy')
+                # # Randomly place some vegetation Gaussians
+                # xs = torch.arange(0, self.width-1)
+                # ys = torch.arange(0, self.height-1)
+                # x, y = torch.meshgrid(xs, ys, indexing='xy')
 
-                gauss_stdev = 10
+                # gauss_stdev = 10
 
-                for _ in range(5):
-                    xpos = np.random.choice(range(self.width//8, 7*self.width//8+1), 1)[0]
-                    ypos = np.random.choice(range(self.height//8, 7*self.height//8+1), 1)[0]
+                # for _ in range(5):
+                #     xpos = np.random.choice(range(self.width//8, 7*self.width//8+1), 1)[0]
+                #     ypos = np.random.choice(range(self.height//8, 7*self.height//8+1), 1)[0]
 
-                    self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] \
-                                                                                                    + self.params.k/2 * torch.exp(-(torch.pow(x - xpos, 2)/(2*gauss_stdev**2) + torch.pow(y - ypos, 2)/(2*gauss_stdev**2)))
+                #     self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] \
+                #                                                                                     + self.params.k/2 * torch.exp(-(torch.pow(x - xpos, 2)/(2*gauss_stdev**2) + torch.pow(y - ypos, 2)/(2*gauss_stdev**2)))
 
-                # Ensure that overlapping vegetation tussocks don't reach beyond the maximum carrying capacity
-                self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = torch.clamp(self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")], max=self.params.k)
+                # # Ensure that overlapping vegetation tussocks don't reach beyond the maximum carrying capacity
+                # self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = torch.clamp(self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")], max=self.params.k)
+
+                self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = torch.rand_like(self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")]) * self.params.k
 
                 #
                 # Set the boundary conditions
@@ -383,21 +387,23 @@ class Dataset:
                         self.hidden_states[group_indices, self.variables.get_singular_slice_for("s"),y,x] = (1 - (x/(self.width-1)) + (0.005 * (y - self.height/2))**2) * 0.2
 
                 # Randomly place some vegetation Gaussians
-                xs = torch.arange(0, self.width-1)
-                ys = torch.arange(0, self.height-1)
-                x, y = torch.meshgrid(xs, ys, indexing='xy')
+                # xs = torch.arange(0, self.width-1)
+                # ys = torch.arange(0, self.height-1)
+                # x, y = torch.meshgrid(xs, ys, indexing='xy')
 
-                gauss_stdev = 10
+                # gauss_stdev = 10
 
-                for _ in range(5):
-                    xpos = np.random.choice(range(self.width//8, 7*self.width//8+1), 1)[0]
-                    ypos = np.random.choice(range(self.height//8, 7*self.height//8+1), 1)[0]
+                # for _ in range(5):
+                #     xpos = np.random.choice(range(self.width//8, 7*self.width//8+1), 1)[0]
+                #     ypos = np.random.choice(range(self.height//8, 7*self.height//8+1), 1)[0]
 
-                    self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] \
-                                                                                                    + self.params.k/2 * torch.exp(-(torch.pow(x - xpos, 2)/(2*gauss_stdev**2) + torch.pow(y - ypos, 2)/(2*gauss_stdev**2)))
+                #     self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] \
+                #                                                                                     + self.params.k/2 * torch.exp(-(torch.pow(x - xpos, 2)/(2*gauss_stdev**2) + torch.pow(y - ypos, 2)/(2*gauss_stdev**2)))
 
-                # Ensure that overlapping vegetation tussocks don't reach beyond the maximum carrying capacity
-                self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = torch.clamp(self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")], max=self.params.k)
+                # # Ensure that overlapping vegetation tussocks don't reach beyond the maximum carrying capacity
+                # self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = torch.clamp(self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")], max=self.params.k)
+
+                self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = torch.rand_like(self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")]) * self.params.k
 
                 #
                 # Set the boundary conditions
