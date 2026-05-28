@@ -56,7 +56,7 @@ def params():
 	parser.add_argument('--separation', default=0.05, type=float, help='cell separation in meters')
 
     # Domain parameters
-	parser.add_argument('--Hin', default=1e-5, type=float, help="")
+	parser.add_argument('--Hin', default=1e-4, type=float, help="")
 	parser.add_argument('--Hc', default=1e-3, type=float, help="")
 	parser.add_argument('--H0', default=0.02, type=float, help="Initial water thickness")
 	parser.add_argument("--wave_size", default=0.5, type=float, help="Wave height for SWE")
