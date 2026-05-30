@@ -57,10 +57,10 @@ class SplinePINNSolver:
         # Training Stage
         #
         self.training_sediment = False
-        self.training_sediment_start_epoch = 10
+        self.training_sediment_start_epoch = 0
 
         self.training_vegetation = False
-        self.training_vegetation_start_epoch = 10
+        self.training_vegetation_start_epoch = 0
 
         #
         # Diffusion operation (needed, if we want to put more loss-weight to regions close to the domain boundaries)
