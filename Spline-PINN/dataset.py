@@ -8,7 +8,7 @@ from spline.spline_array import SplineArray
 
 class Dataset:
     
-    def __init__(self, params, device=torch.device("cpu"), types=None, water_strategies=None, orientations=None):
+    def __init__(self, params, device=torch.device("cpu"), types=None, water_strategies=None, vegetation_ics=None, orientations=None):
 
         # Local copy of the parameters
         self.params = params
@@ -106,6 +106,14 @@ class Dataset:
             # "tidal-flow"
         ] if water_strategies is None else water_strategies
 
+        # Vegetation initial conditions
+        self.vegetation_ics = [
+            "uniform-noise",
+            "random-gaussians",
+            "vd-vijsel",
+            "empty"
+        ] if vegetation_ics is None else vegetation_ics
+
         self.orientations = [
             "north",
             "east",
@@ -113,7 +121,7 @@ class Dataset:
             "west"
         ] if orientations is None else orientations
 
-        print(f"Running with types {self.types}, water strategies {self.water_strategies} and orientations {self.orientations}")
+        print(f"Running with types {self.types}, water strategies {self.water_strategies}, vegetation-ics {self.vegetation_ics} and orientations {self.orientations}")
         print(f"Active numerical outputs: {self.active_numerical_outputs}")
 
         # Preload all active numerical outputs, pre-fitted to a hidden spline representation
@@ -123,6 +131,7 @@ class Dataset:
 
         self.env_type = np.random.choice(self.types, self.dataset_size)
         self.env_water_strategy = np.random.choice(self.water_strategies, self.dataset_size)
+        self.env_vegetation_ics = np.random.choice(self.vegetation_ics, self.dataset_size)
         self.env_orientation = np.random.choice(self.orientations, self.dataset_size)
         self.env_seed = 2.0 * math.pi * torch.floor(1000 * torch.rand(self.dataset_size))
         self.env_time = torch.zeros(self.dataset_size)
@@ -183,6 +192,28 @@ class Dataset:
                 grouping.pop(g)
 
         return grouping
+
+    def group_by_vegetation_ic(self, indices):
+        """
+        This function outputs a dictionary grouping environments with the same vegetation initial condition together
+        """
+
+        grouping = {}
+
+        # Initialize groups with empty lists
+        for t in self.vegetation_ics:
+            grouping[t] = []
+
+        # Group environments
+        for i in indices:
+            grouping[self.env_vegetation_ics[i]].append(i)
+
+        # Remove any empty groups
+        for g in list(grouping):
+            if not grouping[g]:
+                grouping.pop(g)
+
+        return grouping
     
     def group_by_orientation(self, indices):
         """
@@ -228,11 +259,12 @@ class Dataset:
         # Randomly choose a new type for each environment
         self.env_type[indices] = np.random.choice(self.types, indices.shape)
         self.env_water_strategy[indices] = np.random.choice(self.water_strategies, indices.shape)
+        self.env_vegetation_ics[indices] = np.random.choice(self.vegetation_ics, indices.shape)
         self.env_orientation[indices] = np.random.choice(self.orientations, indices.shape)
         self.env_seed[indices] = 2.0 * math.pi * torch.floor(1000 * torch.rand(indices.shape))
         self.env_time[indices] = torch.zeros(indices.shape)
 
-        # Helper function 1/3 -- Reset the type of environment (grouped)
+        # Helper function 1/4 -- Reset the type of environment (grouped)
         def reset_all_of_type(typename, group_indices):
             """
             group_indices is guaranteed to be non-empty
@@ -289,25 +321,6 @@ class Dataset:
 
                 self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] = self.params.H0
 
-                # # Randomly place some vegetation Gaussians
-                # xs = torch.arange(0, self.width-1)
-                # ys = torch.arange(0, self.height-1)
-                # x, y = torch.meshgrid(xs, ys, indexing='xy')
-
-                # gauss_stdev = 10
-
-                # for _ in range(5):
-                #     xpos = np.random.choice(range(self.width//8, 7*self.width//8+1), 1)[0]
-                #     ypos = np.random.choice(range(self.height//8, 7*self.height//8+1), 1)[0]
-
-                #     self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] \
-                #                                                                                     + self.params.k/2 * torch.exp(-(torch.pow(x - xpos, 2)/(2*gauss_stdev**2) + torch.pow(y - ypos, 2)/(2*gauss_stdev**2)))
-
-                # # Ensure that overlapping vegetation tussocks don't reach beyond the maximum carrying capacity
-                # self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = torch.clamp(self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")], max=self.params.k)
-
-                self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = torch.rand_like(self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")]) * self.params.k
-
                 #
                 # Set the boundary conditions
                 #
@@ -337,24 +350,6 @@ class Dataset:
                 for x in range(self.width-1):
                     self.hidden_states[group_indices, self.variables.get_singular_slice_for("s"),:,x] = (1 - (x/(self.width-1))) * 0.25
 
-                # # Randomly place some vegetation Gaussians
-                # xs = torch.arange(0, self.width-1)
-                # ys = torch.arange(0, self.height-1)
-                # x, y = torch.meshgrid(xs, ys, indexing='xy')
-
-                # gauss_stdev = 10
-
-                # for _ in range(5):
-                #     xpos = np.random.choice(range(self.width//8, 7*self.width//8+1), 1)[0]
-                #     ypos = np.random.choice(range(self.height//8, 7*self.height//8+1), 1)[0]
-
-                #     self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] \
-                #                                                                                     + self.params.k/2 * torch.exp(-(torch.pow(x - xpos, 2)/(2*gauss_stdev**2) + torch.pow(y - ypos, 2)/(2*gauss_stdev**2)))
-
-                # # Ensure that overlapping vegetation tussocks don't reach beyond the maximum carrying capacity
-                # self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = torch.clamp(self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")], max=self.params.k)
-
-                self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = torch.rand_like(self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")]) * self.params.k
 
                 #
                 # Set the boundary conditions
@@ -386,24 +381,6 @@ class Dataset:
 
                         self.hidden_states[group_indices, self.variables.get_singular_slice_for("s"),y,x] = (1 - (x/(self.width-1)) + (0.005 * (y - self.height/2))**2) * 0.2
 
-                # Randomly place some vegetation Gaussians
-                # xs = torch.arange(0, self.width-1)
-                # ys = torch.arange(0, self.height-1)
-                # x, y = torch.meshgrid(xs, ys, indexing='xy')
-
-                # gauss_stdev = 10
-
-                # for _ in range(5):
-                #     xpos = np.random.choice(range(self.width//8, 7*self.width//8+1), 1)[0]
-                #     ypos = np.random.choice(range(self.height//8, 7*self.height//8+1), 1)[0]
-
-                #     self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] \
-                #                                                                                     + self.params.k/2 * torch.exp(-(torch.pow(x - xpos, 2)/(2*gauss_stdev**2) + torch.pow(y - ypos, 2)/(2*gauss_stdev**2)))
-
-                # # Ensure that overlapping vegetation tussocks don't reach beyond the maximum carrying capacity
-                # self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = torch.clamp(self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")], max=self.params.k)
-
-                self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = torch.rand_like(self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")]) * self.params.k
 
                 #
                 # Set the boundary conditions
@@ -497,7 +474,7 @@ class Dataset:
 
 
 
-        # Helper function 2/3 -- Reset the water strategy of the environment (grouped)
+        # Helper function 2/4 -- Reset the water strategy of the environment (grouped)
         def reset_all_of_water_strategy(water_strategy, group_indices):
             
             #
@@ -516,9 +493,41 @@ class Dataset:
                 self.h_cond_fullres[group_indices] = torch.clamp(self.params.wave_size * torch.sin(self.env_seed[group_indices]), min=0.01).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 1, self.width_fullres, self.height_fullres)
                 self.h_cond_fullres[group_indices] = self.h_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
 
+        # Helper function 3/4 -- Reset the vegetation initial condition of the environment (grouped)
+        def reset_all_of_vegetation_ic(vegetation_ic, group_indices):
+
+            #
+            # Random noise vegetation
+            #
+            if vegetation_ic == "uniform-noise":
+                self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = torch.rand_like(self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")]) * self.params.k
+
+            if vegetation_ic == "random-gaussians":
+                # Randomly place some vegetation Gaussians
+                xs = torch.arange(0, self.width-1)
+                ys = torch.arange(0, self.height-1)
+                x, y = torch.meshgrid(xs, ys, indexing='xy')
+
+                gauss_stdev = 10
+
+                for _ in range(5):
+                    xpos = np.random.choice(range(self.width//8, 7*self.width//8+1), 1)[0]
+                    ypos = np.random.choice(range(self.height//8, 7*self.height//8+1), 1)[0]
+
+                    self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] \
+                                                                                                    + self.params.k/2 * torch.exp(-(torch.pow(x - xpos, 2)/(2*gauss_stdev**2) + torch.pow(y - ypos, 2)/(2*gauss_stdev**2)))
+
+            if vegetation_ic == "vd-vijsel":
+                random_allocation = torch.rand_like(self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")])
+                vegetation_ic = torch.zeros_like(self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")]).float()
+                vegetation_ic[torch.where(random_allocation < self.params.pEst)] = self.params.k
+                self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = vegetation_ic
+
+            if vegetation_ic == "empty":
+                self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = 0
 
 
-        # Helper function 3/3 -- Reset the orientation of environment (grouped)
+        # Helper function 4/4 -- Reset the orientation of environment (grouped)
         def rotate_all_of_orientation(orientation, group_indices):
             """
             group_indices is guaranteed to be non-empty
@@ -592,6 +601,11 @@ class Dataset:
         grouping = self.group_by_water_strategy(indices)
         for typename in grouping.keys():
             reset_all_of_water_strategy(typename, grouping[typename])
+
+        # Group environments by their vegetation initial condition type [Groups are guaranteed to be non-empty]
+        grouping = self.group_by_vegetation_ic(indices)
+        for typename in grouping.keys():
+            reset_all_of_vegetation_ic(typename, grouping[typename])
 
         # Group environments by their orientation [Groups are guaranteed to be non-empty]
         grouping = self.group_by_orientation(indices)
