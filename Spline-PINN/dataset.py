@@ -81,8 +81,8 @@ class Dataset:
             "topoflat",
             "toposlope",
             "toposlope-curved",
-            "toposharp-vegmax",
-            "toposharp-vegslope"
+            # "toposharp-vegmax",
+            # "toposharp-vegslope"
 
             # "topoflat-closed-oscillator",
             # "topoflat-closed-oscillator-multiple",
