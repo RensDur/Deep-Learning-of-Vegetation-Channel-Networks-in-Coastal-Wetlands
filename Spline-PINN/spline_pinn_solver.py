@@ -352,9 +352,25 @@ class SplinePINNSolver:
                 self.params.load_date_time, self.params.load_index = self.logger.load_state("water_net", self.water_net, self.optimizer,
                                                                                   self.params.load_date_time,
                                                                                   self.params.load_index)
+
+                self.params.load_date_time, self.params.load_index = self.logger.load_state("sediment_net", self.sediment_net, self.optimizer,
+                                                                                  self.params.load_date_time,
+                                                                                  self.params.load_index)
+
+                self.params.load_date_time, self.params.load_index = self.logger.load_state("vegetation_net", self.vegetation_net, self.optimizer,
+                                                                                  self.params.load_date_time,
+                                                                                  self.params.load_index)
             else:
                 self.params.load_date_time, self.params.load_index = self.logger.load_state("water_net", self.water_net, None, self.params.load_date_time,
                                                                                   self.params.load_index)
+
+                self.params.load_date_time, self.params.load_index = self.logger.load_state("sediment_net", self.sediment_net, None, self.params.load_date_time,
+                                                                                  self.params.load_index)
+
+                self.params.load_date_time, self.params.load_index = self.logger.load_state("vegetation_net", self.vegetation_net, None, self.params.load_date_time,
+                                                                                  self.params.load_index)
+
+
             self.params.load_index = int(self.params.load_index)
             print(f"PRELOAD OF THE PREVIOUS LEARNED STATE IS ENABLED!!! \n\n\nloaded: {self.params.load_date_time}, {self.params.load_index} \n\n\nPRELOAD OF THE PREVIOUS LEARNED STATE IS ENABLED!!!")
 
