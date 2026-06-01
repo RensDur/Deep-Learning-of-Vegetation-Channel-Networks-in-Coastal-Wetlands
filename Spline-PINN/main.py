@@ -45,7 +45,7 @@ def main():
     solver = spline_pinn_solver.SplinePINNSolver(data, params, torch_device)
 
     # Spawn a MultiView window
-    window = PerformanceSummaryWindow(params.width * params.resolution_factor, params.height * params.resolution_factor, 11, 20)
+    window = PerformanceSummaryWindow(params.width * params.resolution_factor, params.height * params.resolution_factor, 10, 100)
 
     # Visualize the output
     solver.visualize(window)

@@ -152,6 +152,10 @@ class PerformanceSummaryWindow:
         if index % self.interval == 0:
             stage = self.current_stage
 
+            if stage == self.stages:
+                self.current_stage = 0
+                stage = 0
+
             if stage < self.stages:
                 self.current_stage += 1
                 self.h_img_plots[stage].set_data(h.detach().cpu().numpy())
