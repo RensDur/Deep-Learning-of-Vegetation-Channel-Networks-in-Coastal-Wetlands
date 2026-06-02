@@ -24,7 +24,90 @@ def get_Net(params, spline_variables):
 			SedimentUNet(spline_variables, hidden_size=params.hidden_size),
 			VegetationUNet(spline_variables, hidden_size=params.hidden_size)
 		)
+	elif params.net == "SaltmarshUNet":
+		net = SaltmarshUNet(spline_variables, hidden_size=params.hidden_size)
 	return net
+
+
+class SaltmarshUNet(nn.Module):
+	# inspired by UNet taken from: https://github.com/milesial/Pytorch-UNet/blob/master/unet/unet_model.py
+	
+	def __init__(self, spline_variables, hidden_size=64, interpolation_size=8, bilinear=True, input_size=4, residuals=False):
+		"""
+		:orders_v: order of spline for velocity potential (should be at least 2)
+		:orders_p: order of spline for pressure field
+		:hidden_size: hidden size of neural net
+		:interpolation_size: size of first interpolation layer for v_cond and v_mask
+		"""
+		super(SaltmarshUNet, self).__init__()
+		self.hidden_size = hidden_size
+		self.bilinear = bilinear
+		self.input_size = input_size
+		
+		self.spline_variables = spline_variables
+		self.residuals = residuals
+		
+		self.interpol = nn.Conv2d(input_size,interpolation_size,kernel_size=2) # interpolate v_cond (2) and v_mask (1) from 4 surrounding fields
+		self.inc = DoubleConv(self.spline_variables.hidden_size()+interpolation_size, hidden_size) # input: hidden_state + interpolation of v_cond and v_mask
+		self.down1 = Down(hidden_size, 2*hidden_size)
+		self.down2 = Down(2*hidden_size, 4*hidden_size)
+		self.down3 = Down(4*hidden_size, 8*hidden_size)
+		factor = 2 if bilinear else 1
+		self.down4 = Down(8*hidden_size, 16*hidden_size // factor)
+		self.up1 = Up(16*hidden_size, 8*hidden_size // factor, bilinear)
+		self.up2 = Up(8*hidden_size, 4*hidden_size // factor, bilinear)
+		self.up3 = Up(4*hidden_size, 2*hidden_size // factor, bilinear)
+		self.up4 = Up(2*hidden_size, hidden_size, bilinear)
+		self.outc = OutConv(hidden_size, self.spline_variables.hidden_size())
+
+		self.output_scalar = torch.ones(1, self.spline_variables.hidden_size(), 1, 1)*2
+
+		self.output_scalar[:,spline_variables.get_singular_slice_for("h"),:,:] = 2
+		self.output_scalar[:,spline_variables.get_singular_slice_for("u"),:,:] = 10
+		self.output_scalar[:,spline_variables.get_singular_slice_for("v"),:,:] = 10
+		self.output_scalar[:,spline_variables.get_singular_slice_for("s"),:,:] = 10
+		self.output_scalar[:,spline_variables.get_singular_slice_for("b"),:,:] = 1500
+
+	def to(self, torch_device):
+		super(SaltmarshUNet, self).to(torch_device)
+		self.output_scalar = self.output_scalar.to(torch_device)
+		return self
+	
+	def forward(self, hidden_state, closed_mask, opened_mask, h_mask, h_cond):
+		"""
+		:hidden_state: old hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
+		:v_cond: velocity (dirichlet) conditions on boundaries (average value within cell): bs x 2 x w x h
+		:v_mask: mask for boundary conditions (average value within cell): bs x 1 x w x h
+		:return: new hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
+		"""
+
+		# Prescaling: proper variable scaling before input to the network
+		hidden_state_prescaled = hidden_state / self.output_scalar
+
+		# Join the masks and conditions, and interpolate them on top of the support points
+		x = torch.cat([closed_mask, opened_mask, h_mask, h_cond],dim=1)
+		x = self.interpol(x)
+		
+		x = torch.cat([hidden_state_prescaled,x],dim=1)
+		x1 = self.inc(x)
+		x2 = self.down1(x1)
+		x3 = self.down2(x2)
+		x4 = self.down3(x3)
+		x5 = self.down4(x4)
+		x = self.up1(x5, x4)
+		x = self.up2(x, x3)
+		x = self.up3(x, x2)
+		x = self.up4(x, x1)
+		x = self.outc(x)
+		out = x
+		
+		# residual connections
+		out[:,:,:,:] = self.output_scalar*torch.tanh(out[:,:,:,:])
+
+		out = hidden_state + out
+		
+		return out
+
 
 
 

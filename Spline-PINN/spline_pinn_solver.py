@@ -48,19 +48,19 @@ class SplinePINNSolver:
         #
         # Torch model
         #
-        self.nets = get_Net(params, self.dataset.variables)
-        self.water_net = self.nets[0].to(self.device)
-        self.sediment_net = self.nets[1].to(self.device)
-        self.vegetation_net = self.nets[2].to(self.device)
+        self.net = get_Net(params, self.dataset.variables)
+        # self.water_net = self.nets[0].to(self.device)
+        # self.sediment_net = self.nets[1].to(self.device)
+        # self.vegetation_net = self.nets[2].to(self.device)
 
         #
         # Training Stage
         #
-        self.training_sediment = False
-        self.training_sediment_start_epoch = 0
+        # self.training_sediment = False
+        # self.training_sediment_start_epoch = 0
 
-        self.training_vegetation = False
-        self.training_vegetation_start_epoch = 0
+        # self.training_vegetation = False
+        # self.training_vegetation_start_epoch = 0
 
         #
         # Diffusion operation (needed, if we want to put more loss-weight to regions close to the domain boundaries)
@@ -246,15 +246,13 @@ class SplinePINNSolver:
             v
         ), dim)
 
-        if self.training_sediment:
-            loss_bound_closed = loss_bound_closed + torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
-                grad_s
-            ), dim)
+        loss_bound_closed = loss_bound_closed + torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
+            grad_s
+        ), dim)
 
-        if self.training_vegetation:
-            loss_bound_closed = loss_bound_closed + torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
-                grad_b / self.params.k  # Normalize any loss related to b by max. carrying capacity to match scale-difference
-            ), dim)
+        loss_bound_closed = loss_bound_closed + torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
+            grad_b / self.params.k  # Normalize any loss related to b by max. carrying capacity to match scale-difference
+        ), dim)
 
         # Open boundary
         loss_bound_open = torch.mean(sample_opened_mask[:,:,1:-1,1:-1] * self.loss_function(
@@ -269,15 +267,13 @@ class SplinePINNSolver:
         #     laplacian_v
         # ), dim)
 
-        if self.training_sediment:
-            loss_bound_open = loss_bound_open + torch.mean(sample_opened_mask[:,:,1:-1,1:-1] * self.loss_function(
-                s # S = 0
-            ), dim)
+        loss_bound_open = loss_bound_open + torch.mean(sample_opened_mask[:,:,1:-1,1:-1] * self.loss_function(
+            s # S = 0
+        ), dim)
 
-        if self.training_vegetation:
-            loss_bound_open = loss_bound_open + torch.mean(sample_opened_mask[:,:,1:-1,1:-1] * self.loss_function(
-                grad_b / self.params.k  # Normalize any loss related to b by max. carrying capacity to match scale-difference
-            ), dim)
+        loss_bound_open = loss_bound_open + torch.mean(sample_opened_mask[:,:,1:-1,1:-1] * self.loss_function(
+            grad_b / self.params.k  # Normalize any loss related to b by max. carrying capacity to match scale-difference
+        ), dim)
 
         # Water level BC loss
         loss_bound_h = torch.mean(sample_h_mask[:,:,1:-1,1:-1] * self.loss_function(
@@ -289,15 +285,13 @@ class SplinePINNSolver:
             F.relu(-h_before_relu) # water level thickness can never be negative
         ), dim)
 
-        if self.training_sediment:
-            loss_bound_aux = loss_bound_aux + torch.mean(self.loss_function(
-                F.relu(-s) # sedimentary bed elevation can never be negative
-            ), dim)
+        loss_bound_aux = loss_bound_aux + torch.mean(self.loss_function(
+            F.relu(-s) # sedimentary bed elevation can never be negative
+        ), dim)
 
-        if self.training_vegetation:
-            loss_bound_aux = loss_bound_aux + torch.mean(self.loss_function(
-                F.relu(-b) / self.params.k  # Normalize any loss related to b by max. carrying capacity to match scale-difference # vegetation density can never be negative
-            ), dim)
+        loss_bound_aux = loss_bound_aux + torch.mean(self.loss_function(
+            F.relu(-b) / self.params.k  # Normalize any loss related to b by max. carrying capacity to match scale-difference # vegetation density can never be negative
+        ), dim)
 
         loss_bound = loss_bound_closed + loss_bound_open + loss_bound_h
 
@@ -334,7 +328,7 @@ class SplinePINNSolver:
         #
         # Optimizer
         #
-        self.optimizer = Adam(self.water_net.parameters(), lr=self.params.lr)   # Initially, we only train the water net
+        self.optimizer = Adam(self.net.parameters(), lr=self.params.lr)   # Initially, we only train the water net
         self.optimizer = PCGrad(self.optimizer)
 
         # torch.autograd.set_detect_anomaly(True)
@@ -392,9 +386,10 @@ class SplinePINNSolver:
         self.logger.log_info(info_text)
 
         # Enable training of the model
-        self.water_net.train()
-        self.sediment_net.train()
-        self.vegetation_net.train()
+        self.net.train()
+        # self.water_net.train()
+        # self.sediment_net.train()
+        # self.vegetation_net.train()
 
         #
         # Prepare Loss Plots
@@ -451,33 +446,33 @@ class SplinePINNSolver:
         # of epochs has been reached.
         for epoch in range(self.params.load_index, self.params.n_epochs):
 
-            # Once we've completed enough epochs to train hydrodynamics, start training sediment as well
-            if epoch == self.training_sediment_start_epoch:
-                self.optimizer = Adam([
-                    {"params": self.water_net.parameters(), "lr": self.params.lr},
-                    {"params": self.sediment_net.parameters(), "lr": self.params.lr},
-                ])
-                self.optimizer = PCGrad(self.optimizer)
+            # # Once we've completed enough epochs to train hydrodynamics, start training sediment as well
+            # if epoch == self.training_sediment_start_epoch:
+            #     self.optimizer = Adam([
+            #         {"params": self.water_net.parameters(), "lr": self.params.lr},
+            #         {"params": self.sediment_net.parameters(), "lr": self.params.lr},
+            #     ])
+            #     self.optimizer = PCGrad(self.optimizer)
 
-                # Start training sediment
-                self.training_sediment = True
+            #     # Start training sediment
+            #     self.training_sediment = True
 
-                print(f"\nSTARTING TRAINING OF SedimentUNet NOW\n")
+            #     print(f"\nSTARTING TRAINING OF SedimentUNet NOW\n")
 
-            # Once we've completed enough epochs to train hydrodynamics + sediment, start training vegetation as well
-            if epoch == self.training_vegetation_start_epoch:
-                self.optimizer = Adam([
-                    {"params": self.water_net.parameters(), "lr": self.params.lr},
-                    {"params": self.sediment_net.parameters(), "lr": self.params.lr},
-                    {"params": self.vegetation_net.parameters(), "lr": self.params.lr},
-                ])
-                self.optimizer = PCGrad(self.optimizer)
+            # # Once we've completed enough epochs to train hydrodynamics + sediment, start training vegetation as well
+            # if epoch == self.training_vegetation_start_epoch:
+            #     self.optimizer = Adam([
+            #         {"params": self.water_net.parameters(), "lr": self.params.lr},
+            #         {"params": self.sediment_net.parameters(), "lr": self.params.lr},
+            #         {"params": self.vegetation_net.parameters(), "lr": self.params.lr},
+            #     ])
+            #     self.optimizer = PCGrad(self.optimizer)
 
-                # Start training sediment
-                self.training_sediment = True
-                self.training_vegetation = True
+            #     # Start training sediment
+            #     self.training_sediment = True
+            #     self.training_vegetation = True
 
-                print(f"\nSTARTING TRAINING OF VegetationUNet NOW\n")
+            #     print(f"\nSTARTING TRAINING OF VegetationUNet NOW\n")
 
 
 
@@ -489,22 +484,22 @@ class SplinePINNSolver:
 
                 # Predict the new domain state by performing a forward pass through the network
                 # Water
-                new_hidden_state_water = self.water_net(old_hidden_state, closed_mask, opened_mask, h_mask, h_cond)
+                new_hidden_state = self.net(old_hidden_state, closed_mask, opened_mask, h_mask, h_cond)
 
-                # Sediment
-                if self.training_sediment:
-                    new_hidden_state_sediment = self.sediment_net(old_hidden_state, closed_mask, opened_mask)
-                else:
-                    new_hidden_state_sediment = self.dataset.variables.extract_from(old_hidden_state, "s")
+                # # Sediment
+                # if self.training_sediment:
+                #     new_hidden_state_sediment = self.sediment_net(old_hidden_state, closed_mask, opened_mask)
+                # else:
+                #     new_hidden_state_sediment = self.dataset.variables.extract_from(old_hidden_state, "s")
 
-                # Vegetation
-                if self.training_vegetation:
-                    new_hidden_state_vegetation = self.vegetation_net(old_hidden_state, closed_mask, opened_mask)
-                else:
-                    new_hidden_state_vegetation = self.dataset.variables.extract_from(old_hidden_state, "b")
+                # # Vegetation
+                # if self.training_vegetation:
+                #     new_hidden_state_vegetation = self.vegetation_net(old_hidden_state, closed_mask, opened_mask)
+                # else:
+                #     new_hidden_state_vegetation = self.dataset.variables.extract_from(old_hidden_state, "b")
 
-                # Compile the full new hidden state
-                new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment, new_hidden_state_vegetation], dim=1)
+                # # Compile the full new hidden state
+                # new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment, new_hidden_state_vegetation], dim=1)
 
                 dim = [1,2,3]
                 if self.params.plot_loss:
@@ -548,20 +543,23 @@ class SplinePINNSolver:
                 pcgrad_losses = [
                     loss_h,
                     loss_momentum,
+                    loss_sediment,
+                    loss_vegetation,
                     loss_bound
                 ]
 
                 # In the sediment training stage, add sediment to PCGrad as well
-                if self.training_sediment:
-                    pcgrad_losses.append(loss_sediment)
+                # if self.training_sediment:
+                #     pcgrad_losses.append(loss_sediment)
 
-                if self.training_vegetation:
-                    pcgrad_losses.append(loss_vegetation)
+                # if self.training_vegetation:
+                #     pcgrad_losses.append(loss_vegetation)
 
                 # Reset old gradients to 0 and compute new gradients with backpropagation
-                self.water_net.zero_grad()
-                self.sediment_net.zero_grad()
-                self.vegetation_net.zero_grad()
+                self.net.zero_grad()
+                # self.water_net.zero_grad()
+                # self.sediment_net.zero_grad()
+                # self.vegetation_net.zero_grad()
                 
                 # PCGrad backprop pass
                 self.optimizer.pc_backward(pcgrad_losses)
@@ -661,13 +659,13 @@ class SplinePINNSolver:
 
             # Save the training state after each epoch
             if self.params.log:
-                self.logger.save_state("water_net", self.water_net, self.optimizer, epoch + 1)
+                self.logger.save_state("net", self.net, self.optimizer, epoch + 1)
 
-                if self.training_sediment:
-                    self.logger.save_state("sediment_net", self.sediment_net, self.optimizer, epoch + 1)
+                # if self.training_sediment:
+                #     self.logger.save_state("sediment_net", self.sediment_net, self.optimizer, epoch + 1)
 
-                if self.training_vegetation:
-                    self.logger.save_state("vegetation_net", self.vegetation_net, self.optimizer, epoch + 1)
+                # if self.training_vegetation:
+                #     self.logger.save_state("vegetation_net", self.vegetation_net, self.optimizer, epoch + 1)
 
 
     def visualize(self, window):
@@ -685,27 +683,28 @@ class SplinePINNSolver:
         self.logger = Logger(parameters.get_description(self.params), use_csv=False, use_tensorboard=False, device=self.device)
 
         # Load the trained model state
-        date_time, index = self.logger.load_state("water_net", self.water_net, None, datetime=self.params.load_date_time, index=self.params.load_index)
+        date_time, index = self.logger.load_state("net", self.net, None, datetime=self.params.load_date_time, index=self.params.load_index)
 
-        try:
-            date_time, index = self.logger.load_state("sediment_net", self.sediment_net, None, datetime=self.params.load_date_time, index=self.params.load_index)
-            self.training_sediment = True
-        except:
-            self.training_sediment = False
+        # try:
+        #     date_time, index = self.logger.load_state("sediment_net", self.sediment_net, None, datetime=self.params.load_date_time, index=self.params.load_index)
+        #     self.training_sediment = True
+        # except:
+        #     self.training_sediment = False
         
-        try:
-            date_time, index = self.logger.load_state("vegetation_net", self.vegetation_net, None, datetime=self.params.load_date_time, index=self.params.load_index)
-            self.training_vegetation = True
-        except:
-            self.training_vegetation = False
+        # try:
+        #     date_time, index = self.logger.load_state("vegetation_net", self.vegetation_net, None, datetime=self.params.load_date_time, index=self.params.load_index)
+        #     self.training_vegetation = True
+        # except:
+        #     self.training_vegetation = False
 
         # Load loss progression in pandas dataframe
         training_loss = self.logger.load_logs("loss_h", "loss_momentum", "loss_sediment", "loss_vegetation", "loss_bound", datetime=self.params.load_date_time)
 
         # Enable evaluation of the model
-        self.water_net.eval()
-        self.sediment_net.eval()
-        self.vegetation_net.eval()
+        self.net.eval()
+        # self.water_net.eval()
+        # self.sediment_net.eval()
+        # self.vegetation_net.eval()
 
         print(f"Loaded {self.params.net}: {date_time}, index: {index}")
 
@@ -726,22 +725,22 @@ class SplinePINNSolver:
 
                 # Predict the new domain state by performing a forward pass through the network
                 # Water
-                new_hidden_state_water = self.water_net(old_hidden_state, closed_mask, opened_mask, h_mask, h_cond)
+                new_hidden_state = self.net(old_hidden_state, closed_mask, opened_mask, h_mask, h_cond)
 
-                # Sediment
-                if self.training_sediment:
-                    new_hidden_state_sediment = self.sediment_net(old_hidden_state, closed_mask, opened_mask)
-                else:
-                    new_hidden_state_sediment = self.dataset.variables.extract_from(old_hidden_state, "s")
+                # # Sediment
+                # if self.training_sediment:
+                #     new_hidden_state_sediment = self.sediment_net(old_hidden_state, closed_mask, opened_mask)
+                # else:
+                #     new_hidden_state_sediment = self.dataset.variables.extract_from(old_hidden_state, "s")
 
-                # Vegetation
-                if self.training_vegetation:
-                    new_hidden_state_vegetation = self.vegetation_net(old_hidden_state, closed_mask, opened_mask)
-                else:
-                    new_hidden_state_vegetation = self.dataset.variables.extract_from(old_hidden_state, "b")
+                # # Vegetation
+                # if self.training_vegetation:
+                #     new_hidden_state_vegetation = self.vegetation_net(old_hidden_state, closed_mask, opened_mask)
+                # else:
+                #     new_hidden_state_vegetation = self.dataset.variables.extract_from(old_hidden_state, "b")
 
-                # Compile the full new hidden state
-                new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment, new_hidden_state_vegetation], dim=1)
+                # # Compile the full new hidden state
+                # new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment, new_hidden_state_vegetation], dim=1)
 
                 # dim = [1]
                 # loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, sample_h_masks, sample_h_conds, dim)
