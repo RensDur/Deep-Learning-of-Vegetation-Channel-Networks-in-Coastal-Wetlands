@@ -48,7 +48,7 @@ class SplinePINNSolver:
         #
         # Torch model
         #
-        self.net = get_Net(params, self.dataset.variables)
+        self.net = get_Net(params, self.dataset.variables).to(self.device)
         # self.water_net = self.nets[0].to(self.device)
         # self.sediment_net = self.nets[1].to(self.device)
         # self.vegetation_net = self.nets[2].to(self.device)
