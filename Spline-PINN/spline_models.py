@@ -81,14 +81,11 @@ class SaltmarshUNet(nn.Module):
 		:return: new hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
 		"""
 
-		# Prescaling: proper variable scaling before input to the network
-		hidden_state_prescaled = hidden_state / self.output_scalar
-
 		# Join the masks and conditions, and interpolate them on top of the support points
 		x = torch.cat([closed_mask, opened_mask, h_mask, h_cond],dim=1)
 		x = self.interpol(x)
 		
-		x = torch.cat([hidden_state_prescaled,x],dim=1)
+		x = torch.cat([hidden_state,x],dim=1)
 		x1 = self.inc(x)
 		x2 = self.down1(x1)
 		x3 = self.down2(x2)
@@ -102,9 +99,7 @@ class SaltmarshUNet(nn.Module):
 		out = x
 		
 		# residual connections
-		out[:,:,:,:] = self.output_scalar*torch.tanh(out[:,:,:,:])
-
-		out = hidden_state + out
+		out[:,:,:,:] = self.output_scalar*torch.tanh((out[:,:,:,:]+hidden_state[:,:,:,:])/self.output_scalar)
 		
 		return out
 
