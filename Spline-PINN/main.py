@@ -4,7 +4,7 @@ import numpy as np
 import parameters
 import dataset
 import spline_pinn_solver
-from window import Window
+from window import MultiWindow
 
 def main():
 
@@ -37,7 +37,7 @@ def main():
     print(f"Parameters: {vars(params)}")
 
     # Create dataset
-    data = dataset.Dataset(params, torch_device, types=["reflection"])
+    data = dataset.Dataset(params, torch_device, types=["oscillator"])
 
     # print(data.env_info[0])
 
@@ -45,7 +45,7 @@ def main():
     solver = spline_pinn_solver.SplinePINNSolver(data, params, torch_device)
 
     # Create window
-    win = Window("Water Layer Thickness", params.width * params.resolution_factor, params.height * params.resolution_factor)
+    win = MultiWindow(params.width * params.resolution_factor, params.height * params.resolution_factor)
 
     # Visualize the output
     solver.visualize(win)

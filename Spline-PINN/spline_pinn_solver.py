@@ -450,10 +450,10 @@ class SplinePINNSolver:
         print(f"Loaded {self.params.net}: {date_time}, index: {index}")
 
         # Open a visualization window
-        window.set_data_range(-0.1, 0.1)
+        window.open()
 
         # Simulation loop
-        while window.is_open():
+        while window.is_open:
 
             # Ask for a batch from the dataset
             old_hidden_state, h_cond, h_mask, uv_cond, uv_mask, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks = self.dataset.ask()
@@ -469,13 +469,7 @@ class SplinePINNSolver:
             # Store the newly obtained result in the dataset
             self.dataset.tell(new_hidden_state)
 
-            # Display water level thickness h
-            h = h[0, 0].clone()
-            # h = h - torch.min(h)
-            # h = h / torch.max(h)
-            h = h.detach().cpu().numpy()
-
-            window.put_image(h)
+            window.set_data(h[0,0], u[0,0], v[0,0], u[0,0], v[0,0])
             window.update()
 
 
