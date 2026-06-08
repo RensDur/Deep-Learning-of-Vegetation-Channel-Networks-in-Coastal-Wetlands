@@ -35,7 +35,7 @@ def params():
 	parser.add_argument('--huber_delta', default=100, type=float, help='Huber Loss: Square loss when |residual| <= threshold, linear outside the threshold')
 	
 	parser.add_argument('--lr', default=0.0001, type=float, help='learning rate of ADAM-optimizer (default: 0.0001)')
-	parser.add_argument('--pcgrad', default=False, type=str2bool, help='PCGrad gradient surgery')
+	parser.add_argument('--pcgrad', default=True, type=str2bool, help='PCGrad gradient surgery')
 	parser.add_argument('--clip_grad_norm', default=None, type=float, help='gradient norm clipping (default: None)')
 	parser.add_argument('--clip_grad_value', default=None, type=float, help='gradient value clipping (default: None)')
 	parser.add_argument('--cuda', default=True, type=str2bool, help='use GPU')
@@ -81,7 +81,7 @@ def params():
 	parser.add_argument('--DB', default=6e-9, type=float, help="Vegetation diffusivity")
 	parser.add_argument('--morphological_acc_factor', default=44712, type=float, help="Morphological acceleration factor, required for S and B")
 	parser.add_argument('--pEst', default=0.002, type=float, help="Probability of vegetation seedling establishment")
-	parser.add_argument('--dt', default=1, type=float, help='timestep of fluid integrator')
+	parser.add_argument('--dt', default=0.1, type=float, help='timestep of fluid integrator')
 	
 	# Logger / Load parameters
 	parser.add_argument('--plot', default=False, type=str2bool, help='plot during training')
