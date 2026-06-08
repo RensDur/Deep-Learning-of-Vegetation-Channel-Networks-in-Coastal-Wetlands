@@ -35,6 +35,7 @@ def params():
 	parser.add_argument('--huber_delta', default=100, type=float, help='Huber Loss: Square loss when |residual| <= threshold, linear outside the threshold')
 	
 	parser.add_argument('--lr', default=0.0001, type=float, help='learning rate of ADAM-optimizer (default: 0.0001)')
+	parser.add_argument('--pcgrad', default=True, type=str2bool, help='PCGrad gradient surgery')
 	parser.add_argument('--clip_grad_norm', default=None, type=float, help='gradient norm clipping (default: None)')
 	parser.add_argument('--clip_grad_value', default=None, type=float, help='gradient value clipping (default: None)')
 	parser.add_argument('--cuda', default=True, type=str2bool, help='use GPU')
@@ -61,7 +62,6 @@ def params():
 	parser.add_argument("--wave_size", default=0.5, type=float, help="Wave height for SWE")
 	parser.add_argument("--epsilon", default=0.0001, type=float, help="Wave damping factor epsilon")
 	parser.add_argument("--k_epsilon", default=0.001, type=float, help="Wave damping factor k")
-	parser.add_argument("--f_epsilon", default=0.01, type=float, help="Wave damping factor f")
 	parser.add_argument("--nu", default=0.5, type=float, help="")
 	parser.add_argument('--grav', default=9.81, type=float, help="")
 	parser.add_argument('--rho', default=1000, type=float, help="Water density")
@@ -102,7 +102,7 @@ def params():
 	return params
 
 def get_description(params):
-    return f"net {params.net}; hs {params.hidden_size}; ws {params.wave_size}; dt {params.dt};"
+    return f"FIN net {params.net}; hs {params.hidden_size}; pcgrad {params.pcgrad}; ws {params.wave_size}; dt {params.dt};"
 
 def get_hyperparam_fluid(params):
 	return f"fluid net {params.net}; hs {params.hidden_size}; ov {params.orders_v}; op {params.orders_p}; mu {params.mu}; rho {params.rho}; dt {params.dt};"

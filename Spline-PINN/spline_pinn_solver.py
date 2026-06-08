@@ -57,8 +57,6 @@ class SplinePINNSolver:
         self.kernel_x = self.kernel.unsqueeze(0).unsqueeze(1).unsqueeze(3).to(self.device)
         self.kernel_y = self.kernel.unsqueeze(0).unsqueeze(1).unsqueeze(2).to(self.device)
 
-        self.damp_loss_factor = 1000
-
     def diffuse(self, T):
         """
         Needed to put extra weight on domain borders
@@ -78,7 +76,6 @@ class SplinePINNSolver:
         loss_u = 0
         loss_v = 0
         loss_bound = 0
-        loss_damp = 0
 
         # Go over each sample
         for j, sample in enumerate(grid_offsets):
@@ -112,11 +109,11 @@ class SplinePINNSolver:
 
             # Momentum loss
             loss_u = loss_u + torch.mean(self.loss_function(
-                du_dt - self.params.nu * laplace_u + self.params.grav * grad_h[:,1:2] + self.params.k_epsilon*u + u * grad_u[:,1:2] + v * grad_u[:,0:1] - self.params.f_epsilon * v
+                du_dt - self.params.nu * laplace_u + self.params.grav * grad_h[:,1:2] + self.params.k_epsilon*u + u * grad_u[:,1:2] + v * grad_u[:,0:1]
             ), dim)
 
             loss_v = loss_v + torch.mean(self.loss_function(
-                dv_dt - self.params.nu * laplace_v + self.params.grav * grad_h[:,0:1] + self.params.k_epsilon*v + u * grad_v[:,1:2] + v * grad_v[:,0:1] + self.params.f_epsilon * u
+                dv_dt - self.params.nu * laplace_v + self.params.grav * grad_h[:,0:1] + self.params.k_epsilon*v + u * grad_v[:,1:2] + v * grad_v[:,0:1]
             ), dim)
 
             # h boundary condition loss
@@ -139,27 +136,13 @@ class SplinePINNSolver:
 
             loss_bound = loss_bound + loss_bound_h + loss_bound_grad_h + loss_bound_u + loss_bound_v
 
-            # Damping loss
-            # loss_damp_h = torch.mean(self.loss_function(grad_h), dim)
-            # loss_damp_u = torch.mean(self.loss_function(u), dim)
-            # loss_damp_v = torch.mean(self.loss_function(v), dim)
-
-            # loss_damp = loss_damp + self.damp_loss_factor * (loss_damp_h + loss_damp_u + loss_damp_v)
-
-        # Multiply by the loss weights
-        loss_h = loss_h * self.params.loss_h
-        loss_u = loss_u * self.params.loss_momentum
-        loss_v = loss_v * self.params.loss_momentum
-        loss_bound = loss_bound * self.params.loss_bound
-
         # Normalize towards the number of samples taken
         loss_h = loss_h / self.params.n_samples
         loss_u = loss_u / self.params.n_samples
         loss_v = loss_v / self.params.n_samples
         loss_bound = loss_bound / self.params.n_samples
-        # loss_damp = loss_damp / self.params.n_samples
 
-        return loss_h, loss_u, loss_v, loss_bound, loss_damp
+        return loss_h, loss_u, loss_v, loss_bound
 
     def train(self):
         """
@@ -174,7 +157,10 @@ class SplinePINNSolver:
         # Optimizer
         #
         self.optimizer = Adam(self.net.parameters(), lr=self.params.lr)
-        self.optimizer = PCGrad(self.optimizer)
+
+        if self.params.pcgrad:
+            # When gradient surgery is enabled, wrap the ADAM optimiser in a PCGrad object
+            self.optimizer = PCGrad(self.optimizer)
 
         #
         # Logger
@@ -256,7 +242,6 @@ class SplinePINNSolver:
             plt.show()
 
 
-        self.damp_loss_factor = 1000
 
 
         # Training loop:
@@ -276,21 +261,7 @@ class SplinePINNSolver:
                 if self.params.plot_loss:
                     dim = [1]
 
-                loss_h, loss_u, loss_v, loss_bound, loss_damp = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks, dim)
-
-                self.damp_loss_factor = self.damp_loss_factor * 0.9
-
-                # If configured, compute log loss
-                # if self.params.log_loss:
-                #     loss_bound = torch.log(loss_bound)
-                #     loss_h = torch.log(loss_h)
-                #     loss_u = torch.log(loss_u)
-                #     loss_v = torch.log(loss_v)
-
-                # print(f"loss_bound = {loss_bound}")
-                # print(f"loss_h = {loss_h}")
-                # print(f"loss_u = {loss_u}")
-                # print(f"loss_v = {loss_bound}")
+                loss_h, loss_u, loss_v, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks, dim)
 
                 if self.params.plot_loss:
                     # Combine the losses to create a loss_tensor image
@@ -304,33 +275,42 @@ class SplinePINNSolver:
                     loss_u = torch.mean(loss_u, dim=[1,2])
                     loss_v = torch.mean(loss_v, dim=[1,2])
                     loss_bound = torch.mean(loss_bound, dim=[1,2])
-                    # loss_damp = torch.mean(loss_damp, dim=[1,2])
+
+                # Compute the loss terms we would like to consider separate learning tasks for PCGrad
+                loss_h = self.params.loss_h * torch.mean(loss_h)
+                loss_momentum = self.params.loss_momentum * torch.mean(loss_u + loss_v)
+                loss_bound = self.params.loss_bound * torch.mean(loss_bound)
 
                 # Log loss (per term)
                 if self.params.log_loss:
                     loss_h = torch.log(loss_h + 0.0001) # Add small epsilon to prevent -inf loss due to log
-                    loss_u = torch.log(loss_u + 0.0001)
-                    loss_v = torch.log(loss_v + 0.0001)
+                    loss_momentum = torch.log(loss_momentum + 0.0001)
                     loss_bound = torch.log(loss_bound + 0.0001)
-                    # loss_damp = torch.log(loss_damp + 0.0001)
-
-                # Compute the loss terms we would like to consider separate learning tasks for PCGrad
-                loss_h = torch.mean(loss_h)
-                loss_momentum = torch.mean(loss_u + loss_v)
-                loss_bound = torch.mean(loss_bound)
-
-                # For backprop using PCGrad, construct each loss term
-                pcgrad_losses = [
-                    loss_h,
-                    loss_momentum,
-                    loss_bound
-                ]
 
                 # Reset old gradients to 0 and compute new gradients with backpropagation
                 self.net.zero_grad()
-                
-                # PCGrad backprop pass
-                self.optimizer.pc_backward(pcgrad_losses)
+
+                if self.params.pcgrad:
+                    #
+                    # If gradient surgery is enabled, group the loss terms and perform pc_backprop
+                    #
+
+                    # For backprop using PCGrad, construct each loss term
+                    pcgrad_losses = [
+                        loss_h,
+                        loss_momentum,
+                        loss_bound
+                    ]
+                    
+                    # PCGrad backprop pass
+                    self.optimizer.pc_backward(pcgrad_losses)
+
+                else:
+                    #
+                    # Otherwise, when pcgrad is disabled, sum the weighted loss terms and perform backpropagation
+                    #
+                    loss_total = loss_h + loss_momentum + loss_bound
+                    loss_total.backward()
 
                 # Clip gradients
                 if self.params.clip_grad_value is not None:
