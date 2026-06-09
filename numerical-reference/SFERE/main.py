@@ -91,6 +91,15 @@ class SaltmarshDomain:
         s = self.s
         b = self.b
 
+        # Estimate the amount of outflow as the volume of water flowing per area per second of the outflow boundary
+        outflow_per_cell = h[:,:,:,-1] * u[:,:,:,-1] * self.dy # Water drainage in m3/s per cell
+        water_drained = torch.sum(outflow_per_cell * dt) # Total water drained in m3 in this timestep
+        print(f"Water drained: {water_drained} m3")
+
+        # Estimate the volume of water that's added to the domain by capping at Hc
+        water_compensation_clamp = torch.sum(h[torch.where(h < self.Hc)]) * self.dx * self.dy
+        print(f"Compensated {water_compensation_clamp} m3\t\t\tAdded with Hin: {self.Hin * self.width * self.height * self.dx * self.dy} m3")
+
         # 1. Ensure positivity of water layer thickness
         h = torch.clamp(h, min=self.Hc)
 
@@ -183,9 +192,9 @@ class SaltmarshDomain:
 
 if __name__ == "__main__":
     
-    window = MultiWindow(50, 50)
+    window = MultiWindow(100, 100)
 
-    basin = SaltmarshDomain(50, 50, torch.device("mps"))
+    basin = SaltmarshDomain(100, 100, torch.device("mps"))
 
     ssim_scores = []
     ssim_plot, = window.axs[1, 2].plot([], [])
