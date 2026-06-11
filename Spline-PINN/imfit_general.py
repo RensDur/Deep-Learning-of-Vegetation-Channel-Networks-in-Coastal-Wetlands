@@ -312,11 +312,11 @@ def training_routine(torch_device):
 
             h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = dataset.interpolate_superres(predicted_hidden_states, 4)
 
-            loss_h = torch.mean(__loss_function(h - batch[:, 0]))
-            loss_u = torch.mean(__loss_function(u - batch[:, 1]))
-            loss_v = torch.mean(__loss_function(v - batch[:, 2]))
-            loss_s = torch.mean(__loss_function(s - batch[:, 3]))
-            loss_b = torch.mean(__loss_function((b - batch[:, 4]) / 1500))
+            loss_h = torch.mean(__loss_function(h - batch[:, 0:1]))
+            loss_u = torch.mean(__loss_function(u - batch[:, 1:2]))
+            loss_v = torch.mean(__loss_function(v - batch[:, 2:3]))
+            loss_s = torch.mean(__loss_function(s - batch[:, 3:4]))
+            loss_b = torch.mean(__loss_function((b - batch[:, 4:5]) / 1500))
 
             # Apply log loss
             loss_h = torch.log(loss_h + 0.0001)
@@ -383,7 +383,7 @@ def training_routine(torch_device):
 
 def evaluation_routine(torch_device):
 
-    selected_num_output = 99
+    selected_num_output = 50
 
     dataset = FitDataset(800, 800, torch_device)
     net = CompoundFitNet(dataset.variables).to(torch_device)
