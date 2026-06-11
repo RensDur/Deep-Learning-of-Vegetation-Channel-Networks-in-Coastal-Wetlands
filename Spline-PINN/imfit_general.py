@@ -271,8 +271,8 @@ def training_routine(torch_device):
 
     last_saved_state = 0
 
-    def save_state(model, optimizer, index):
-        path = f"{output_folder}/states/{index}.state"
+    def save_state(model, optimizer, name):
+        path = f"{output_folder}/states/{name}.state"
         state = {}
 
         if type(model)is not list:
@@ -376,7 +376,11 @@ def training_routine(torch_device):
                 file.write(f"{loss}\n")
 
         # After each epoch, store the network state
-        save_state(net, optimizer, last_saved_state)
+        save_state(net.nets[0], optimizer, "h")
+        save_state(net.nets[1], optimizer, "u")
+        save_state(net.nets[2], optimizer, "v")
+        save_state(net.nets[3], optimizer, "s")
+        save_state(net.nets[4], optimizer, "b")
         last_saved_state += 1
 
 
@@ -390,14 +394,9 @@ def evaluation_routine(torch_device):
 
     output_folder = f"imfit_output/{dataset.variables.summary()}"
 
-    def load_state(model,optimizer,index=None):
+    def load_state(model,optimizer,name):
 
-        if index is None:
-            for _,_,files in os.walk(f"{output_folder}/states/"):
-                index = os.path.splitext(natsorted(files)[-1])[0]
-                break
-
-        path = f"{output_folder}/states/{index}.state"
+        path = f"{output_folder}/states/{name}.state"
         state = torch.load(path, map_location=torch_device)
 
         if type(model) is not list:
@@ -413,7 +412,11 @@ def evaluation_routine(torch_device):
 
         return index
     
-    index = load_state(net, None)
+    index = load_state(net.nets[0], "h")
+    index = load_state(net.nets[1], "u")
+    index = load_state(net.nets[2], "v")
+    index = load_state(net.nets[3], "s")
+    index = load_state(net.nets[4], "b")
     print(f"Loaded imfit index {index}")
 
     # Load training loss
