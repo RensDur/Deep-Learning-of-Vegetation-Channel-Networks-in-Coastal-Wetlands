@@ -339,7 +339,20 @@ def training_routine(torch_device):
             # Optimization step
             optimizer.step()
 
-            print(f"Epoch {epoch}/{n_epochs} | Batch {i}/{n_batches_per_epoch} >>> Loss {loss:.5f}")
+            ram_usage = psutil.Process(os.getpid()).memory_info().rss / (1024 * 1024) # MB
+            ram_usage = round(ram_usage, 2)
+
+            max_vram_allocated = None
+            max_vram_reserved = None
+
+            if torch.cuda.is_available():
+                max_vram_allocated = torch.cuda.memory.max_memory_allocated() / (1024 * 1024)
+                max_vram_reserved = torch.cuda.memory.max_memory_reserved() / (1024 * 1024)
+
+                max_vram_allocated = round(max_vram_allocated, 2)
+                max_vram_reserved = round(max_vram_reserved, 2)
+
+            print(f"Epoch {epoch}/{n_epochs} | Batch {i}/{n_batches_per_epoch} >>> Loss {loss:.5f} \t RAM: {ram_usage}MB \t vRAM: {max_vram_allocated}/{max_vram_reserved} (MAX. allocated/reserved, MB)")
 
             # Report the progression of loss
             with open(f"{output_folder}/loss_h.txt", "a") as file:
