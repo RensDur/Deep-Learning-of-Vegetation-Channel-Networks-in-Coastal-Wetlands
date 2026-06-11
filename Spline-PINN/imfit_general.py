@@ -291,7 +291,7 @@ def training_routine(torch_device):
     net.train()
 
     # Optimizer
-    optimizer = Adam(net.parameters(), lr=0.001)
+    optimizer = Adam(net.parameters(), lr=0.0001)
     optimizer = PCGrad(optimizer)
 
 
