@@ -156,7 +156,7 @@ class FitDataset:
         # Load numerical output images from disk
         selected_outputs = [i for i in range(10_000, 1_000_000+1, 10_000)]
         self.dataset_size = len(selected_outputs)
-        self.batch_size = 40
+        self.batch_size = 35
 
         self.numerical_output_states = torch.zeros(
             self.dataset_size,
