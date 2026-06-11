@@ -14,7 +14,7 @@ from spline.spline_array import SplineArray
 import matplotlib.pyplot as plt
 import multiprocessing
 from natsort import natsorted
-
+import psutil
 
 
 
