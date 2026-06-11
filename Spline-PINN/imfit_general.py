@@ -387,7 +387,7 @@ def training_routine(torch_device):
 
 def evaluation_routine(torch_device):
 
-    selected_num_output = 50
+    selected_num_output = 99
 
     dataset = FitDataset(800, 800, torch_device)
     net = CompoundFitNet(dataset.variables).to(torch_device)
@@ -409,15 +409,12 @@ def evaluation_routine(torch_device):
                 optimizer = [optimizer]
             for i,o in enumerate(optimizer):
                 o.load_state_dict(state['optimizer{}'.format(i)])
-
-        return index
     
-    index = load_state(net.nets[0], "h")
-    index = load_state(net.nets[1], "u")
-    index = load_state(net.nets[2], "v")
-    index = load_state(net.nets[3], "s")
-    index = load_state(net.nets[4], "b")
-    print(f"Loaded imfit index {index}")
+    load_state(net.nets[0], None, "h")
+    load_state(net.nets[1], None, "u")
+    load_state(net.nets[2], None, "v")
+    load_state(net.nets[3], None, "s")
+    load_state(net.nets[4], None, "b")
 
     # Load training loss
     # Load loss progression over time
@@ -509,6 +506,8 @@ def evaluation_routine(torch_device):
 
         # UI Loop: process all pending UI events
         figure.canvas.flush_events()
+
+        selected_num_output = (selected_num_output + 1) % 100
 
 
 def main():
