@@ -35,13 +35,13 @@ class FitNet(nn.Module):
         # Convolutional layers
         self.conv1 = nn.Conv2d(1, self.hidden_size, kernel_size=9, padding=4)
         # self.conv2 = nn.Conv2d(self.hidden_size, self.hidden_size, kernel_size=9, padding=4)
-        self.conv3 = nn.Conv2d(self.hidden_size, self.hidden_size*2, kernel_size=9, padding=4)
+        self.conv3 = nn.Conv2d(self.hidden_size, self.hidden_size, kernel_size=9, padding=4)
 
         # Downsampling layers
-        # self.down1 = nn.Conv2d(self.hidden_size*2, self.hidden_size*2, kernel_size=9, padding=4)  # Maintain resolution, capture large-distance influences
-        # self.down2 = nn.Conv2d(self.hidden_size*2, self.hidden_size*2, kernel_size=9, padding=4)  # Maintain resolution, capture large-distance influences
-        self.down3 = nn.Conv2d(self.hidden_size*2, self.hidden_size*2, kernel_size=4, stride=4, padding=0) # Downsample to /4 times the original dimensions
-        self.down4 = nn.Conv2d(self.hidden_size*2, self.hidden_size, kernel_size=2, padding=0)
+        # self.down1 = nn.Conv2d(self.hidden_size, self.hidden_size, kernel_size=9, padding=4)  # Maintain resolution, capture large-distance influences
+        # self.down2 = nn.Conv2d(self.hidden_size, self.hidden_size, kernel_size=9, padding=4)  # Maintain resolution, capture large-distance influences
+        self.down3 = nn.Conv2d(self.hidden_size, self.hidden_size, kernel_size=4, stride=4, padding=0) # Downsample to /4 times the original dimensions
+        self.down4 = nn.Conv2d(self.hidden_size, self.hidden_size, kernel_size=2, padding=0)
         self.down5 = nn.Conv2d(self.hidden_size, out_channels, kernel_size=3, padding=1)
 
         self.output_scalar = output_scalar
