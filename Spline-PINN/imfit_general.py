@@ -20,7 +20,7 @@ from natsort import natsorted
 
 class FitNet(nn.Module):
 
-    def __init__(self, out_channels, hidden_size=32, output_scalar=2):
+    def __init__(self, out_channels, hidden_size=16, output_scalar=10):
         """
         :orders_v: order of spline for velocity potential (should be at least 2)
         :orders_p: order of spline for pressure field
@@ -33,9 +33,9 @@ class FitNet(nn.Module):
         self.out_channels = out_channels
 
         # Convolutional layers
-        self.conv1 = nn.Conv2d(1, self.hidden_size, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(self.hidden_size, self.hidden_size, kernel_size=3, padding=1)
-        self.conv3 = nn.Conv2d(self.hidden_size, self.hidden_size*2, kernel_size=3, padding=1)
+        self.conv1 = nn.Conv2d(1, self.hidden_size, kernel_size=9, padding=4)
+        self.conv2 = nn.Conv2d(self.hidden_size, self.hidden_size, kernel_size=9, padding=4)
+        self.conv3 = nn.Conv2d(self.hidden_size, self.hidden_size*2, kernel_size=9, padding=4)
 
         # Downsampling layers
         self.down1 = nn.Conv2d(self.hidden_size*2, self.hidden_size*2, kernel_size=9, padding=4)  # Maintain resolution, capture large-distance influences
@@ -183,35 +183,35 @@ class FitDataset:
         return self.numerical_output_states[asked_indices].to(self.device)
 
 
-    def interpolate_states(self, hidden_state, offset):
-        """
-        :old_hidden_states: old hidden states (size: bs x (v_size+p_size) x w x h)
-        :new_hidden_states: new hidden states (size: bs x (v_size+p_size) x w x h)
-        :offset: offset in x / y / t direction (vector of size 3 containing values between 0 and 1)
-        :return: interpolated fields for:
-            :z: z field
-            :grad(z): gradient of z field
-            :laplace(z): laplacian of z field
-            :dz/dt: velocity of z field
-            :dz^2/dt^2: acceleration of z field
-        """
+    # def interpolate_states(self, hidden_state, offset):
+    #     """
+    #     :old_hidden_states: old hidden states (size: bs x (v_size+p_size) x w x h)
+    #     :new_hidden_states: new hidden states (size: bs x (v_size+p_size) x w x h)
+    #     :offset: offset in x / y / t direction (vector of size 3 containing values between 0 and 1)
+    #     :return: interpolated fields for:
+    #         :z: z field
+    #         :grad(z): gradient of z field
+    #         :laplace(z): laplacian of z field
+    #         :dz/dt: velocity of z field
+    #         :dz^2/dt^2: acceleration of z field
+    #     """
 
-        # z field: requires first derivative
-        h, grad_h, _ = self.variables["h"].interpolate_at(self.variables.extract_from(hidden_state, "h"), offset)
+    #     # z field: requires first derivative
+    #     h, grad_h, _ = self.variables["h"].interpolate_at(self.variables.extract_from(hidden_state, "h"), offset)
 
-        # u field: requires first derivative + laplace
-        u, grad_u, _ = self.variables["u"].interpolate_at(self.variables.extract_from(hidden_state, "u"), offset)
+    #     # u field: requires first derivative + laplace
+    #     u, grad_u, _ = self.variables["u"].interpolate_at(self.variables.extract_from(hidden_state, "u"), offset)
 
-        # v field: requires first derivative + laplace
-        v, grad_v, _ = self.variables["v"].interpolate_at(self.variables.extract_from(hidden_state, "v"), offset)
+    #     # v field: requires first derivative + laplace
+    #     v, grad_v, _ = self.variables["v"].interpolate_at(self.variables.extract_from(hidden_state, "v"), offset)
 
-        # s field: requires first derivative
-        s, grad_s, _ = self.variables["s"].interpolate_at(self.variables.extract_from(hidden_state, "s"), offset)
+    #     # s field: requires first derivative
+    #     s, grad_s, _ = self.variables["s"].interpolate_at(self.variables.extract_from(hidden_state, "s"), offset)
 
-        # b field: requires first derivative
-        b, grad_b, _ = self.variables["b"].interpolate_at(self.variables.extract_from(hidden_state, "b"), offset)
+    #     # b field: requires first derivative
+    #     b, grad_b, _ = self.variables["b"].interpolate_at(self.variables.extract_from(hidden_state, "b"), offset)
 
-        return h, u, v, s, b
+    #     return h, u, v, s, b
 
     def interpolate_superres(self, hidden_states, resolution_factor):
         """
@@ -316,7 +316,7 @@ def training_routine(torch_device):
             loss_u = torch.mean(__loss_function(u - batch[:, 1]))
             loss_v = torch.mean(__loss_function(v - batch[:, 2]))
             loss_s = torch.mean(__loss_function(s - batch[:, 3]))
-            loss_b = torch.mean(__loss_function(b - batch[:, 4])) / (1500**2)
+            loss_b = torch.mean(__loss_function((b - batch[:, 4]) / 1500))
 
             # Sum loss for stats
             loss = loss_h + loss_u + loss_v + loss_s + loss_b
@@ -507,11 +507,11 @@ def main():
     print(f"Using torch device {torch_device}")
 
     # Initialize randomization seeds
-    # torch.manual_seed(0)
-    # np.random.seed(0)
+    torch.manual_seed(0)
+    np.random.seed(0)
 
-    # training_routine(torch_device)
-    evaluation_routine(torch_device)
+    training_routine(torch_device)
+    # evaluation_routine(torch_device)
 
 
 
