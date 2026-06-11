@@ -299,7 +299,7 @@ def training_routine(torch_device):
     def __loss_function(x):
         return torch.pow(x, 2)
 
-    n_epochs = 300
+    n_epochs = 1000
     n_batches_per_epoch = 100
 
     # TRAINING LOOP
