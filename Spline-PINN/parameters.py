@@ -28,9 +28,8 @@ def params():
 	parser.add_argument('--resolution_factor', default=8, type=int, help='resolution factor for superres / kernels (default: 8)')
 
 	parser.add_argument('--loss_bound', default=20, type=float, help='loss factor for boundary conditions')
-	parser.add_argument('--loss_bound_uv', default=1, type=float, help='loss factor for boundary conditions flowvelocity')
 	parser.add_argument('--loss_h', default=1, type=float, help='loss factor for wave equation')
-	parser.add_argument('--loss_momentum', default=1, type=float, help='loss factor to connect dz_dt and v')
+	parser.add_argument('--loss_momentum', default=10, type=float, help='loss factor to connect dz_dt and v')
 	parser.add_argument('--border_weight', default=0, type=float, help='extra weight on fluid domain borders')
 	parser.add_argument('--huber_delta', default=100, type=float, help='Huber Loss: Square loss when |residual| <= threshold, linear outside the threshold')
 	
@@ -81,7 +80,7 @@ def params():
 	parser.add_argument('--DB', default=6e-9, type=float, help="Vegetation diffusivity")
 	parser.add_argument('--morphological_acc_factor', default=44712, type=float, help="Morphological acceleration factor, required for S and B")
 	parser.add_argument('--pEst', default=0.002, type=float, help="Probability of vegetation seedling establishment")
-	parser.add_argument('--dt', default=0.1, type=float, help='timestep of fluid integrator')
+	parser.add_argument('--dt', default=1, type=float, help='timestep of fluid integrator')
 	
 	# Logger / Load parameters
 	parser.add_argument('--plot', default=False, type=str2bool, help='plot during training')
