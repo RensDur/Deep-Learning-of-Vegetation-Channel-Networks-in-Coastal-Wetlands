@@ -318,6 +318,13 @@ def training_routine(torch_device):
             loss_s = torch.mean(__loss_function(s - batch[:, 3]))
             loss_b = torch.mean(__loss_function((b - batch[:, 4]) / 1500))
 
+            # Apply log loss
+            loss_h = torch.log(loss_h + 0.0001)
+            loss_u = torch.log(loss_u + 0.0001)
+            loss_v = torch.log(loss_v + 0.0001)
+            loss_s = torch.log(loss_s + 0.0001)
+            loss_b = torch.log(loss_b + 0.0001)
+
             # Sum loss for stats
             loss = loss_h + loss_u + loss_v + loss_s + loss_b
 
