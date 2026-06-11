@@ -35,7 +35,7 @@ class FitNet(nn.Module):
         # Convolutional layers
         self.conv1 = nn.Conv2d(1, self.hidden_size, kernel_size=9, padding=4)
         # self.conv2 = nn.Conv2d(self.hidden_size, self.hidden_size, kernel_size=9, padding=4)
-        self.conv3 = nn.Conv2d(self.hidden_size, self.hidden_size, kernel_size=9, padding=4)
+        # self.conv3 = nn.Conv2d(self.hidden_size, self.hidden_size, kernel_size=9, padding=4)
 
         # Downsampling layers
         # self.down1 = nn.Conv2d(self.hidden_size, self.hidden_size, kernel_size=9, padding=4)  # Maintain resolution, capture large-distance influences
@@ -61,8 +61,8 @@ class FitNet(nn.Module):
         x = torch.relu(x)
         # x = self.conv2(x)
         # x = torch.relu(x)
-        x = self.conv3(x)
-        x = torch.relu(x)
+        # x = self.conv3(x)
+        # x = torch.relu(x)
         
         # Downsampling layers
         # x = self.down1(x)
