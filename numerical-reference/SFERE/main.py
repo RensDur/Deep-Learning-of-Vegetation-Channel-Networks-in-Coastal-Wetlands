@@ -94,11 +94,12 @@ class SaltmarshDomain:
         # Estimate the amount of outflow as the volume of water flowing per area per second of the outflow boundary
         outflow_per_cell = h[:,:,:,-1] * u[:,:,:,-1] * self.dy # Water drainage in m3/s per cell
         water_drained = torch.sum(outflow_per_cell * dt) # Total water drained in m3 in this timestep
-        print(f"Water drained: {water_drained} m3")
 
         # Estimate the volume of water that's added to the domain by capping at Hc
-        water_compensation_clamp = torch.sum(h[torch.where(h < self.Hc)]) * self.dx * self.dy
-        print(f"Compensated {water_compensation_clamp} m3\t\t\tAdded with Hin: {self.Hin * self.width * self.height * self.dx * self.dy} m3")
+        water_compensation = torch.sum(h[torch.where(h < self.Hc)]) * self.dx * self.dy
+
+        # Compute Hin addition of water in m3
+        water_Hin = self.Hin * self.width * self.height * self.dx * self.dy
 
         # 1. Ensure positivity of water layer thickness
         h = torch.clamp(h, min=self.Hc)
@@ -187,48 +188,63 @@ class SaltmarshDomain:
         self.t += dt
 
 
+        return water_Hin, water_compensation.cpu(), water_drained.cpu()
+
+
 
 
 
 if __name__ == "__main__":
     
-    window = MultiWindow(100, 100)
+    window = MultiWindow(400, 400)
 
-    basin = SaltmarshDomain(100, 100, torch.device("mps"))
+    basin = SaltmarshDomain(400, 400, torch.device("mps"))
 
-    ssim_scores = []
-    ssim_plot, = window.axs[1, 2].plot([], [])
+    water_source_Hin = []
+    water_source_comp = []
+    water_drainage = []
 
-    last_sediment_image = basin.s
+    water_source_Hin_plot, = window.axs[1, 2].plot([], [], label="Hin")
+    water_source_comp_plot, = window.axs[1, 2].plot([], [], label="comp")
+    water_drainage_plot, = window.axs[1, 2].plot([], [], label="drainage")
 
     # Open the window
     window.open()
+
+    iteration_count = 0
 
     # As long as the window is open, run the simulation
     while window.is_open:
 
         # Make a simulation step
-        basin.simulate()
+        source_Hin, source_comp, drainage = basin.simulate()
 
-        # Calculate the ssim score
-        ssim_spatial = ssim(basin.s, last_sediment_image)
-        ssim_scores.append(torch.mean(ssim_spatial).cpu().item())
+        # Collect the water in and outflows
+        water_source_Hin.append(source_Hin)
+        water_source_comp.append(source_comp)
+        water_drainage.append(drainage)
 
-        # Set the last sediment image to the new one
-        last_sediment_image = basin.s
+        if iteration_count % 1000 == 0:
+            # Update the window state
+            window.set_data(
+                basin.h[0, 0],
+                basin.u[0, 0],
+                basin.v[0, 0],
+                basin.s[0, 0],
+                basin.b[0, 0]
+            )
 
-        # Update the window state
-        window.set_data(
-            basin.h[0, 0],
-            basin.u[0, 0],
-            basin.v[0, 0],
-            basin.s[0, 0],
-            basin.b[0, 0]
-        )
+            water_source_Hin_plot.set_xdata(range(len(water_source_Hin)))
+            water_source_Hin_plot.set_ydata(water_source_Hin)
+            water_source_comp_plot.set_xdata(range(len(water_source_comp)))
+            water_source_comp_plot.set_ydata(water_source_comp)
+            water_drainage_plot.set_xdata(range(len(water_drainage)))
+            water_drainage_plot.set_ydata(water_drainage)
 
-        ssim_plot.set_xdata(range(len(ssim_scores)))
-        ssim_plot.set_ydata(ssim_scores)
-        window.axs[1, 2].relim()
-        window.axs[1, 2].autoscale_view()
+            window.axs[1, 2].relim()
+            window.axs[1, 2].autoscale_view()
+            window.axs[1, 2].legend()
 
-        window.update()
+            window.update()
+
+        iteration_count += 1
