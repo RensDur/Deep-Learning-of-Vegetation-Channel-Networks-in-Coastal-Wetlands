@@ -27,9 +27,9 @@ def params():
 	parser.add_argument('--average_sequence_length', default=5000, type=int, help='average sequence length in dataset (default: 5000)')
 	parser.add_argument('--resolution_factor', default=8, type=int, help='resolution factor for superres / kernels (default: 8)')
 
-	parser.add_argument('--loss_bound', default=20, type=float, help='loss factor for boundary conditions')
+	parser.add_argument('--loss_bound', default=1, type=float, help='loss factor for boundary conditions')
 	parser.add_argument('--loss_h', default=1, type=float, help='loss factor for wave equation')
-	parser.add_argument('--loss_momentum', default=10, type=float, help='loss factor to connect dz_dt and v')
+	parser.add_argument('--loss_momentum', default=1, type=float, help='loss factor to connect dz_dt and v')
 	parser.add_argument('--border_weight', default=0, type=float, help='extra weight on fluid domain borders')
 	parser.add_argument('--huber_delta', default=100, type=float, help='Huber Loss: Square loss when |residual| <= threshold, linear outside the threshold')
 	

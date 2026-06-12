@@ -278,13 +278,15 @@ class SplinePINNSolver:
 
                 # Compute the loss terms we would like to consider separate learning tasks for PCGrad
                 loss_h = self.params.loss_h * torch.mean(loss_h)
-                loss_momentum = self.params.loss_momentum * torch.mean(loss_u + loss_v)
+                loss_u = self.params.loss_momentum * torch.mean(loss_u)
+                loss_v = self.params.loss_momentum * torch.mean(loss_v)
                 loss_bound = self.params.loss_bound * torch.mean(loss_bound)
 
                 # Log loss (per term)
                 if self.params.log_loss:
                     loss_h = torch.log(loss_h + 0.0001) # Add small epsilon to prevent -inf loss due to log
-                    loss_momentum = torch.log(loss_momentum + 0.0001)
+                    loss_u = torch.log(loss_u + 0.0001)
+                    loss_v = torch.log(loss_v + 0.0001)
                     loss_bound = torch.log(loss_bound + 0.0001)
 
                 # Reset old gradients to 0 and compute new gradients with backpropagation
@@ -298,7 +300,8 @@ class SplinePINNSolver:
                     # For backprop using PCGrad, construct each loss term
                     pcgrad_losses = [
                         loss_h,
-                        loss_momentum,
+                        loss_u,
+                        loss_v,
                         loss_bound
                     ]
                     
@@ -309,7 +312,7 @@ class SplinePINNSolver:
                     #
                     # Otherwise, when pcgrad is disabled, sum the weighted loss terms and perform backpropagation
                     #
-                    loss_total = loss_h + loss_momentum + loss_bound
+                    loss_total = loss_h + loss_u + loss_v + loss_bound
                     loss_total.backward()
 
                 # Clip gradients
@@ -348,11 +351,9 @@ class SplinePINNSolver:
 
                     # Log the loss to csv and tensorboard
                     self.logger.log("loss_h", loss_h.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
-                    self.logger.log("loss_momentum", loss_momentum.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
+                    self.logger.log("loss_u", loss_u.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
+                    self.logger.log("loss_v", loss_v.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
                     self.logger.log("loss_bound", loss_bound.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
-
-                    # log_index = epoch * self.params.n_batches_per_epoch + i
-                    # self.logger.log_all(["loss_h", "loss_momentum", "loss_bound"], [loss_h.detach().cpu(), loss_momentum.detach().cpu(), loss_bound.detach().cpu()], log_index)
 
                     #
                     # PLOT LOSS - IF ENABLED
