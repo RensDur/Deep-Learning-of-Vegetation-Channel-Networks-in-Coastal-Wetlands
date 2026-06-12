@@ -154,7 +154,7 @@ class FitDataset:
         )
 
         # Load numerical output images from disk
-        selected_outputs = [i for i in range(10_000, 1_000_000+1, 10_000)]
+        selected_outputs = [i for i in range(10_000, 1_200_000+1, 10_000)]
         self.dataset_size = len(selected_outputs)
         self.batch_size = 100
 
@@ -387,7 +387,7 @@ def training_routine(torch_device):
 
 def evaluation_routine(torch_device):
 
-    selected_num_output = 99
+    selected_num_output = 119
 
     dataset = FitDataset(800, 800, torch_device)
     net = CompoundFitNet(dataset.variables).to(torch_device)
@@ -446,10 +446,10 @@ def evaluation_routine(torch_device):
     # Initial black image
     initial_img = torch.zeros(1, 1, 800, 800)
 
-    water_plot = axs[0, 0].imshow(initial_img[0,0].clone().detach().cpu().numpy(), cmap="Blues", vmin=0, vmax=0.02)
-    momentum_u_plot = axs[0, 1].imshow(initial_img[0,0].clone().detach().cpu().numpy(), cmap="bwr", vmin=-0.2, vmax=0.2)
+    water_plot = axs[0, 0].imshow(initial_img[0,0].clone().detach().cpu().numpy(), cmap="Blues", vmin=0, vmax=0.1)
+    momentum_u_plot = axs[0, 1].imshow(initial_img[0,0].clone().detach().cpu().numpy(), cmap="bwr", vmin=-0.3, vmax=0.3)
     momentum_v_plot = axs[0, 2].imshow(initial_img[0,0].clone().detach().cpu().numpy(), cmap="bwr", vmin=-0.2, vmax=0.2)
-    sediment_plot = axs[1, 0].imshow(initial_img[0,0].clone().detach().cpu().numpy(), cmap="gray", vmin=0, vmax=0.2)
+    sediment_plot = axs[1, 0].imshow(initial_img[0,0].clone().detach().cpu().numpy(), cmap="gray", vmin=0, vmax=0.3)
     vegetation_plot = axs[1, 1].imshow(initial_img[0,0].clone().detach().cpu().numpy(), cmap="YlGn", vmin=0, vmax=1500)
     losses_df.plot(ax=axs[1, 2])
 
@@ -507,7 +507,7 @@ def evaluation_routine(torch_device):
         # UI Loop: process all pending UI events
         figure.canvas.flush_events()
 
-        selected_num_output = (selected_num_output + 1) % 100
+        # selected_num_output = (selected_num_output + 1) % 100
 
 
 def main():
@@ -532,8 +532,8 @@ def main():
     torch.manual_seed(0)
     np.random.seed(0)
 
-    training_routine(torch_device)
-    # evaluation_routine(torch_device)
+    # training_routine(torch_device)
+    evaluation_routine(torch_device)
 
 
 
