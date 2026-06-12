@@ -648,6 +648,9 @@ class Dataset:
                 # Add Hin to the full domain
                 self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] = self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] + self.params.Hin
 
+                # Clamp the first order of h to minimum Hc
+                self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] = torch.clamp(self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")], min=self.params.Hc)
+
             #
             # Tidal flow water strategy
             #
