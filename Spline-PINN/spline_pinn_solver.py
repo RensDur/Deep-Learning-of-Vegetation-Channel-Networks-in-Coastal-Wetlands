@@ -426,7 +426,7 @@ class SplinePINNSolver:
         date_time, index = self.logger.load_state(self.net, None, datetime=self.params.load_date_time, index=self.params.load_index)
 
         # Load loss progression in pandas dataframe
-        training_loss = self.logger.load_logs("loss_h", "loss_momentum", "loss_bound", datetime=self.params.load_date_time)
+        training_loss = self.logger.load_logs("loss_h", "loss_u", "loss_v", "loss_bound", datetime=self.params.load_date_time)
 
         # Enable evaluation of the model
         self.net.eval()
