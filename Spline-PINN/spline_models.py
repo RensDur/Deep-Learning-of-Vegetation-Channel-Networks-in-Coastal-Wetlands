@@ -104,6 +104,8 @@ class ShallowWaterUNet(nn.Module):
 			self.spline_variables.extract_from(hidden_state, "v")
 		], dim=1)
 		out[:,:,:,:] = self.output_scalar*torch.tanh((out[:,:,:,:]+extracted_water_hidden_state[:,:,:,:])/self.output_scalar)
+
+		out[:,self.spline_variables.get_singular_slice_for("h"),:,:] = torch.exp(out[:,self.spline_variables.get_singular_slice_for("h"),:,:])
 		
 		# # Substract the mean of every variable
 		# out[:,self.spline_variables.get_singular_slice_for("h"),:,:] = out[:,self.spline_variables.get_singular_slice_for("h"),:,:] - torch.mean(out[:,self.spline_variables.get_singular_slice_for("h"),:,:],dim=(2,3)).unsqueeze(2).unsqueeze(3)

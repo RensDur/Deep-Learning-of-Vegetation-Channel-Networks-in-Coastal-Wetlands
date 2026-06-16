@@ -647,7 +647,7 @@ class Dataset:
 
                 # Clamp the first order of h to minimum zero
                 # This ensures the dry areas can be 'flooded' again by Hin as they would with correct tidal flow
-                self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] = torch.clamp(self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")], min=0)
+                # self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] = torch.clamp(self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")], min=0)
 
                 # Add Hin to the full domain
                 self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] = self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] + self.params.Hin
