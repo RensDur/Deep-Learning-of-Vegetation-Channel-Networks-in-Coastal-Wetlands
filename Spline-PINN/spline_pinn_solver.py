@@ -299,14 +299,6 @@ class SplinePINNSolver:
 
         loss_bound = loss_bound_closed + loss_bound_open + loss_bound_h + loss_bound_aux
 
-        # Multiply by the loss weights
-        loss_h = loss_h * self.params.loss_h
-        loss_u = loss_u * self.params.loss_momentum
-        loss_v = loss_v * self.params.loss_momentum
-        loss_s = loss_s * self.params.loss_s
-        loss_b = loss_b * self.params.loss_b
-        loss_bound = loss_bound * self.params.loss_bound
-
         # Normalize towards the number of samples taken
         loss_h = loss_h / self.params.n_samples
         loss_u = loss_u / self.params.n_samples
@@ -510,21 +502,21 @@ class SplinePINNSolver:
 
                 loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, sample_h_masks, sample_h_conds, dim)
 
+                # Compute the mean loss
+                loss_h = torch.mean(loss_h)
+                loss_u = torch.mean(loss_u)
+                loss_v = torch.mean(loss_v)
+                loss_s = torch.mean(loss_s)
+                loss_b = torch.mean(loss_b)
+                loss_bound = torch.mean(loss_bound)
 
-                if self.params.plot_loss:
-                    # Combine the losses to create a loss_tensor image
-                    loss_tensor = torch.mean(loss_h + loss_u + loss_v + loss_s + loss_b + loss_bound, dim=0)
-
-                    # Compute total loss value
-                    loss_total = torch.log(torch.mean(loss_tensor))
-
-                    # Restore correct averaging of individual loss components
-                    loss_h = torch.mean(loss_h, dim=[1,2])
-                    loss_u = torch.mean(loss_u, dim=[1,2])
-                    loss_v = torch.mean(loss_v, dim=[1,2])
-                    loss_s = torch.mean(loss_s, dim=[1,2])
-                    loss_b = torch.mean(loss_b, dim=[1,2])
-                    loss_bound = torch.mean(loss_bound, dim=[1,2])
+                # Multiply with the loss weights
+                loss_h = loss_h * self.params.loss_h
+                loss_u = loss_u * self.params.loss_momentum
+                loss_v = loss_v * self.params.loss_momentum
+                loss_s = loss_s * self.params.loss_s
+                loss_b = loss_b * self.params.loss_b
+                loss_bound = loss_bound * self.params.loss_bound
 
                 # Log loss (per term)
                 if self.params.log_loss:
@@ -535,26 +527,21 @@ class SplinePINNSolver:
                     loss_b = torch.log(loss_b + 0.0001)
                     loss_bound = torch.log(loss_bound + 0.0001)
 
-                # Compute the loss terms we would like to consider separate learning tasks for PCGrad
-                loss_h = torch.mean(loss_h)
-                loss_momentum = torch.mean(loss_u + loss_v)
-                loss_sediment = torch.mean(loss_s)
-                loss_vegetation = torch.mean(loss_b)
-                loss_bound = torch.mean(loss_bound)
 
                 # For backprop using PCGrad, construct each loss term
                 pcgrad_losses = [
                     loss_h,
-                    loss_momentum,
+                    loss_u,
+                    loss_v,
                     loss_bound
                 ]
 
                 # In the sediment training stage, add sediment to PCGrad as well
                 if self.training_sediment:
-                    pcgrad_losses.append(loss_sediment)
+                    pcgrad_losses.append(loss_s)
 
                 if self.training_vegetation:
-                    pcgrad_losses.append(loss_vegetation)
+                    pcgrad_losses.append(loss_b)
 
                 # Reset old gradients to 0 and compute new gradients with backpropagation
                 self.water_net.zero_grad()
@@ -600,59 +587,12 @@ class SplinePINNSolver:
 
                     # Log the loss to csv and tensorboard
                     self.logger.log("loss_h", loss_h.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
-                    self.logger.log("loss_momentum", loss_momentum.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
-                    self.logger.log("loss_sediment", loss_sediment.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
-                    self.logger.log("loss_vegetation", loss_vegetation.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
+                    self.logger.log("loss_u", loss_u.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
+                    self.logger.log("loss_v", loss_v.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
+                    self.logger.log("loss_s", loss_s.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
+                    self.logger.log("loss_b", loss_b.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
                     self.logger.log("loss_bound", loss_bound.detach().cpu(), epoch * self.params.n_batches_per_epoch + i)
 
-                    # log_index = epoch * self.params.n_batches_per_epoch + i
-                    # self.logger.log_all(["loss_h", "loss_momentum", "loss_bound"], [loss_h.detach().cpu(), loss_momentum.detach().cpu(), loss_bound.detach().cpu()], log_index)
-
-                    #
-                    # PLOT LOSS - IF ENABLED
-                    #
-                    if self.params.plot_loss:
-                        loss_total = float(loss_total.detach().cpu().numpy())
-                        loss_tensor = loss_tensor.detach().cpu().numpy()
-                        loss_h = float(torch.mean(loss_h).detach().cpu().numpy())
-                        loss_u = float(torch.mean(loss_u).detach().cpu().numpy())
-                        loss_v = float(torch.mean(loss_v).detach().cpu().numpy())
-                        loss_bound = float(torch.mean(loss_bound).detach().cpu().numpy())
-
-                        loss_tensor -= np.min(loss_tensor)
-                        loss_tensor /= np.max(loss_tensor)
-
-                        plot_loss_image.set_data(loss_tensor)
-
-                        plot_loss_total_data = np.append(plot_loss_total_data, np.array([loss_total]))
-                        plot_loss_h_data = np.append(plot_loss_h_data, np.array([self.params.loss_h * loss_h]))
-                        plot_loss_momentum_data = np.append(plot_loss_momentum_data, np.array([self.params.loss_momentum * (loss_u + loss_v)]))
-                        plot_loss_bound_data = np.append(plot_loss_bound_data, np.array([self.params.loss_bound * loss_bound]))
-
-                        plot_loss_total_graph.set_xdata(range(plot_loss_total_data.shape[0]))
-                        plot_loss_total_graph.set_ydata(plot_loss_total_data)
-                        plot_axs[1].set_xlim([0, plot_loss_total_data.shape[0]])
-                        plot_axs[1].set_ylim([np.min(plot_loss_total_data), np.max(plot_loss_total_data)])
-
-                        plot_loss_h_graph.set_xdata(range(plot_loss_h_data.shape[0]))
-                        plot_loss_h_graph.set_ydata(plot_loss_h_data)
-                        plot_loss_momentum_graph.set_xdata(range(plot_loss_momentum_data.shape[0]))
-                        plot_loss_momentum_graph.set_ydata(plot_loss_momentum_data)
-                        plot_loss_bound_graph.set_xdata(range(plot_loss_bound_data.shape[0]))
-                        plot_loss_bound_graph.set_ydata(plot_loss_bound_data)
-
-                        graph_limits = np.concatenate((plot_loss_h_data, plot_loss_momentum_data, plot_loss_bound_data))
-                        plot_axs[2].set_xlim([0, plot_loss_h_data.shape[0]])
-                        plot_axs[2].set_ylim([np.min(graph_limits), np.max(graph_limits)])
-
-                if self.params.plot_loss:
-                    # Always update the plot to allow interaction
-                    # Plot the domain (update existing plot)
-                    # Draw updated values
-                    plot_fig.canvas.draw()
-
-                    # UI Loop: process all pending UI events
-                    plot_fig.canvas.flush_events()
 
             # Print the average time per iteration
             print(f"Average time per batch: {((time.time() - self.train_start_time)/((epoch+1)*self.params.n_batches_per_epoch)):.2f} seconds")
