@@ -172,6 +172,10 @@ class SplinePINNSolver:
         h_before_relu = h
         h = F.softplus(h - self.params.Hc) + self.params.Hc
 
+        # Create a mask that captures dry plains in the domain
+        dry_mask = torch.zeros_like(h)
+        dry_mask[torch.where(h_before_relu < self.params.Hc)] = 1
+
         #
         # Derive bed friction coefficients
         #
@@ -285,21 +289,15 @@ class SplinePINNSolver:
         ), dim)
 
         # Auxilary boundary loss
-        loss_bound_aux = torch.mean(self.loss_function(
-            F.relu(-h_before_relu) # water level thickness can never be negative
+        loss_bound_aux = torch.mean(dry_mask * self.loss_function(
+            u
         ), dim)
 
-        if self.training_sediment:
-            loss_bound_aux = loss_bound_aux + torch.mean(self.loss_function(
-                F.relu(-s) # sedimentary bed elevation can never be negative
-            ), dim)
+        loss_bound_aux = loss_bound_aux + torch.mean(dry_mask * self.loss_function(
+            v
+        ), dim)
 
-        if self.training_vegetation:
-            loss_bound_aux = loss_bound_aux + torch.mean(self.loss_function(
-                F.relu(-b) / self.params.k  # Normalize any loss related to b by max. carrying capacity to match scale-difference # vegetation density can never be negative
-            ), dim)
-
-        loss_bound = loss_bound_closed + loss_bound_open + loss_bound_h
+        loss_bound = loss_bound_closed + loss_bound_open + loss_bound_h + loss_bound_aux
 
         # Multiply by the loss weights
         loss_h = loss_h * self.params.loss_h
