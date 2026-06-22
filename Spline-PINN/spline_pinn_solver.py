@@ -56,10 +56,10 @@ class SplinePINNSolver:
         #
         # Training Stage
         #
-        self.training_sediment = False
+        self.training_sediment = True
         self.training_sediment_start_epoch = 0
 
-        self.training_vegetation = False
+        self.training_vegetation = True
         self.training_vegetation_start_epoch = 0
 
         #
@@ -324,7 +324,11 @@ class SplinePINNSolver:
         #
         # Optimizer
         #
-        self.optimizer = Adam(self.water_net.parameters(), lr=self.params.lr)   # Initially, we only train the water net
+        self.optimizer = Adam([
+            {"params": self.water_net.parameters(), "lr": self.params.lr},
+            {"params": self.sediment_net.parameters(), "lr": self.params.lr},
+            {"params": self.vegetation_net.parameters(), "lr": self.params.lr},
+        ])
         self.optimizer = PCGrad(self.optimizer)
 
         # torch.autograd.set_detect_anomaly(True)
@@ -339,17 +343,19 @@ class SplinePINNSolver:
 
             self.load_logger = Logger(parameters.get_description(self.params), use_csv=self.params.log_csv, use_tensorboard=self.params.log_tensorboard)
             if self.params.load_optimizer:
-                self.params.load_date_time, self.params.load_index = self.logger.load_state("water_net", self.water_net, self.optimizer,
+                self.params.load_date_time, self.params.load_index = self.logger.load_state("water_net", self.water_net, self.optimizer.optimizer,
                                                                                   self.params.load_date_time,
                                                                                   self.params.load_index)
 
-                self.params.load_date_time, self.params.load_index = self.logger.load_state("sediment_net", self.sediment_net, self.optimizer,
+                self.params.load_date_time, self.params.load_index = self.logger.load_state("sediment_net", self.sediment_net, self.optimizer.optimizer,
                                                                                   self.params.load_date_time,
                                                                                   self.params.load_index)
 
-                self.params.load_date_time, self.params.load_index = self.logger.load_state("vegetation_net", self.vegetation_net, self.optimizer,
+                self.params.load_date_time, self.params.load_index = self.logger.load_state("vegetation_net", self.vegetation_net, self.optimizer.optimizer,
                                                                                   self.params.load_date_time,
                                                                                   self.params.load_index)
+
+                print(f"\nCONFIGURATION LOADED OPTIMIZER\n")
             else:
                 self.params.load_date_time, self.params.load_index = self.logger.load_state("water_net", self.water_net, None, self.params.load_date_time,
                                                                                   self.params.load_index)
@@ -386,51 +392,6 @@ class SplinePINNSolver:
         self.sediment_net.train()
         self.vegetation_net.train()
 
-        #
-        # Prepare Loss Plots
-        #
-        if self.params.plot_loss:
-            plt.ion()
-
-            plot_fig, plot_axs = plt.subplots(1, 3, figsize=(20, 10))
-
-            # Plots
-            plot_axs[0].set(title="Loss image", xlabel="x", ylabel="y")
-            plot_axs[1].set(title="Total loss", xlabel="x", ylabel="y")
-            plot_axs[2].set(title="Loss terms", xlabel="x", ylabel="y")
-
-            # plot_axs[0].grid()
-            # plot_axs[0].grid(which="minor", color="0.5")
-            # plot_axs[1].grid()
-            # plot_axs[1].grid(which="minor", color="0.5")
-            # plot_axs[2].grid()
-            # plot_axs[2].grid(which="minor", color="0.5")
-
-            # Leftmost plot shows loss image
-            plot_loss_image = plot_axs[0].imshow(np.zeros((self.params.height-2, self.params.width-2)), cmap="gray", vmin=0, vmax=1)
-
-            # Middle plot shows total loss over time
-            plot_loss_total_data = np.array([])
-
-            # Rightmost plot shows loss-terms over time (multiplied by scaling)
-            plot_loss_h_data = np.array([])
-            plot_loss_momentum_data = np.array([])
-            plot_loss_bound_data = np.array([])
-            # plot_loss_reg_data = np.array([])
-
-            plot_loss_total_graph = plot_axs[1].plot(range(plot_loss_total_data.shape[0]), plot_loss_total_data)[0]
-
-            plot_loss_h_graph = plot_axs[2].plot(range(plot_loss_h_data.shape[0]), plot_loss_h_data, label="h-loss")[0]
-            plot_loss_momentum_graph = plot_axs[2].plot(range(plot_loss_momentum_data.shape[0]), plot_loss_momentum_data, label="u,v-loss")[0]
-            plot_loss_bound_graph = plot_axs[2].plot(range(plot_loss_bound_data.shape[0]), plot_loss_bound_data, label="bound-loss")[0]
-            # plot_loss_reg_graph = plot_axs[2].plot(range(plot_loss_reg_data.shape[0]), plot_loss_reg_data, label="reg-loss")[0]
-
-            plot_axs[2].legend(handles=[plot_loss_h_graph, plot_loss_momentum_graph, plot_loss_bound_graph], loc="upper right")
-
-            plt.show()
-
-
-        self.damp_loss_factor = 1000
 
         # Record starting time
         self.train_start_time = time.time()
@@ -440,36 +401,6 @@ class SplinePINNSolver:
         # Start from the most recently finished epoch and train until the configured number
         # of epochs has been reached.
         for epoch in range(self.params.load_index, self.params.n_epochs):
-
-            # Once we've completed enough epochs to train hydrodynamics, start training sediment as well
-            if epoch == self.training_sediment_start_epoch:
-                self.optimizer = Adam([
-                    {"params": self.water_net.parameters(), "lr": self.params.lr},
-                    {"params": self.sediment_net.parameters(), "lr": self.params.lr},
-                ])
-                self.optimizer = PCGrad(self.optimizer)
-
-                # Start training sediment
-                self.training_sediment = True
-
-                print(f"\nSTARTING TRAINING OF SedimentUNet NOW\n")
-
-            # Once we've completed enough epochs to train hydrodynamics + sediment, start training vegetation as well
-            if epoch == self.training_vegetation_start_epoch:
-                self.optimizer = Adam([
-                    {"params": self.water_net.parameters(), "lr": self.params.lr},
-                    {"params": self.sediment_net.parameters(), "lr": self.params.lr},
-                    {"params": self.vegetation_net.parameters(), "lr": self.params.lr},
-                ])
-                self.optimizer = PCGrad(self.optimizer)
-
-                # Start training sediment
-                self.training_sediment = True
-                self.training_vegetation = True
-
-                print(f"\nSTARTING TRAINING OF VegetationUNet NOW\n")
-
-
 
             # Each epoch consists of a configurable number of batches.
             for i in range(self.params.n_batches_per_epoch):
@@ -497,9 +428,6 @@ class SplinePINNSolver:
                 new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment, new_hidden_state_vegetation], dim=1)
 
                 dim = [1,2,3]
-                if self.params.plot_loss:
-                    dim = [1]
-
                 loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, sample_h_masks, sample_h_conds, dim)
 
                 # Compute the mean loss
