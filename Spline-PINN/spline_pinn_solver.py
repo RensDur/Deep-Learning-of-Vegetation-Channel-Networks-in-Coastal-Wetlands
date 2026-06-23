@@ -354,6 +354,9 @@ class SplinePINNSolver:
                 self.params.load_date_time, self.params.load_index = self.logger.load_state("vegetation_net", self.vegetation_net, self.optimizer.optimizer,
                                                                                   self.params.load_date_time,
                                                                                   self.params.load_index)
+                
+                # Lastly, also load the dataset
+                self.dataset.hidden_states = self.logger.load_dataset()
 
                 print(f"\nCONFIGURATION LOADED OPTIMIZER\n")
             else:
@@ -528,6 +531,8 @@ class SplinePINNSolver:
             # Save the training state after each epoch
             if self.params.log:
                 self.logger.save_state("water_net", self.water_net, self.optimizer, epoch + 1)
+
+                self.logger.save_dataset(self.dataset.hidden_states)
 
                 if self.training_sediment:
                     self.logger.save_state("sediment_net", self.sediment_net, self.optimizer, epoch + 1)

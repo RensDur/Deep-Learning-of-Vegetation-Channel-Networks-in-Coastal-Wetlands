@@ -320,6 +320,25 @@ class Logger():
 			dic[key] = state[key]
 		
 		return datetime, index
+	
+	def save_dataset(self,dataset):
+
+		os.makedirs('Logger/{}/{}/dataset'.format(self.name,self.datetime), exist_ok=True)
+		
+		path = 'Logger/{}/{}/dataset/hidden_states.pt'.format(self.name,self.datetime)
+		torch.save(dataset, path)
+
+	def load_dataset(self):
+
+		for _,dirs,_ in os.walk('Logger/{}/'.format(self.name)):
+			datetime = sorted(dirs)[-1]
+			if datetime == self.datetime:
+				datetime = sorted(dirs)[-2]
+			break
+		
+		path = 'Logger/{}/{}/dataset/hidden_states.pt'.format(self.name,datetime)
+		torch.load(path)
+
 
 
 t_start = 0
