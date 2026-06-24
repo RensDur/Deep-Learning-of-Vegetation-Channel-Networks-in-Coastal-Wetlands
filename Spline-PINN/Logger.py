@@ -337,7 +337,7 @@ class Logger():
 			break
 		
 		path = 'Logger/{}/{}/dataset/hidden_states.pt'.format(self.name,datetime)
-		torch.load(path)
+		return torch.load(path)
 
 
 
