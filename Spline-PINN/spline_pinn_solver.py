@@ -411,7 +411,7 @@ class SplinePINNSolver:
                     self.training_sediment = False
                     self.training_vegetation = False
 
-                    if i % 10 == 0:
+                    if i % 5 == 0:
                         self.training_sediment = True
                         self.training_vegetation = True
 
@@ -538,12 +538,8 @@ class SplinePINNSolver:
             # Save the training state after each epoch
             if self.params.log:
                 self.logger.save_state("water_net", self.water_net, self.optimizer, epoch + 1)
-
-                if self.training_sediment:
-                    self.logger.save_state("sediment_net", self.sediment_net, self.optimizer, epoch + 1)
-
-                if self.training_vegetation:
-                    self.logger.save_state("vegetation_net", self.vegetation_net, self.optimizer, epoch + 1)
+                self.logger.save_state("sediment_net", self.sediment_net, self.optimizer, epoch + 1)
+                self.logger.save_state("vegetation_net", self.vegetation_net, self.optimizer, epoch + 1)
 
 
     def visualize(self, window):
