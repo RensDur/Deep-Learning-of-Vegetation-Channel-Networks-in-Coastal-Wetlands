@@ -115,10 +115,11 @@ class Dataset:
 
         # Vegetation initial conditions
         self.vegetation_ics = [
-            "uniform-noise",
-            "random-gaussians",
-            "vd-vijsel",
-            "empty"
+            # "uniform-noise",
+            # "random-gaussians",
+            # "vd-vijsel",
+            # "empty",
+            "elsewhere-specified"
         ] if vegetation_ics is None else vegetation_ics
 
         self.orientations = [
