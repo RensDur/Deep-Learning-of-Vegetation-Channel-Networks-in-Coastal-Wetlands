@@ -83,7 +83,7 @@ class FitNet(nn.Module):
 
 class CompoundFitNet(nn.Module):
 
-    def __init__(self, spline_variables):
+    def __init__(self, spline_variables, torch_device):
         super(CompoundFitNet, self).__init__()
 
         self.spline_variables = spline_variables
@@ -95,6 +95,32 @@ class CompoundFitNet(nn.Module):
 
         # Vegetation requires a larger output scalar
         self.nets[-1].output_scalar = 2000
+
+        # By default we assume the fitnet to be loaded on the indicated device
+        self.device = torch_device
+
+        # And we call the 'to' routine to ensure the position of the nets on the GPU
+        self.to(self.device)
+
+    def load_state_from(self, path):
+
+        # This load-state routine is largely inspired by the Logger
+        def __load_fitnet_state(path,model,name):
+
+            path = f"{path}/states/{name}.state"
+            state = torch.load(path, map_location=self.device)
+
+            if type(model) is not list:
+                model = [model]
+            for i,m in enumerate(model):
+                m.load_state_dict(state['model{}'.format(i)])
+        
+        __load_fitnet_state(path, self.nets[0], "h")
+        __load_fitnet_state(path, self.nets[1], "u")
+        __load_fitnet_state(path, self.nets[2], "v")
+        __load_fitnet_state(path, self.nets[3], "s")
+        __load_fitnet_state(path, self.nets[4], "b")
+
 
     def to(self, torch_device):
         super(CompoundFitNet, self).to(torch_device)
@@ -248,7 +274,7 @@ def training_routine(torch_device):
 
     dataset = FitDataset(800, 800, torch_device)
 
-    net = CompoundFitNet(dataset.variables).to(torch_device)
+    net = CompoundFitNet(dataset.variables, torch_device)
 
     # Create a folder for the hidden state output
     output_folder = f"imfit_output/{dataset.variables.summary()}"
@@ -387,34 +413,14 @@ def training_routine(torch_device):
 
 def evaluation_routine(torch_device):
 
-    selected_num_output = 119
+    selected_num_output = 0
 
     dataset = FitDataset(800, 800, torch_device)
-    net = CompoundFitNet(dataset.variables).to(torch_device)
+    net = CompoundFitNet(dataset.variables, torch_device)
 
+    # Load the fitnet state from disk
     output_folder = f"imfit_output/{dataset.variables.summary()}"
-
-    def load_state(model,optimizer,name):
-
-        path = f"{output_folder}/states/{name}.state"
-        state = torch.load(path, map_location=torch_device)
-
-        if type(model) is not list:
-            model = [model]
-        for i,m in enumerate(model):
-            m.load_state_dict(state['model{}'.format(i)])
-
-        if optimizer is not None:
-            if type(optimizer)is not list:
-                optimizer = [optimizer]
-            for i,o in enumerate(optimizer):
-                o.load_state_dict(state['optimizer{}'.format(i)])
-    
-    load_state(net.nets[0], None, "h")
-    load_state(net.nets[1], None, "u")
-    load_state(net.nets[2], None, "v")
-    load_state(net.nets[3], None, "s")
-    load_state(net.nets[4], None, "b")
+    net.load_state_from(output_folder)
 
     # Load training loss
     # Load loss progression over time
