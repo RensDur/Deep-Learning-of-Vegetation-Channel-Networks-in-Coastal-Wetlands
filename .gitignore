@@ -237,3 +237,6 @@ target
 
 # Ignore any logs, as those are kept on a separate storage device
 Logger
+
+# Ignore the snapshots taken from SFERE
+snapshots-log-slowdown/
