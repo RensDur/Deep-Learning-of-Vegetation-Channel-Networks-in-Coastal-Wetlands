@@ -47,20 +47,18 @@ if __name__ == "__main__":
 		if sfere_iterations >= ys[snapshot_idx]:
 
 			# Create a snapshot
-			os.makedirs(f"./{output_folder}/{sfere_iterations}", exist_ok=True)
+			os.makedirs(f"./{output_folder}/snapshot_{snapshot_idx}", exist_ok=True)
 
-			torch.save(basin.h.detach().cpu(), f"./{output_folder}/{sfere_iterations}/h.pt")
-			torch.save(basin.u.detach().cpu(), f"./{output_folder}/{sfere_iterations}/u.pt")
-			torch.save(basin.v.detach().cpu(), f"./{output_folder}/{sfere_iterations}/v.pt")
-			torch.save(basin.s.detach().cpu(), f"./{output_folder}/{sfere_iterations}/s.pt")
-			torch.save(basin.b.detach().cpu(), f"./{output_folder}/{sfere_iterations}/b.pt")
+			torch.save(basin.h.detach().cpu(), f"./{output_folder}/snapshot_{snapshot_idx}/h.pt")
+			torch.save(basin.u.detach().cpu(), f"./{output_folder}/snapshot_{snapshot_idx}/u.pt")
+			torch.save(basin.v.detach().cpu(), f"./{output_folder}/snapshot_{snapshot_idx}/v.pt")
+			torch.save(basin.s.detach().cpu(), f"./{output_folder}/snapshot_{snapshot_idx}/s.pt")
+			torch.save(basin.b.detach().cpu(), f"./{output_folder}/snapshot_{snapshot_idx}/b.pt")
 
 			# Increment the counter
 			snapshot_idx += 1
 
-		# Every 1000 iterations, make an ETA report
-		if sfere_iterations % 1000 == 0:
-
+			# Every snapshot, make an ETA report
 			avg_time_per_iter = (time.time() - start_time)/sfere_iterations
 			iters_to_run = ys[-1] - sfere_iterations
 			eta = iters_to_run * avg_time_per_iter
@@ -68,5 +66,5 @@ if __name__ == "__main__":
 			iters_to_next_shapshot = ys[snapshot_idx] - sfere_iterations
 			eta_until_next_snapshot = iters_to_next_shapshot * avg_time_per_iter
 
-			print(f"\rSFERE iteration {sfere_iterations} - Taken {snapshot_idx} snapshots - Iterations until next shapshot: {iters_to_next_shapshot} ({eta_until_next_snapshot/60:.2f}m) - ETA {eta/60:.2f}m", end="")
+			print(f"\r\033[K" + f"SFERE iteration {sfere_iterations} - Taken {snapshot_idx} snapshots - Iterations until next shapshot: {iters_to_next_shapshot} ({eta_until_next_snapshot/60:.2f}m) - ETA {eta/60:.2f}m", end="")
 		
