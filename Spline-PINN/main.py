@@ -37,7 +37,7 @@ def main():
     print(f"Parameters: {vars(params)}")
 
     # Create dataset
-    data = dataset.Dataset(params, torch_device, types=["topoflat"], water_strategies=["Hin"], vegetation_ics=["uniform-noise"], orientations=["east"])
+    data = dataset.Dataset(params, torch_device, types=["numerical-saltmarsh"], water_strategies=["Hin"], vegetation_ics=["elsewhere-specified"], orientations=["east"])
 
     # print(data.env_info[0])
 

@@ -55,6 +55,11 @@ def params():
 	parser.add_argument('--height', default=200, type=int, help='setup height')
 	parser.add_argument('--separation', default=0.05, type=float, help='cell separation in meters')
 
+	# Data parameters
+	parser.add_argument("--sfere_start", default=300, type=int, help='SFERE snapshot starting index (incl)')
+	parser.add_argument("--sfere_end", default=500, type=int, help='SFERE snapshot ending index (excl)')
+
+
     # Domain parameters
 	parser.add_argument('--Hin', default=1e-5, type=float, help="")
 	parser.add_argument('--Hc', default=1e-3, type=float, help="")

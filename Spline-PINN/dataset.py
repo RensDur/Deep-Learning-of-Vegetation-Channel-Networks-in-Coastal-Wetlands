@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 import math
+from imfit_general import CompoundFitNet
 from spline.spline_variable import SplineVariable
 from spline.spline_array import SplineArray
 
@@ -68,19 +69,30 @@ class Dataset:
         self.h_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.h_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
 
-        # Load the saltmarsh numerical solution, pre-fitted to a hidden spline representation
-        # self.prefit_saltmarsh_250_000 = torch.load(f"numerical_spline_converted/{self.variables.summary()}/250000/hidden_state.pt").cpu()
-        # self.prefit_saltmarsh_300_000 = torch.load(f"numerical_spline_converted/{self.variables.summary()}/300000/hidden_state.pt").cpu()
-        # self.prefit_saltmarsh_650_000 = torch.load(f"numerical_spline_converted/{self.variables.summary()}/650000/hidden_state.pt").cpu()
-        # self.prefit_saltmarsh_1_300_000 = torch.load(f"numerical_spline_converted/{self.variables.summary()}/1300000/hidden_state.pt").cpu()
-        # self.prefit_saltmarsh_2_500_000 = torch.load(f"numerical_spline_converted/{self.variables.summary()}/2500000/hidden_state.pt").cpu()
+        # Create a CompoundFitNet (which is a compound of 5 Image Fitting CNNs: one for each variable h u v s b)
+        self.imfit_net = CompoundFitNet(self.variables, torch.device("cpu"))
+        self.imfit_net.load_state_from(f"imfit_output/{self.variables.summary()}") # Immediately load the pre-trained state from disk
+        self.imfit_net.eval()
+
+        # Load snapshots from disk
+        self.num_sfere_samples = self.params.sfere_end - self.params.sfere_start
+        self.sfere_snapshots = torch.zeros(self.num_sfere_samples, 5, 800, 800)
+
+        for i, snapshot_index in enumerate(range(self.params.sfere_start, self.params.sfere_end)):
+            self.sfere_snapshots[i:i+1] = torch.cat([
+                torch.load(f"snapshots-log-slowdown/snapshot_{snapshot_index}/h.pt", map_location=torch.device("cpu")),
+                torch.load(f"snapshots-log-slowdown/snapshot_{snapshot_index}/u.pt", map_location=torch.device("cpu")),
+                torch.load(f"snapshots-log-slowdown/snapshot_{snapshot_index}/v.pt", map_location=torch.device("cpu")),
+                torch.load(f"snapshots-log-slowdown/snapshot_{snapshot_index}/s.pt", map_location=torch.device("cpu")),
+                torch.load(f"snapshots-log-slowdown/snapshot_{snapshot_index}/b.pt", map_location=torch.device("cpu")),
+            ], dim=1)
 
         # Environment information
         self.types = [
-            # "numerical-saltmarsh",
-            "topoflat",
-            "toposlope",
-            "toposlope-curved",
+            "numerical-saltmarsh",
+            # "topoflat",
+            # "toposlope",
+            # "toposlope-curved",
             # "toposharp-vegmax",
             # "toposharp-vegslope"
 
@@ -94,11 +106,6 @@ class Dataset:
             # "topoveg-closed-oscillator",
             # "topoveg-closed-oscillator"
         ] if types is None else types
-
-        # Numerical outputs included in this dataset
-        start_iteration = 10_000
-        end_iteration = 1_000_000
-        self.active_numerical_outputs = [i for i in range(start_iteration, end_iteration+1, 10_000)]
 
         # Water in- and outflow strategies
         self.water_strategies = [
@@ -122,12 +129,7 @@ class Dataset:
         ] if orientations is None else orientations
 
         print(f"Running with types {self.types}, water strategies {self.water_strategies}, vegetation-ics {self.vegetation_ics} and orientations {self.orientations}")
-        print(f"Active numerical outputs: {self.active_numerical_outputs}")
-
-        # Preload all active numerical outputs, pre-fitted to a hidden spline representation
-        # self.preload_numerical_outputs = torch.cat([
-        #     torch.load(f"numerical_spline_converted/{self.variables.summary()}/{i}/hidden_state.pt").cpu() for i in self.active_numerical_outputs
-        # ], dim=0)
+        print(f"Active numerical outputs: {slice(self.params.sfere_start, self.params.sfere_end)}")
 
         self.env_type = np.random.choice(self.types, self.dataset_size)
         self.env_water_strategy = np.random.choice(self.water_strategies, self.dataset_size)
@@ -280,14 +282,18 @@ class Dataset:
 
                 group_sample_idx = torch.randint(
                     low=0,
-                    high=len(self.active_numerical_outputs),
+                    high=self.num_sfere_samples,
                     size=(group_size,)
                 )
+
+                # Make a collection of the randomly selected SFERE outputs and pull them through the ImFitCNN
+                selected_sfere_outputs = self.sfere_snapshots[group_sample_idx]
+                imfitted_sfere_outputs = self.imfit_net(selected_sfere_outputs)
 
                 #
                 # Set the initial condition
                 #
-                self.hidden_states[group_indices] = self.preload_numerical_outputs[group_sample_idx]
+                self.hidden_states[group_indices] = imfitted_sfere_outputs
 
                 # Remove all the water initially and set velocities to zero
                 self.hidden_states[group_indices, self.variables.get_slice_for("h")] = 0
@@ -525,6 +531,9 @@ class Dataset:
 
             if vegetation_ic == "empty":
                 self.hidden_states[group_indices, self.variables.get_singular_slice_for("b")] = 0
+
+            if vegetation_ic == "elsewhere-specified":
+                pass
 
 
         # Helper function 4/4 -- Reset the orientation of environment (grouped)
