@@ -56,11 +56,11 @@ class SplinePINNSolver:
         #
         # Training Stage
         #
-        self.training_sediment = True
-        self.training_sediment_start_epoch = 0
+        self.training_sediment = False
+        self.training_sediment_start_epoch = 1000
 
-        self.training_vegetation = True
-        self.training_vegetation_start_epoch = 0
+        self.training_vegetation = False
+        self.training_vegetation_start_epoch = 1000
 
         #
         # Diffusion operation (needed, if we want to put more loss-weight to regions close to the domain boundaries)
@@ -83,7 +83,7 @@ class SplinePINNSolver:
 
     def loss_function(self, x):
         # return F.huber_loss(x, torch.zeros_like(x), reduction="none", delta=self.params.huber_delta)
-        return x**2
+        return torch.pow(x, 2)
     
     def compute_batch_loss(self, old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, sample_h_masks, sample_h_conds, dim=[1,2,3]):
 
@@ -224,14 +224,20 @@ class SplinePINNSolver:
         ), dim)
 
         # Sediment loss
-        loss_s = torch.mean(self.loss_function(
-            ds_dt - self.params.Sin * (he / (self.params.Qs + he)) + self.params.Es * (1.0 - self.params.pE * (b/self.params.k)) * s * tau_b_per_rho - div_Ds_grad_S
-        ), dim)
+        if self.training_sediment:
+            loss_s = torch.mean(self.loss_function(
+                ds_dt - self.params.Sin * (he / (self.params.Qs + he)) + self.params.Es * (1.0 - self.params.pE * (b/self.params.k)) * s * tau_b_per_rho - div_Ds_grad_S
+            ), dim)
+        else:
+            loss_s = torch.zeros_like(loss_h)
 
         # Vegetation loss
-        loss_b = torch.mean(self.loss_function(
-            db_dt - self.params.r * b * (1.0 - (b/self.params.k)) * (self.params.Qq / (self.params.Qq + he)) + self.params.EB * b * tau_b_per_rho - self.params.DB * laplacian_b
-        ), dim)
+        if self.training_vegetation:
+            loss_b = torch.mean(self.loss_function(
+                db_dt - self.params.r * b * (1.0 - (b/self.params.k)) * (self.params.Qq / (self.params.Qq + he)) + self.params.EB * b * tau_b_per_rho - self.params.DB * laplacian_b
+            ), dim)
+        else:
+            loss_b = torch.zeros_like(loss_h)
 
         #
         # Boundary condition loss
@@ -326,8 +332,8 @@ class SplinePINNSolver:
         #
         self.optimizer = Adam([
             {"params": self.water_net.parameters(), "lr": self.params.lr},
-            {"params": self.sediment_net.parameters(), "lr": self.params.lr},
-            {"params": self.vegetation_net.parameters(), "lr": self.params.lr},
+            # {"params": self.sediment_net.parameters(), "lr": self.params.lr},
+            # {"params": self.vegetation_net.parameters(), "lr": self.params.lr},
         ])
         self.optimizer = PCGrad(self.optimizer)
 
@@ -407,13 +413,13 @@ class SplinePINNSolver:
 
                 # After 2 epochs of training, start prioritizing training the hydrodynamics over sediment and vegetation
                 # S & B converge much quicker, therefore after 2 epochs we can start only training S & B every so many iterations
-                if epoch >= 2:
-                    self.training_sediment = False
-                    self.training_vegetation = False
+                # if epoch >= 2:
+                #     self.training_sediment = False
+                #     self.training_vegetation = False
 
-                    if i % 5 == 0:
-                        self.training_sediment = True
-                        self.training_vegetation = True
+                #     if i % 5 == 0:
+                #         self.training_sediment = True
+                #         self.training_vegetation = True
 
                 # Ask for a batch from the dataset
                 old_hidden_state, closed_mask, opened_mask, h_mask, h_cond, grid_offsets, sample_closed_masks, sample_opened_masks, sample_h_masks, sample_h_conds = self.dataset.ask()
@@ -538,8 +544,8 @@ class SplinePINNSolver:
             # Save the training state after each epoch
             if self.params.log:
                 self.logger.save_state("water_net", self.water_net, self.optimizer, epoch + 1)
-                self.logger.save_state("sediment_net", self.sediment_net, self.optimizer, epoch + 1)
-                self.logger.save_state("vegetation_net", self.vegetation_net, self.optimizer, epoch + 1)
+                # self.logger.save_state("sediment_net", self.sediment_net, self.optimizer, epoch + 1)
+                # self.logger.save_state("vegetation_net", self.vegetation_net, self.optimizer, epoch + 1)
 
 
     def visualize(self, window):
