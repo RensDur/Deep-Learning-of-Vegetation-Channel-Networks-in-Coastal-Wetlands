@@ -507,7 +507,7 @@ def evaluation_routine(torch_device):
         # UI Loop: process all pending UI events
         figure.canvas.flush_events()
 
-        # selected_num_output = (selected_num_output + 1) % 100
+        selected_num_output = (selected_num_output + 1) % 100
 
 
 def main():

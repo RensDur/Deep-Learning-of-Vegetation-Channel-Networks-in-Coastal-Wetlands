@@ -1,6 +1,8 @@
 import torch
+import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
+from matplotlib.patches import Circle
 
 
 def count_within_range(x, min, max):
@@ -21,20 +23,32 @@ def compute_curve(steepness, max_iter, total_samples):
 	ys = torch.exp(xs)
 	ys = ys - torch.min(ys)
 	ys = ys / torch.max(ys) * max_iter
-	xs = xs / steepness * max_iter
+	xs = xs / steepness * total_samples
 
 	return xs, ys
 
 
 def main():
 
-	steepness = 3.5
+	# Create subplots
+	fig, ax = plt.subplots()
+	# plt.subplots_adjust(bottom=1/4)
+
+	# steepness = [0.1, 1, 3, 5, 7]
+	# colors = ["#00559933", "#00559966", "#00559999", "#005599cc", "#005599ff"]
+
+	steepness = [3.3]
+	colors = ["#005599ff"]
+
 	max_iter = 1_000_000
 
 	samples_per_pinn = 100
 	total_samples = samples_per_pinn * 5
 
-	xs, ys = compute_curve(steepness, max_iter, total_samples)
+	for i, s in enumerate(steepness):
+		xs, ys = compute_curve(s, max_iter, total_samples)
+
+		curve, = plt.plot(xs, ys, color=colors[i])
 
 	stages = [
 		0,
@@ -45,32 +59,55 @@ def main():
 		1_000_000
 	]
 
-	# Compute sample counts per bucket
-	samples_per_stage = [find_closest_x(s, xs, ys) for s in stages]
+	# plt.hlines(stages, 0, total_samples, color="red")
+	# plt.vlines([100, 200, 300, 400], 0, max_iter, color="red", linestyles="dashed")
 
-	# Create subplots
-	fig, ax = plt.subplots()
-	plt.subplots_adjust(bottom=1/4)
+	plt.hlines([ys[100-1]], 0, 100, color="red")
+	plt.hlines([ys[200-1]], 0, 200, color="red")
+	plt.hlines([ys[300-1]], 0, 300, color="red")
+	plt.hlines([ys[400-1]], 0, 400, color="red")
+	plt.hlines([ys[500-1]], 0, 500, color="red")
 
-	vlines = plt.vlines(samples_per_stage, 0, max_iter, color="red")
+	print([ys[100-1]])
+	print([ys[200-1]])
+	print([ys[300-1]])
+	print([ys[400-1]])
+	print([ys[500-1]])
 
-	curve, = plt.plot(xs, ys)
+	plt.vlines([100], 0, ys[100-1], color="red", linestyles="dashed")
+	plt.vlines([200], 0, ys[200-1], color="red", linestyles="dashed")
+	plt.vlines([300], 0, ys[300-1], color="red", linestyles="dashed")
+	plt.vlines([400], 0, ys[400-1], color="red", linestyles="dashed")
+	plt.vlines([500], 0, ys[500-1], color="red", linestyles="dashed")
+
+	plt.title("Simulation time per sample")
+	plt.xlabel("Sample index n")
+	plt.ylabel("Simulation time k(n) (Number of iterations)")
+
+	xticks = [0, 100, 200, 300, 400, 500]
+	xlabels = ["0", "N/5", "2N/5", "3N/5", "4N/5", "N"]
+
+	plt.xticks(xticks, labels=xlabels)
+
+	yticks = stages
+	ylabels = ["0", "30K", "100K", "250K", "500K", "1M"]
+
+	plt.yticks(yticks, labels=ylabels)
 	
-	axis_slider = plt.axes([0.25, 0.1, 0.65, 0.03])
-	slider_steepness = Slider(axis_slider, "Steepness", 0.1, 10, valinit=steepness, valstep=0.01)
+	if False:
+		axis_slider = plt.axes([0.25, 0.1, 0.65, 0.03])
+		slider_steepness = Slider(axis_slider, "Steepness", 0.1, 10, valinit=steepness, valstep=0.01)
 
-	def update(val):
-		steepness = slider_steepness.val
+		def update(val):
+			steepness = slider_steepness.val
 
-		xs, ys = compute_curve(steepness, max_iter, total_samples)
+			xs, ys = compute_curve(steepness, max_iter, total_samples)
 
-		samples_per_stage = [find_closest_x(s, xs, ys) for s in stages]
+			# vlines.set_data(samples_per_stage)
+			curve.set_ydata(ys)
+			fig.canvas.draw_idle()
 
-		vlines.set_data(samples_per_stage)
-		curve.set_ydata(ys)
-		fig.canvas.draw_idle()
-
-	slider_steepness.on_changed(update)
+		slider_steepness.on_changed(update)
 
 	plt.show()
 
