@@ -89,8 +89,6 @@ def main(dataset, snapshot_id):
     loss_plot_s = axs[2, 3].imshow(loss_s, cmap="gray", vmin=-10)
     loss_plot_b = axs[2, 4].imshow(loss_b, cmap="gray", vmin=-10)
 
-    plt.colorbar(loss_plot_b)
-
 
     plt.show()
 
