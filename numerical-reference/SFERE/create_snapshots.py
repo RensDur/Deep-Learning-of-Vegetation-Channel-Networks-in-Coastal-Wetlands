@@ -18,6 +18,8 @@ def compute_log_slowdown_curve(steepness, max_iter, total_samples):
 if __name__ == "__main__":
 
 	basin = SaltmarshDomain(800, 800, torch.device("mps"))
+	basin.dx = 1/4
+	basin.dy = 1/4
 
 	xs, ys = compute_log_slowdown_curve(3.3, 1_000_000, 500)
 
