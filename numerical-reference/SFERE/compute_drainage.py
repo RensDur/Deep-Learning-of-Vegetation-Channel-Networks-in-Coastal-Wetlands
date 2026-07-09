@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
 	num_iterations = 1_000_000
 
-	drainage_per_iteration = torch.zeros(num_iterations)
+	drainage_report = torch.zeros(num_iterations, 3)
 
 	# Stats
 	start_time = time.time()
@@ -35,19 +35,17 @@ if __name__ == "__main__":
 	# As long as the window is open, run the simulation
 	for i in range(num_iterations):
 
-		# Compute total water volume BEFORE
-		water_volume_before = torch.sum(basin.h)
+		# Estimate how much water is added by the clamping
+		water_added_by_clamp = torch.sum(torch.abs(basin.h[torch.where(basin.h < basin.Hc)]))
 
 		# Make a simulation step
 		basin.simulate(dt=sfere_dt)
 
-		# Compute total water volume AFTER
-		water_volume_after = torch.sum(basin.h)
+		# Report the water level
+		drainage_report[i, 0] = torch.sum(basin.h)
 
-		# Drainage equals difference between water volume BEFORE and AFTER (per timestep)
-		drainage = (water_volume_after - water_volume_before)/sfere_dt
-
-		drainage_per_iteration[i] = drainage
+		drainage_report[i, 1] = water_added_by_clamp
+		drainage_report[i, 2] = basin.Hin * basin.width * basin.height
 
 		# As soon as the iteration count is greater than or equal to the next shapshot, we make a snapshot and increment the counter
 		if i % 1000 == 0:
@@ -57,7 +55,7 @@ if __name__ == "__main__":
 			iters_to_run = num_iterations - i + 1
 			eta = iters_to_run * avg_time_per_iter
 
-			print(f"\r\033[K" + f"SFERE iteration {i}/{num_iterations} - ETA {eta/60:.2f}m - Last drainage rate: {drainage}", end="")
+			print(f"\r\033[K" + f"SFERE iteration {i}/{num_iterations} - ETA {eta/60:.2f}m - Last drainage rate: {water_added_by_clamp}", end="")
 		
 	# After completion, store the drainage per iteration
-	torch.save(drainage_per_iteration.detach().cpu(), "./drainage_per_iteration.pt")
+	torch.save(drainage_report.detach().cpu(), "./drainage_report.pt")
