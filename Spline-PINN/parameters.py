@@ -21,7 +21,7 @@ def params():
 	# Training parameters
 	parser.add_argument('--n_epochs', default=100000, type=int, help='number of epochs (after each epoch, the model gets saved)')
 	parser.add_argument('--n_batches_per_epoch', default=1000, type=int, help='number of batches per epoch (default: 10000)')
-	parser.add_argument('--batch_size', default=50, type=int, help='batch size (default: 30)')
+	parser.add_argument('--batch_size', default=25, type=int, help='batch size (default: 30)')
 	parser.add_argument('--n_samples', default=10, type=int, help='number of samples (different offsets) per batch (default: 10)')
 	parser.add_argument('--dataset_size', default=1000, type=int, help='size of dataset (default: 1000)')
 	parser.add_argument('--average_sequence_length', default=5000, type=int, help='average sequence length in dataset (default: 5000)')
@@ -57,7 +57,7 @@ def params():
 
 	# Data parameters
 	parser.add_argument("--sfere_start", default=0, type=int, help='SFERE snapshot starting index (incl)')
-	parser.add_argument("--sfere_end", default=100, type=int, help='SFERE snapshot ending index (excl)')
+	parser.add_argument("--sfere_end", default=500, type=int, help='SFERE snapshot ending index (excl)')
 
 
     # Domain parameters

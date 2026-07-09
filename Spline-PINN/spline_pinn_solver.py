@@ -243,50 +243,70 @@ class SplinePINNSolver:
         # Boundary condition loss
         #
 
-        # Closed boundary
-        loss_bound_closed = torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
-            grad_h
+        # Closed boundary: x-direction
+        loss_bound_closed = torch.mean(sample_closed_mask[:,1:2,1:-1,1:-1] * self.loss_function(
+            grad_h[:, 1]
         ), dim)
 
-        loss_bound_closed = loss_bound_closed + torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
+        loss_bound_closed = loss_bound_closed + torch.mean(sample_closed_mask[:,1:2,1:-1,1:-1] * self.loss_function(
             u
         ), dim)
 
-        loss_bound_closed = loss_bound_closed + torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
-            v
-        ), dim)
-
         if self.training_sediment:
-            loss_bound_closed = loss_bound_closed + torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
-                grad_s
+            loss_bound_closed = loss_bound_closed + torch.mean(sample_closed_mask[:,1:2,1:-1,1:-1] * self.loss_function(
+                grad_s[:, 1]
             ), dim)
 
         if self.training_vegetation:
-            loss_bound_closed = loss_bound_closed + torch.mean(sample_closed_mask[:,:,1:-1,1:-1] * self.loss_function(
-                grad_b / self.params.k  # Normalize any loss related to b by max. carrying capacity to match scale-difference
+            loss_bound_closed = loss_bound_closed + torch.mean(sample_closed_mask[:,1:2,1:-1,1:-1] * self.loss_function(
+                grad_b[:, 1] / self.params.k  # Normalize any loss related to b by max. carrying capacity to match scale-difference
             ), dim)
 
-        # Open boundary
-        loss_bound_open = torch.mean(sample_opened_mask[:,:,1:-1,1:-1] * self.loss_function(
-            grad_h
+        # Closed boundary: y-direction
+        loss_bound_closed = loss_bound_closed + torch.mean(sample_closed_mask[:,0:1,1:-1,1:-1] * self.loss_function(
+            grad_h[:, 0]
         ), dim)
 
-        # loss_bound_open = loss_bound_open + torch.mean(sample_opened_mask[:,:,1:-1,1:-1] * self.loss_function(
-        #     laplacian_u
-        # ), dim)
+        loss_bound_closed = loss_bound_closed + torch.mean(sample_closed_mask[:,0:1,1:-1,1:-1] * self.loss_function(
+            v
+        ), dim)
 
-        # loss_bound_open = loss_bound_open + torch.mean(sample_opened_mask[:,:,1:-1,1:-1] * self.loss_function(
-        #     laplacian_v
-        # ), dim)
+        loss_bound_closed = loss_bound_closed + torch.mean(sample_closed_mask[:,0:1,1:-1,1:-1] * self.loss_function(
+            grad_s[:, 0]
+        ), dim)
+
+        loss_bound_closed = loss_bound_closed + torch.mean(sample_closed_mask[:,0:1,1:-1,1:-1] * self.loss_function(
+            grad_b[:, 0]
+        ), dim)
+
+        # Open boundary: x-direction
+        loss_bound_open = torch.mean(sample_opened_mask[:,1:2,1:-1,1:-1] * self.loss_function(
+            grad_h[:, 1]
+        ), dim)
 
         if self.training_sediment:
-            loss_bound_open = loss_bound_open + torch.mean(sample_opened_mask[:,:,1:-1,1:-1] * self.loss_function(
+            loss_bound_open = loss_bound_open + torch.mean(sample_opened_mask[:,1:2,1:-1,1:-1] * self.loss_function(
                 s # S = 0
             ), dim)
 
         if self.training_vegetation:
-            loss_bound_open = loss_bound_open + torch.mean(sample_opened_mask[:,:,1:-1,1:-1] * self.loss_function(
-                grad_b / self.params.k  # Normalize any loss related to b by max. carrying capacity to match scale-difference
+            loss_bound_open = loss_bound_open + torch.mean(sample_opened_mask[:,1:2,1:-1,1:-1] * self.loss_function(
+                grad_b[:, 1] / self.params.k  # Normalize any loss related to b by max. carrying capacity to match scale-difference
+            ), dim)
+
+        # Open boundary: y-direction
+        loss_bound_open = torch.mean(sample_opened_mask[:,0:1,1:-1,1:-1] * self.loss_function(
+            grad_h[:, 0]
+        ), dim)
+
+        if self.training_sediment:
+            loss_bound_open = loss_bound_open + torch.mean(sample_opened_mask[:,0:1,1:-1,1:-1] * self.loss_function(
+                s # S = 0
+            ), dim)
+
+        if self.training_vegetation:
+            loss_bound_open = loss_bound_open + torch.mean(sample_opened_mask[:,0:1,1:-1,1:-1] * self.loss_function(
+                grad_b[:, 0] / self.params.k  # Normalize any loss related to b by max. carrying capacity to match scale-difference
             ), dim)
 
         # Water level BC loss

@@ -32,7 +32,7 @@ def get_Net(params, spline_variables):
 class ShallowWaterUNet(nn.Module):
 	# inspired by UNet taken from: https://github.com/milesial/Pytorch-UNet/blob/master/unet/unet_model.py
 	
-	def __init__(self, spline_variables, hidden_size=64, interpolation_size=8, bilinear=True, input_size=4, residuals=False):
+	def __init__(self, spline_variables, hidden_size=64, interpolation_size=12, bilinear=True, input_size=6, residuals=False):
 		"""
 		:orders_v: order of spline for velocity potential (should be at least 2)
 		:orders_p: order of spline for pressure field
@@ -116,7 +116,7 @@ class ShallowWaterUNet(nn.Module):
 class SedimentUNet(nn.Module):
 	# inspired by UNet taken from: https://github.com/milesial/Pytorch-UNet/blob/master/unet/unet_model.py
 	
-	def __init__(self, spline_variables, hidden_size=64, interpolation_size=4, bilinear=True, input_size=2, residuals=False):
+	def __init__(self, spline_variables, hidden_size=64, interpolation_size=8, bilinear=True, input_size=4, residuals=False):
 		"""
 		:orders_v: order of spline for velocity potential (should be at least 2)
 		:orders_p: order of spline for pressure field
@@ -192,7 +192,7 @@ class SedimentUNet(nn.Module):
 class VegetationUNet(nn.Module):
 	# inspired by UNet taken from: https://github.com/milesial/Pytorch-UNet/blob/master/unet/unet_model.py
 	
-	def __init__(self, spline_variables, hidden_size=64, interpolation_size=4, bilinear=True, input_size=2, residuals=False):
+	def __init__(self, spline_variables, hidden_size=64, interpolation_size=8, bilinear=True, input_size=4, residuals=False):
 		"""
 		:orders_v: order of spline for velocity potential (should be at least 2)
 		:orders_p: order of spline for pressure field

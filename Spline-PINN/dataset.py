@@ -59,13 +59,13 @@ class Dataset:
         )
 
         # Boundary conditions and masking
-        self.closed_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
-        self.opened_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
+        self.closed_mask = torch.zeros(self.dataset_size, 2, self.width, self.height) # Two separate channels for x and y
+        self.opened_mask = torch.zeros(self.dataset_size, 2, self.width, self.height)
         self.h_mask = torch.zeros(self.dataset_size, 1, self.width, self.height)
         self.h_cond = torch.zeros(self.dataset_size, 1, self.width, self.height)
 
-        self.closed_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
-        self.opened_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
+        self.closed_mask_fullres = torch.zeros(self.dataset_size, 2, self.width_fullres, self.height_fullres)
+        self.opened_mask_fullres = torch.zeros(self.dataset_size, 2, self.width_fullres, self.height_fullres)
         self.h_mask_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
         self.h_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
 
@@ -90,9 +90,9 @@ class Dataset:
         # Environment information
         self.types = [
             "numerical-saltmarsh",
-            # "topoflat",
-            # "toposlope",
-            # "toposlope-curved",
+            "topoflat",
+            "toposlope",
+            "toposlope-curved",
             # "toposharp-vegmax",
             # "toposharp-vegslope"
 
@@ -308,12 +308,15 @@ class Dataset:
                 # Set the boundary conditions
                 #
 
-                # All sides are closed, except the right edge
-                self.closed_mask_fullres[group_indices] = 1
-                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:] = 0
+                # The left side is closed (x= dim 1)
+                self.closed_mask_fullres[group_indices, 1, :, :self.padding_fullres] = 1
+
+                # The top side is closed (y = dim 0)
+                self.closed_mask_fullres[group_indices, 0, :self.padding_fullres, :] = 1
+                self.closed_mask_fullres[group_indices, 0, -self.padding_fullres:, :] = 1
 
                 # The right edge is open
-                self.opened_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
+                self.opened_mask_fullres[group_indices, 1, :, -self.padding_fullres:] = 1
 
 
             #
@@ -334,12 +337,15 @@ class Dataset:
                 # Set the boundary conditions
                 #
 
-                # All sides are closed, except the right edge
-                self.closed_mask_fullres[group_indices] = 1
-                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:] = 0
+                # The left side is closed (x= dim 1)
+                self.closed_mask_fullres[group_indices, 1, :, :self.padding_fullres] = 1
+
+                # The top side is closed (y = dim 0)
+                self.closed_mask_fullres[group_indices, 0, :self.padding_fullres, :] = 1
+                self.closed_mask_fullres[group_indices, 0, -self.padding_fullres:, :] = 1
 
                 # The right edge is open
-                self.opened_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
+                self.opened_mask_fullres[group_indices, 1, :, -self.padding_fullres:] = 1
 
 
             #
@@ -364,12 +370,15 @@ class Dataset:
                 # Set the boundary conditions
                 #
 
-                # All sides are closed, except the right edge
-                self.closed_mask_fullres[group_indices] = 1
-                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:] = 0
+                # The left side is closed (x= dim 1)
+                self.closed_mask_fullres[group_indices, 1, :, :self.padding_fullres] = 1
+
+                # The top side is closed (y = dim 0)
+                self.closed_mask_fullres[group_indices, 0, :self.padding_fullres, :] = 1
+                self.closed_mask_fullres[group_indices, 0, -self.padding_fullres:, :] = 1
 
                 # The right edge is open
-                self.opened_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
+                self.opened_mask_fullres[group_indices, 1, :, -self.padding_fullres:] = 1
 
             #
             # TOPOGRAPHIC SLOPE, CURVED
@@ -395,12 +404,15 @@ class Dataset:
                 # Set the boundary conditions
                 #
 
-                # All sides are closed, except the right edge
-                self.closed_mask_fullres[group_indices] = 1
-                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:] = 0
+                # The left side is closed (x= dim 1)
+                self.closed_mask_fullres[group_indices, 1, :, :self.padding_fullres] = 1
+
+                # The top side is closed (y = dim 0)
+                self.closed_mask_fullres[group_indices, 0, :self.padding_fullres, :] = 1
+                self.closed_mask_fullres[group_indices, 0, -self.padding_fullres:, :] = 1
 
                 # The right edge is open
-                self.opened_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
+                self.opened_mask_fullres[group_indices, 1, :, -self.padding_fullres:] = 1
 
             #
             # TOPOGRAPHIC TRIANGLE WITH VEGETATION (SHARP)
@@ -432,12 +444,15 @@ class Dataset:
                 # Set the boundary conditions
                 #
 
-                # All sides are closed, except the right edge
-                self.closed_mask_fullres[group_indices] = 1
-                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:] = 0
+                # The left side is closed (x= dim 1)
+                self.closed_mask_fullres[group_indices, 1, :, :self.padding_fullres] = 1
+
+                # The top side is closed (y = dim 0)
+                self.closed_mask_fullres[group_indices, 0, :self.padding_fullres, :] = 1
+                self.closed_mask_fullres[group_indices, 0, -self.padding_fullres:, :] = 1
 
                 # The right edge is open
-                self.opened_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
+                self.opened_mask_fullres[group_indices, 1, :, -self.padding_fullres:] = 1
 
             #
             # TOPOGRAPHIC TRIANGLE WITH VEGETATION SLOPE
@@ -474,12 +489,15 @@ class Dataset:
                 # Set the boundary conditions
                 #
 
-                # All sides are closed, except the right edge
-                self.closed_mask_fullres[group_indices] = 1
-                self.closed_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:] = 0
+                # The left side is closed (x= dim 1)
+                self.closed_mask_fullres[group_indices, 1, :, :self.padding_fullres] = 1
+
+                # The top side is closed (y = dim 0)
+                self.closed_mask_fullres[group_indices, 0, :self.padding_fullres, :] = 1
+                self.closed_mask_fullres[group_indices, 0, -self.padding_fullres:, :] = 1
 
                 # The right edge is open
-                self.opened_mask_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
+                self.opened_mask_fullres[group_indices, 1, :, -self.padding_fullres:] = 1
 
 
 
@@ -568,6 +586,15 @@ class Dataset:
                 self.h_mask_fullres[group_indices] = torch.rot90(self.h_mask_fullres[group_indices], k=1, dims=(2,3))
                 self.h_cond_fullres[group_indices] = torch.rot90(self.h_cond_fullres[group_indices], k=1, dims=(2,3))
 
+                # For the open and closed masks, the x- and y-directions need to be swapped
+                temp = self.closed_mask_fullres[group_indices, 0]
+                self.closed_mask_fullres[group_indices, 0] = self.closed_mask_fullres[group_indices, 1]
+                self.closed_mask_fullres[group_indices, 1] = temp
+
+                temp = self.opened_mask_fullres[group_indices, 0]
+                self.opened_mask_fullres[group_indices, 0] = self.opened_mask_fullres[group_indices, 1]
+                self.opened_mask_fullres[group_indices, 1] = temp
+
             if orientation == "west":
                 # Rotate PI rads (2 turns) to orient the open boundary towards west
                 # Rotate the initial condition
@@ -601,6 +628,15 @@ class Dataset:
                 self.opened_mask_fullres[group_indices] = torch.rot90(self.opened_mask_fullres[group_indices], k=-1, dims=(2,3))
                 self.h_mask_fullres[group_indices] = torch.rot90(self.h_mask_fullres[group_indices], k=-1, dims=(2,3))
                 self.h_cond_fullres[group_indices] = torch.rot90(self.h_cond_fullres[group_indices], k=-1, dims=(2,3))
+
+                # For the open and closed masks, the x- and y-directions need to be swapped
+                temp = self.closed_mask_fullres[group_indices, 0]
+                self.closed_mask_fullres[group_indices, 0] = self.closed_mask_fullres[group_indices, 1]
+                self.closed_mask_fullres[group_indices, 1] = temp
+
+                temp = self.opened_mask_fullres[group_indices, 0]
+                self.opened_mask_fullres[group_indices, 0] = self.opened_mask_fullres[group_indices, 1]
+                self.opened_mask_fullres[group_indices, 1] = temp
             
             
 
