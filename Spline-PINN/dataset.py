@@ -90,9 +90,9 @@ class Dataset:
         # Environment information
         self.types = [
             "numerical-saltmarsh",
-            "topoflat",
-            "toposlope",
-            "toposlope-curved",
+            # "topoflat",
+            # "toposlope",
+            # "toposlope-curved",
             # "toposharp-vegmax",
             # "toposharp-vegslope"
 
