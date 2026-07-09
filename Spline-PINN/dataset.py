@@ -74,17 +74,17 @@ class Dataset:
         self.imfit_net.load_state_from(f"imfit_output/{self.variables.summary()}") # Immediately load the pre-trained state from disk
         self.imfit_net.eval()
 
-        # Load snapshots from disk
+        # Load snapshots from disk onto CPU memory
         self.num_sfere_samples = self.params.sfere_end - self.params.sfere_start
-        self.sfere_snapshots = torch.zeros(self.num_sfere_samples, 5, 800, 800).to(self.device)
+        self.sfere_snapshots = torch.zeros(self.num_sfere_samples, 5, 800, 800).to(torch.device("cpu"))
 
         for i, snapshot_index in enumerate(range(self.params.sfere_start, self.params.sfere_end)):
             self.sfere_snapshots[i:i+1] = torch.cat([
-                torch.load(f"snapshots-log-slowdown/snapshot_{snapshot_index}/h.pt", map_location=self.device),
-                torch.load(f"snapshots-log-slowdown/snapshot_{snapshot_index}/u.pt", map_location=self.device),
-                torch.load(f"snapshots-log-slowdown/snapshot_{snapshot_index}/v.pt", map_location=self.device),
-                torch.load(f"snapshots-log-slowdown/snapshot_{snapshot_index}/s.pt", map_location=self.device),
-                torch.load(f"snapshots-log-slowdown/snapshot_{snapshot_index}/b.pt", map_location=self.device),
+                torch.load(f"snapshots-log-slowdown/snapshot_{snapshot_index}/h.pt", map_location=torch.device("cpu")),
+                torch.load(f"snapshots-log-slowdown/snapshot_{snapshot_index}/u.pt", map_location=torch.device("cpu")),
+                torch.load(f"snapshots-log-slowdown/snapshot_{snapshot_index}/v.pt", map_location=torch.device("cpu")),
+                torch.load(f"snapshots-log-slowdown/snapshot_{snapshot_index}/s.pt", map_location=torch.device("cpu")),
+                torch.load(f"snapshots-log-slowdown/snapshot_{snapshot_index}/b.pt", map_location=torch.device("cpu")),
             ], dim=1)
 
         # Environment information
@@ -287,20 +287,22 @@ class Dataset:
                     size=(group_size,)
                 )
 
-                # Make a collection of the randomly selected SFERE outputs and pull them through the ImFitCNN
-                selected_sfere_outputs = self.sfere_snapshots[group_sample_idx]
-                imfitted_sfere_outputs = self.imfit_net(selected_sfere_outputs)
+                # Collect the randomly selected SFERE outputs and move them to the GPU
+                selected_sfere_outputs = self.sfere_snapshots[group_sample_idx].to(self.device)
+
+                # Pull them through the Image-Fitting CNN and move the result back to CPU
+                imfitted_sfere_outputs = self.imfit_net(selected_sfere_outputs).cpu()
 
                 #
                 # Set the initial condition
                 #
-                self.hidden_states[group_indices] = imfitted_sfere_outputs.cpu()
+                self.hidden_states[group_indices] = imfitted_sfere_outputs
 
                 # Remove all the water initially and set velocities to zero
-                self.hidden_states[group_indices, self.variables.get_slice_for("h")] = 0
-                self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] = self.params.H0
-                self.hidden_states[group_indices, self.variables.get_slice_for("u")] = 0
-                self.hidden_states[group_indices, self.variables.get_slice_for("v")] = 0
+                # self.hidden_states[group_indices, self.variables.get_slice_for("h")] = 0
+                # self.hidden_states[group_indices, self.variables.get_singular_slice_for("h")] = self.params.H0
+                # self.hidden_states[group_indices, self.variables.get_slice_for("u")] = 0
+                # self.hidden_states[group_indices, self.variables.get_slice_for("v")] = 0
 
                 #
                 # Set the boundary conditions
