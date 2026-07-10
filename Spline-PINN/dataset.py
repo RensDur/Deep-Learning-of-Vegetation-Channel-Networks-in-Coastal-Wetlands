@@ -285,7 +285,7 @@ class Dataset:
                 selected_sfere_outputs = self.sfere_snapshots[group_sample_idx].to(self.device)
 
                 # Pull them through the Image-Fitting CNN and move the result back to CPU
-                imfitted_sfere_outputs = self.imfit_net(selected_sfere_outputs).cpu()
+                imfitted_sfere_outputs = self.imfit_net(selected_sfere_outputs).detach().cpu()
 
                 #
                 # Set the initial condition
