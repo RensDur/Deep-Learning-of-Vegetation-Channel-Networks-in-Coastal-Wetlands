@@ -97,4 +97,4 @@ def main(dataset, snapshot_id):
 
 
 if __name__ == "__main__":
-    main("verify", 499)
+    main("verify", 0)
