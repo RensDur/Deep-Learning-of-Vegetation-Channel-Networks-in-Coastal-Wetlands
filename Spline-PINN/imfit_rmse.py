@@ -49,12 +49,12 @@ def main():
 	imfit_net.eval()
 
 	# Process the images in batches of 50
-	batch_size = 50
+	batch_size = 1
 	processed = 0
 	imfit_outputs = torch.zeros(500, 5, 800, 800)
 
 	while processed < 500:
-		this_batch = min(50, 500 - processed)
+		this_batch = min(batch_size, 500 - processed)
 		batch_slice = slice(processed, processed + this_batch)
 
 		# Process all images through the imfit net
