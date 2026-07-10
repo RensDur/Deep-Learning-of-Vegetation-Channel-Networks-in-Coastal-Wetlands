@@ -32,7 +32,7 @@ def get_Net(params, spline_variables):
 class ShallowWaterUNet(nn.Module):
 	# inspired by UNet taken from: https://github.com/milesial/Pytorch-UNet/blob/master/unet/unet_model.py
 	
-	def __init__(self, spline_variables, hidden_size=64, interpolation_size=12, bilinear=True, input_size=6, residuals=False):
+	def __init__(self, spline_variables, hidden_size=64, interpolation_size=8, bilinear=True, input_size=4, residuals=False):
 		"""
 		:orders_v: order of spline for velocity potential (should be at least 2)
 		:orders_p: order of spline for pressure field
@@ -73,14 +73,14 @@ class ShallowWaterUNet(nn.Module):
 		self.output_scalar = self.output_scalar.to(torch_device)
 		return self
 	
-	def forward(self, hidden_state, closed_mask, opened_mask, h_mask, h_cond):
+	def forward(self, hidden_state, closed_mask, opened_mask):
 		"""
 		:hidden_state: old hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
 		:v_cond: velocity (dirichlet) conditions on boundaries (average value within cell): bs x 2 x w x h
 		:v_mask: mask for boundary conditions (average value within cell): bs x 1 x w x h
 		:return: new hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
 		"""
-		x = torch.cat([closed_mask, opened_mask, h_mask, h_cond],dim=1)
+		x = torch.cat([closed_mask, opened_mask],dim=1)
 		
 		x = self.interpol(x)
 		
