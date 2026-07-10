@@ -70,7 +70,7 @@ class Dataset:
         self.h_cond_fullres = torch.zeros(self.dataset_size, 1, self.width_fullres, self.height_fullres)
 
         # Create a CompoundFitNet (which is a compound of 5 Image Fitting CNNs: one for each variable h u v s b)
-        self.imfit_net = CompoundFitNet(self.variables, self.device)
+        self.imfit_net = CompoundFitNet(self.variables, torch.device("cpu"))
         self.imfit_net.load_state_from(f"imfit_output/{self.variables.summary()}") # Immediately load the pre-trained state from disk
         self.imfit_net.eval()
 
@@ -288,7 +288,7 @@ class Dataset:
                 )
 
                 # Collect the randomly selected SFERE outputs and move them to the GPU
-                selected_sfere_outputs = self.sfere_snapshots[group_sample_idx].to(self.device)
+                selected_sfere_outputs = self.sfere_snapshots[group_sample_idx]
 
                 # Pull them through the Image-Fitting CNN and move the result back to CPU
                 imfitted_sfere_outputs = self.imfit_net(selected_sfere_outputs).detach().cpu()
