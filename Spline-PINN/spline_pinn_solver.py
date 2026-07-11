@@ -429,7 +429,7 @@ class SplinePINNSolver:
                     self.training_sediment = False
                     self.training_vegetation = False
 
-                    if i % 5 == 0:
+                    if i % 4 == 0:
                         self.training_sediment = True
                         self.training_vegetation = True
 
