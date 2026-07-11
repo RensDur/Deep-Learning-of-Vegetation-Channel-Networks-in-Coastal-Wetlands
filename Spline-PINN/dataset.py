@@ -142,8 +142,18 @@ class Dataset:
         self.warmup_reset_at = 1
 
         # Reset all environments
-        print("Resetting all environments")
-        self.reset(range(self.dataset_size))
+        print("Resetting all environments (in batches)")
+
+        processed = 0
+        batch_size = self.params.batch_size
+
+        while processed < self.dataset_size:
+            current_batch = min(batch_size, self.dataset_size - processed)
+
+            print(f"Processing batch {range(processed, processed + current_batch)}")
+
+            self.reset(range(processed, processed + current_batch))
+            processed += current_batch
 
     def hidden_size(self):
         return self.variables.hidden_size()
