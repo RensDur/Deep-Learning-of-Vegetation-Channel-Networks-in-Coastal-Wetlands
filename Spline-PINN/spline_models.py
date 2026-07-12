@@ -85,7 +85,7 @@ class ShallowWaterUNet(nn.Module):
 		"""
 
 		# Prescale the hidden_size by applying the input scalar
-		hidden_state = self.input_scalar * hidden_state
+		hidden_state = hidden_state / self.input_scalar
 
 		x = torch.cat([closed_mask, opened_mask, h_mask, h_cond],dim=1)
 		
@@ -173,7 +173,7 @@ class SedimentUNet(nn.Module):
 		"""
 
 		# Prescale the hidden_size by applying the input scalar
-		hidden_state = self.input_scalar * hidden_state
+		hidden_state = hidden_state / self.input_scalar
 
 		x = torch.cat([closed_mask, opened_mask],dim=1)
 		
@@ -257,7 +257,7 @@ class VegetationUNet(nn.Module):
 		"""
 
 		# Prescale the hidden_size by applying the input scalar
-		hidden_state = self.input_scalar * hidden_state
+		hidden_state = hidden_state / self.input_scalar
 
 		x = torch.cat([closed_mask, opened_mask],dim=1)
 		
