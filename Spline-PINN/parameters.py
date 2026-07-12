@@ -17,7 +17,7 @@ def params():
 	:return: parameter-Namespace
 	"""
 	parser = argparse.ArgumentParser(description='train / test a pytorch model to predict frames')
-	
+
 	# Training parameters
 	parser.add_argument('--n_epochs', default=100000, type=int, help='number of epochs (after each epoch, the model gets saved)')
 	parser.add_argument('--n_batches_per_epoch', default=1000, type=int, help='number of batches per epoch (default: 10000)')
@@ -34,7 +34,7 @@ def params():
 	parser.add_argument('--loss_b', default=1, type=float, help='loss factor for sediment equation')
 	parser.add_argument('--border_weight', default=0, type=float, help='extra weight on fluid domain borders')
 	parser.add_argument('--huber_delta', default=100, type=float, help='Huber Loss: Square loss when |residual| <= threshold, linear outside the threshold')
-	
+
 	parser.add_argument('--lr', default=0.0001, type=float, help='learning rate of ADAM-optimizer (default: 0.0001)')
 	parser.add_argument('--clip_grad_norm', default=None, type=float, help='gradient norm clipping (default: None)')
 	parser.add_argument('--clip_grad_value', default=None, type=float, help='gradient value clipping (default: None)')
@@ -49,7 +49,7 @@ def params():
 	parser.add_argument('--orders_h', default=1, type=int, help='spline order for water layer thickness [h]')
 	parser.add_argument('--orders_u', default=1, type=int, help='spline order for horizontal momentum [u]')
 	parser.add_argument('--orders_v', default=1, type=int, help='spline order for vertical momentum [v]')
-	
+
 	# Setup parameters
 	parser.add_argument('--width', default=200, type=int, help='setup width')
 	parser.add_argument('--height', default=200, type=int, help='setup height')
@@ -58,7 +58,7 @@ def params():
 	# Data parameters
 	parser.add_argument("--sfere_start", default=400, type=int, help='SFERE snapshot starting index (incl)')
 	parser.add_argument("--sfere_end", default=500, type=int, help='SFERE snapshot ending index (excl)')
-
+	parser.add_argument("--ablation_model", default=None, type=str, help='Ablation study model selector (Choose from: 0-100; 100-200; 200-300; 300-400; 400-500.')
 
     # Domain parameters
 	parser.add_argument('--Hin', default=1e-5, type=float, help="")
@@ -88,7 +88,7 @@ def params():
 	parser.add_argument('--morphological_acc_factor', default=44712, type=float, help="Morphological acceleration factor, required for S and B")
 	parser.add_argument('--pEst', default=0.002, type=float, help="Probability of vegetation seedling establishment")
 	parser.add_argument('--dt', default=1, type=float, help='timestep of fluid integrator')
-	
+
 	# Logger / Load parameters
 	parser.add_argument('--plot', default=False, type=str2bool, help='plot during training')
 	parser.add_argument('--log', default=True, type=str2bool, help='log models / metrics during training (turn off for debugging)')
@@ -100,14 +100,16 @@ def params():
 
 	parser.add_argument('--log_csv', default=True, type=str2bool, help='Log training loss in csv')
 	parser.add_argument('--log_tensorboard', default=True, type=str2bool, help='Log training loss in tensorboard')
-	
+
 	# parse parameters
 	params = parser.parse_args()
 	# print(f"Parameters: {vars(params)}")
-	
+
 	return params
 
 def get_description(params):
+    if params.ablation_model is not None:
+        return f"net {params.net}; hs {params.hidden_size}; dt {params.dt}; ablation {params.ablation_model};"
     return f"net {params.net}; hs {params.hidden_size}; dt {params.dt};"
 
 def get_hyperparam_fluid(params):
