@@ -62,8 +62,10 @@ class ShallowWaterUNet(nn.Module):
 		self.up4 = Up(2*hidden_size, hidden_size, bilinear)
 		self.outc = OutConv(hidden_size, self.hidden_output_size)
 
-		self.output_scalar = torch.ones(1, self.hidden_output_size, 1, 1)*2
+		self.input_scalar = torch.ones(1, self.hidden_input_size, 1, 1)*2
+		self.input_scalar[:,spline_variables.get_singular_slice_for("b"),:,:] = 1500
 
+		self.output_scalar = torch.ones(1, self.hidden_output_size, 1, 1)*2
 		self.output_scalar[:,spline_variables.get_singular_slice_for("h"),:,:] = 2
 		self.output_scalar[:,spline_variables.get_singular_slice_for("u"),:,:] = 10
 		self.output_scalar[:,spline_variables.get_singular_slice_for("v"),:,:] = 10
@@ -71,6 +73,7 @@ class ShallowWaterUNet(nn.Module):
 	def to(self, torch_device):
 		super(ShallowWaterUNet, self).to(torch_device)
 		self.output_scalar = self.output_scalar.to(torch_device)
+		self.input_scalar = self.input_scalar.to(torch_device)
 		return self
 	
 	def forward(self, hidden_state, closed_mask, opened_mask, h_mask, h_cond):
@@ -80,6 +83,10 @@ class ShallowWaterUNet(nn.Module):
 		:v_mask: mask for boundary conditions (average value within cell): bs x 1 x w x h
 		:return: new hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
 		"""
+
+		# Prescale the hidden_size by applying the input scalar
+		hidden_state = self.input_scalar * hidden_state
+
 		x = torch.cat([closed_mask, opened_mask, h_mask, h_cond],dim=1)
 		
 		x = self.interpol(x)
@@ -146,11 +153,15 @@ class SedimentUNet(nn.Module):
 		self.up4 = Up(2*hidden_size, hidden_size, bilinear)
 		self.outc = OutConv(hidden_size, self.hidden_output_size)
 
+		self.input_scalar = torch.ones(1, self.hidden_input_size, 1, 1)*2
+		self.input_scalar[:,spline_variables.get_singular_slice_for("b"),:,:] = 1500
+
 		self.output_scalar = torch.ones(1, self.hidden_output_size, 1, 1)*2
 
 	def to(self, torch_device):
 		super(SedimentUNet, self).to(torch_device)
 		self.output_scalar = self.output_scalar.to(torch_device)
+		self.input_scalar = self.input_scalar.to(torch_device)
 		return self
 	
 	def forward(self, hidden_state, closed_mask, opened_mask):
@@ -160,6 +171,10 @@ class SedimentUNet(nn.Module):
 		:v_mask: mask for boundary conditions (average value within cell): bs x 1 x w x h
 		:return: new hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
 		"""
+
+		# Prescale the hidden_size by applying the input scalar
+		hidden_state = self.input_scalar * hidden_state
+
 		x = torch.cat([closed_mask, opened_mask],dim=1)
 		
 		x = self.interpol(x)
@@ -222,11 +237,15 @@ class VegetationUNet(nn.Module):
 		self.up4 = Up(2*hidden_size, hidden_size, bilinear)
 		self.outc = OutConv(hidden_size, self.hidden_output_size)
 
+		self.input_scalar = torch.ones(1, self.hidden_input_size, 1, 1)*2
+		self.input_scalar[:,spline_variables.get_singular_slice_for("b"),:,:] = 1500
+
 		self.output_scalar = torch.ones(1, self.hidden_output_size, 1, 1)*1500
 
 	def to(self, torch_device):
 		super(VegetationUNet, self).to(torch_device)
 		self.output_scalar = self.output_scalar.to(torch_device)
+		self.input_scalar = self.input_scalar.to(torch_device)
 		return self
 	
 	def forward(self, hidden_state, closed_mask, opened_mask):
@@ -236,6 +255,10 @@ class VegetationUNet(nn.Module):
 		:v_mask: mask for boundary conditions (average value within cell): bs x 1 x w x h
 		:return: new hidden state of size: bs x hidden_state_size x (w-1) x (h-1)
 		"""
+
+		# Prescale the hidden_size by applying the input scalar
+		hidden_state = self.input_scalar * hidden_state
+
 		x = torch.cat([closed_mask, opened_mask],dim=1)
 		
 		x = self.interpol(x)
