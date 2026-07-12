@@ -39,6 +39,17 @@ def main(dataset, snapshot_id):
 
         h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = training_dataset.interpolate_superres(imfit_output, resolution_factor=4)
 
+    elif dataset == "benchmark":
+
+        sfere_output = torch.zeros(1, 5, 800, 800)
+
+        for x in range(800):
+            sfere_output[:, :, x:(x+1), :] = torch.sin(torch.pow(torch.Tensor([x]), 1.5) / 200).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 5, 1, 800)
+
+        imfit_output = imfit_net(sfere_output)
+
+        h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = training_dataset.interpolate_superres(imfit_output, resolution_factor=4)
+
     #
     # Compute log loss between the images
     #
@@ -99,4 +110,4 @@ def main(dataset, snapshot_id):
 
 
 if __name__ == "__main__":
-    main("verify", 499)
+    main("benchmark", 499)

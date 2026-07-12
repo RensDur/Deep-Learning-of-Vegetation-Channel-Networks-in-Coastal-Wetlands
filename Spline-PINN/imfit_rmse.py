@@ -1,6 +1,7 @@
 import torch
 import math
 import matplotlib.pyplot as plt
+from matplotlib.patches import Circle
 from imfit_general import CompoundFitNet, FitDataset
 from spline.spline_variable import SplineVariable
 from spline.spline_array import SplineArray
@@ -13,7 +14,7 @@ def root_mean_square_error(img1, img2):
 	denominator = torch.sum(torch.pow(img1 - img1_mean, 2))
 
 
-	return numerator / denominator
+	return torch.pow(numerator / denominator, 0.5)
 
 
 def main():
@@ -81,22 +82,37 @@ def main():
 
 	rmse_per_image_mean_channel = torch.mean(rmse_per_image, dim=1)
 
-	# Plot the resulting RMSE
-	# plt.boxplot([
-	# 	rmse_per_image_mean_channel[0:100],
-	# 	rmse_per_image_mean_channel[100:200],
-	# 	rmse_per_image_mean_channel[200:300],
-	# 	rmse_per_image_mean_channel[300:400],
-	# 	rmse_per_image_mean_channel[400:500],
-	# ])
+	fig, ax = plt.subplots()
 
-	plt.semilogy(rmse_per_image[:, 0], label="h")
-	plt.semilogy(rmse_per_image[:, 1], label="u")
-	plt.semilogy(rmse_per_image[:, 2], label="v")
-	plt.semilogy(rmse_per_image[:, 3], label="s")
-	plt.semilogy(rmse_per_image[:, 4], label="b")
+	plt.title("Relative Image Fitting Error per Sample")
+	plt.xlabel("Sample index n")
+	plt.ylabel("Root Relative Square Error (RRSE) [log]")
 
-	plt.legend()
+	ax.vlines([0, 100, 200, 300, 400, 500], ymin=0, ymax=torch.max(rmse_per_image_mean_channel[1:]), colors="#cccccc55", linestyles="dashed")
+
+	ax.plot(rmse_per_image_mean_channel, label="Relative Error")
+
+	m1 = torch.mean(rmse_per_image_mean_channel[1:100])
+	m2 = torch.mean(rmse_per_image_mean_channel[100:200])
+	m3 = torch.mean(rmse_per_image_mean_channel[200:300])
+	m4 = torch.mean(rmse_per_image_mean_channel[300:400])
+	m5 = torch.mean(rmse_per_image_mean_channel[400:500])
+
+	ax.scatter(
+		[50, 150, 250, 350, 450],
+		[m1, m2, m3, m4, m5],
+		s=100, facecolors="none", edgecolors="C1", linewidths=1.5, label="Mean per category"
+	)
+
+	ax.annotate(f"{m1:.2f}", xy=(50, m1), xytext=(0, 10), textcoords="offset points", ha="center", fontsize=9)
+	ax.annotate(f"{m2:.2f}", xy=(150, m2), xytext=(0, 10), textcoords="offset points", ha="center", fontsize=9)
+	ax.annotate(f"{m3:.2f}", xy=(250, m3), xytext=(0, 10), textcoords="offset points", ha="center", fontsize=9)
+	ax.annotate(f"{m4:.2f}", xy=(350, m4), xytext=(0, 10), textcoords="offset points", ha="center", fontsize=9)
+	ax.annotate(f"{m5:.2f}", xy=(450, m5), xytext=(0, 10), textcoords="offset points", ha="center", fontsize=9)
+
+	ax.set_yscale('log')
+
+	plt.legend(facecolor="#ffffff88")
 	plt.show()
 
 
