@@ -18,7 +18,7 @@ def main(dataset, snapshot_id):
 
     # Load the requested snapshot
     if dataset == "train":
-        
+
         sfere_output = training_dataset.numerical_output_states[snapshot_id:snapshot_id+1]
 
         imfit_output = imfit_net(sfere_output)
@@ -65,7 +65,7 @@ def main(dataset, snapshot_id):
         loss_image = loss_image / torch.max(loss_image)
         loss_image = torch.log(loss_image)
         return loss_image
-    
+
     loss_h = __norm(loss_h)
     loss_u = __norm(loss_u)
     loss_v = __norm(loss_v)
@@ -110,4 +110,4 @@ def main(dataset, snapshot_id):
 
 
 if __name__ == "__main__":
-    main("benchmark", 499)
+    main("verify", 1)
