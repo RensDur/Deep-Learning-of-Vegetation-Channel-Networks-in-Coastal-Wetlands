@@ -85,10 +85,10 @@ class Dataset:
 
         # Environment information
         self.types = [
-            "numerical-saltmarsh",
-            # "topoflat",
-            # "toposlope",
-            # "toposlope-curved",
+            # "numerical-saltmarsh",
+            "topoflat",
+            "toposlope",
+            "toposlope-curved",
             # "toposharp-vegmax",
             # "toposharp-vegslope"
 
@@ -111,11 +111,11 @@ class Dataset:
 
         # Vegetation initial conditions
         self.vegetation_ics = [
-            # "uniform-noise",
-            # "random-gaussians",
-            # "vd-vijsel",
-            # "empty",
-            "elsewhere-specified"
+            "uniform-noise",
+            "random-gaussians",
+            "vd-vijsel",
+            "empty",
+            # "elsewhere-specified"
         ] if vegetation_ics is None else vegetation_ics
 
         self.orientations = [
