@@ -50,6 +50,10 @@ def main(dataset, snapshot_id):
 
         h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = training_dataset.interpolate_superres(imfit_output, resolution_factor=4)
 
+    # Store the vegetation profile
+    torch.save(b.detach().cpu(), f"./imfit_vegetation_ic.pt")
+    exit()
+
     #
     # Compute log loss between the images
     #

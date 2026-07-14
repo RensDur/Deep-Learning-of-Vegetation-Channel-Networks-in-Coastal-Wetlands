@@ -1,4 +1,5 @@
 import torch
+import multiprocessing
 import math
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
@@ -69,47 +70,148 @@ def compute_RRSE(sfere_outputs, training_dataset, imfit_net, torch_device):
 def compute_LPIPS(sfere_outputs, training_dataset, imfit_net, torch_device):
 
     # Process the images in batches of 50
-	batch_size = 4
-	processed = 0
-	num_images = sfere_outputs.shape[0]
-	imfit_outputs = torch.zeros_like(sfere_outputs)
+    batch_size = 4
+    processed = 0
+    num_images = sfere_outputs.shape[0]
+    imfit_outputs = torch.zeros_like(sfere_outputs)
 
-	while processed < num_images:
-		this_batch = min(batch_size, num_images - processed)
-		batch_slice = slice(processed, processed + this_batch)
-		print(f"\rProcessing batch {batch_slice}", end="")
+    while processed < num_images:
+        this_batch = min(batch_size, num_images - processed)
+        batch_slice = slice(processed, processed + this_batch)
+        print(f"\rImage Fitting batch {batch_slice}", end="")
 
-		# Process all images through the imfit net
-		batch_output = imfit_net(sfere_outputs[batch_slice].to(torch_device)).detach()
+        # Process all images through the imfit net
+        batch_output = imfit_net(sfere_outputs[batch_slice].to(torch_device)).detach()
 
-		# Sample all imfit outputs at the same 800x800 resolution as the input images
-		h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = training_dataset.interpolate_superres(batch_output, resolution_factor=4)
+        # Sample all imfit outputs at the same 800x800 resolution as the input images
+        h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = training_dataset.interpolate_superres(batch_output, resolution_factor=4)
 
-		# Stack the corresponding outputs for easier processing
-		batch_output = torch.cat([h, u, v, s, b], dim=1).cpu()
+        # Stack the corresponding outputs for easier processing
+        batch_output = torch.cat([h, u, v, s, b], dim=1).cpu()
 
-		# Store the batch output
-		imfit_outputs[batch_slice] = batch_output
+        # Store the batch output
+        imfit_outputs[batch_slice] = batch_output
 
-		# Process the next batch
-		processed += this_batch
+        # Process the next batch
+        processed += this_batch
 
-	print("")
+    print("")
 
-	# Compute the Root Relative Square Error for each image (separately stacked as 5 channels: h, u, v, S, B)
-	lpips_per_image = torch.zeros(num_images, 5)
+    # Compute the Root Relative Square Error for each image (separately stacked as 5 channels: h, u, v, S, B)
+    lpips_per_image = torch.zeros(num_images, 5)
 
-	for i in range(num_images):
-		for j in range(5):
-			lpips_per_image[i, j] = loss_fn_alex(sfere_outputs[i, j], imfit_outputs[i, j])
+    # Normalise all channels to within [-1, 1]
+    def __normalise(img):
+        img = img - torch.min(img)
+        img = img / torch.max(img)
+        img = (img * 2) - 1
+        return img
 
-	# Compute the combined LPIPS per image (mean of the 5 channels per image)
-	lpips_per_sample = torch.mean(lpips_per_image, dim=1)
+    for i in range(5):
+        sfere_outputs[0, i] = __normalise(sfere_outputs[0, i])
+        imfit_outputs[0, i] = __normalise(imfit_outputs[0, i])
 
-	return lpips_per_sample
+    for sample in range(num_images):
+        print(f"\rComputing LPIPS for image {sample}", end="")
+        for i in range(5):
+            lpips_per_image[sample:(sample+1), i:(i+1)] = loss_fn_alex(
+                sfere_outputs[sample:(sample+1), i:(i+1)].repeat(1, 3, 1, 1).to(torch_device),
+                imfit_outputs[sample:(sample+1), i:(i+1)].repeat(1, 3, 1, 1).to(torch_device)
+            ).detach().cpu()
+
+    print("")
+
+    # Compute the combined LPIPS per image (mean of the 5 channels per image)
+    lpips_per_sample = torch.mean(lpips_per_image, dim=1)
+
+    return lpips_per_sample
+
+
+def plot_RRSE(rrse_per_sample):
+
+    # Plot the resulting Root Relative Square Error per sample
+    fig, ax = plt.subplots()
+
+    plt.title("Relative Image Fitting Error per Sample")
+    plt.xlabel("Sample index n")
+    plt.ylabel("Root Relative Square Error (RRSE) [log]")
+
+    ax.vlines([0, 100, 200, 300, 400, 500], ymin=0, ymax=torch.max(rrse_per_sample[1:]), colors="#cccccc55", linestyles="dashed")
+
+    ax.plot(rrse_per_sample, label="Relative Error")
+
+    m1 = torch.mean(rrse_per_sample[1:100])
+    m2 = torch.mean(rrse_per_sample[100:200])
+    m3 = torch.mean(rrse_per_sample[200:300])
+    m4 = torch.mean(rrse_per_sample[300:400])
+    m5 = torch.mean(rrse_per_sample[400:500])
+
+    ax.scatter(
+    	[50, 150, 250, 350, 450],
+    	[m1, m2, m3, m4, m5],
+    	s=100, facecolors="none", edgecolors="C1", linewidths=1.5, label="Mean per category"
+    )
+
+    ax.annotate(f"{m1:.3f}", xy=(50, m1), xytext=(0, 10), textcoords="offset points", ha="center", fontsize=9)
+    ax.annotate(f"{m2:.3f}", xy=(150, m2), xytext=(0, 10), textcoords="offset points", ha="center", fontsize=9)
+    ax.annotate(f"{m3:.3f}", xy=(250, m3), xytext=(0, 10), textcoords="offset points", ha="center", fontsize=9)
+    ax.annotate(f"{m4:.3f}", xy=(350, m4), xytext=(0, 10), textcoords="offset points", ha="center", fontsize=9)
+    ax.annotate(f"{m5:.3f}", xy=(450, m5), xytext=(0, 10), textcoords="offset points", ha="center", fontsize=9)
+
+    print(f"Average of m1 m2 m3 m4 m5: {torch.mean(torch.Tensor([m1, m2, m3, m4, m5]))}")
+
+    ax.set_yscale('log')
+
+    plt.legend(facecolor="#ffffff88")
+    plt.show()
+
+
+
+def plot_LPIPS(lpips_per_sample):
+
+    # Plot the resulting Root Relative Square Error per sample
+    fig, ax = plt.subplots()
+
+    plt.title("Learned Perceptual Image Patch Similarity (LPIPS) per sample")
+    plt.xlabel("Sample index n")
+    plt.ylabel("Learned Perceptual Image Patch Similarity (LPIPS)")
+
+    ax.vlines([0, 100, 200, 300, 400, 500], ymin=0, ymax=1, colors="#cccccc55", linestyles="dashed")
+
+    ax.plot(lpips_per_sample, label="LPIPS")
+
+    m1 = torch.mean(lpips_per_sample[0:100])
+    m2 = torch.mean(lpips_per_sample[100:200])
+    m3 = torch.mean(lpips_per_sample[200:300])
+    m4 = torch.mean(lpips_per_sample[300:400])
+    m5 = torch.mean(lpips_per_sample[400:500])
+
+    ax.scatter(
+    	[50, 150, 250, 350, 450],
+    	[m1, m2, m3, m4, m5],
+    	s=100, facecolors="none", edgecolors="C1", linewidths=1.5, label="Mean per category"
+    )
+
+    ax.annotate(f"{m1:.3f}", xy=(50, m1), xytext=(0, 10), textcoords="offset points", ha="center", fontsize=9)
+    ax.annotate(f"{m2:.3f}", xy=(150, m2), xytext=(0, 10), textcoords="offset points", ha="center", fontsize=9)
+    ax.annotate(f"{m3:.3f}", xy=(250, m3), xytext=(0, 10), textcoords="offset points", ha="center", fontsize=9)
+    ax.annotate(f"{m4:.3f}", xy=(350, m4), xytext=(0, 10), textcoords="offset points", ha="center", fontsize=9)
+    ax.annotate(f"{m5:.3f}", xy=(450, m5), xytext=(0, 10), textcoords="offset points", ha="center", fontsize=9)
+
+    print(f"Average of m1 m2 m3 m4 m5: {torch.mean(torch.Tensor([m1, m2, m3, m4, m5]))}")
+
+    ax.set_ylim(0, 1)
+
+    plt.legend(facecolor="#ffffff88")
+    plt.show()
 
 
 def main():
+
+    # Find the number of available CPUs, capped at 8
+    NUM_CPUS = min(multiprocessing.cpu_count(), 8)
+    torch.set_num_threads(NUM_CPUS)
+    print(f"Using {NUM_CPUS} threads")
 
     # Select a torch device
     torch_device = torch.device('cpu')  # Default to CPU
@@ -120,6 +222,9 @@ def main():
     elif torch.cuda.is_available():
     	torch_device = torch.device('cuda')
     print(f"Using torch device '{torch_device}'")
+
+    # Move the LPIPS evaluators to the chosen device
+    loss_fn_alex.to(torch_device)
 
     # Load all sfere samples (validation set) from disk
     sfere_outputs = torch.zeros(500, 5, 800, 800)
@@ -142,45 +247,17 @@ def main():
     imfit_net.eval()
 
     # rrse_per_training_sample = compute_RRSE(training_dataset.numerical_output_states[0:100], training_dataset, imfit_net, torch_device)
-    rrse_per_validation_sample = compute_RRSE(sfere_outputs, training_dataset, imfit_net, torch_device)
+    # rrse_per_validation_sample = compute_RRSE(sfere_outputs, training_dataset, imfit_net, torch_device)
+    # print(f"Mean training error: {torch.mean(rrse_per_validation_sample[1:])}")
+    # plot_RRSE(rrse_per_validation_sample)
 
-    print(f"Mean training error: {torch.mean(rrse_per_validation_sample[1:])}")
+    lpips_per_training_sample = compute_LPIPS(training_dataset.numerical_output_states[0:100], training_dataset, imfit_net, torch_device)
+    # lpips_per_validation_sample = compute_LPIPS(sfere_outputs, training_dataset, imfit_net, torch_device)
+    print(f"Mean training error: {torch.mean(lpips_per_training_sample)}")
+    # plot_LPIPS(lpips_per_validation_sample)
 
-    # Plot the resulting Root Relative Square Error per sample
-    fig, ax = plt.subplots()
 
-    plt.title("Relative Image Fitting Error per Sample")
-    plt.xlabel("Sample index n")
-    plt.ylabel("Root Relative Square Error (RRSE) [log]")
 
-    ax.vlines([0, 100, 200, 300, 400, 500], ymin=0, ymax=torch.max(rrse_per_validation_sample[1:]), colors="#cccccc55", linestyles="dashed")
-
-    ax.plot(rrse_per_validation_sample, label="Relative Error")
-
-    m1 = torch.mean(rrse_per_validation_sample[1:100])
-    m2 = torch.mean(rrse_per_validation_sample[100:200])
-    m3 = torch.mean(rrse_per_validation_sample[200:300])
-    m4 = torch.mean(rrse_per_validation_sample[300:400])
-    m5 = torch.mean(rrse_per_validation_sample[400:500])
-
-    ax.scatter(
-    	[50, 150, 250, 350, 450],
-    	[m1, m2, m3, m4, m5],
-    	s=100, facecolors="none", edgecolors="C1", linewidths=1.5, label="Mean per category"
-    )
-
-    ax.annotate(f"{m1:.3f}", xy=(50, m1), xytext=(0, 10), textcoords="offset points", ha="center", fontsize=9)
-    ax.annotate(f"{m2:.3f}", xy=(150, m2), xytext=(0, 10), textcoords="offset points", ha="center", fontsize=9)
-    ax.annotate(f"{m3:.3f}", xy=(250, m3), xytext=(0, 10), textcoords="offset points", ha="center", fontsize=9)
-    ax.annotate(f"{m4:.3f}", xy=(350, m4), xytext=(0, 10), textcoords="offset points", ha="center", fontsize=9)
-    ax.annotate(f"{m5:.3f}", xy=(450, m5), xytext=(0, 10), textcoords="offset points", ha="center", fontsize=9)
-
-    print(f"Average of m1 m2 m3 m4 m5: {torch.mean(torch.Tensor([m1, m2, m3, m4, m5]))}")
-
-    ax.set_yscale('log')
-
-    plt.legend(facecolor="#ffffff88")
-    plt.show()
 
 
 
