@@ -63,7 +63,7 @@ class FitNet(nn.Module):
         # x = torch.relu(x)
         # x = self.conv3(x)
         # x = torch.relu(x)
-        
+
         # Downsampling layers
         # x = self.down1(x)
         # x = torch.relu(x)
@@ -114,7 +114,7 @@ class CompoundFitNet(nn.Module):
                 model = [model]
             for i,m in enumerate(model):
                 m.load_state_dict(state['model{}'.format(i)])
-        
+
         __load_fitnet_state(path, self.nets[0], "h")
         __load_fitnet_state(path, self.nets[1], "u")
         __load_fitnet_state(path, self.nets[2], "v")
@@ -201,7 +201,7 @@ class FitDataset:
             composite_image = torch.cat([output_h, output_u, output_v, output_s, output_b], dim=1)
 
             self.numerical_output_states[i] = composite_image
-        
+
     def ask(self, index=None):
 
         asked_indices = np.random.choice(self.dataset_size, self.batch_size) if index is None else [index]
@@ -430,8 +430,8 @@ def evaluation_routine(torch_device):
     loss_s_df = pd.read_csv(f"./{output_folder}/loss_s.txt")
     loss_b_df = pd.read_csv(f"./{output_folder}/loss_b.txt")
 
-    losses_df = pd.concat([loss_h_df, loss_u_df, loss_v_df, loss_s_df, loss_b_df], axis=1) 
-    
+    losses_df = pd.concat([loss_h_df, loss_u_df, loss_v_df, loss_s_df, loss_b_df], axis=1)
+
 
     #
     # EVALUATION
@@ -459,6 +459,12 @@ def evaluation_routine(torch_device):
     vegetation_plot = axs[1, 1].imshow(initial_img[0,0].clone().detach().cpu().numpy(), cmap="YlGn", vmin=0, vmax=1500)
     losses_df.plot(ax=axs[1, 2])
 
+    axs[1, 2].set(
+        title="ImFit-CNN Training Loss",
+        xlabel="Training iterations",
+        ylabel="Log Square Loss (bias +1E-4)"
+    )
+
 
     # setting title
     axs[0, 0].set(title="Water Layer Thickness", xlabel="Cross shore", ylabel="Along shore")
@@ -482,7 +488,7 @@ def evaluation_routine(torch_device):
 
     global running
     running = True
-    
+
     def __on_figure_close(event):
         global running
         running = False
@@ -522,7 +528,7 @@ def main():
     NUM_CPUS = min(multiprocessing.cpu_count(), 8)
     torch.set_num_threads(NUM_CPUS)
     print(f"Using {NUM_CPUS} threads")
-    
+
     # GPU acceleration
     torch_device = torch.device("cpu")
 
