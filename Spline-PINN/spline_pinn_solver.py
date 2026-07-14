@@ -660,11 +660,14 @@ class SplinePINNSolver:
 
                 if sim_index % window.interval == 0:
                     # Interpolate spline coefficients to obtain the necessary quantities
-                    h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = self.dataset.interpolate_superres(new_hidden_state, self.params.resolution_factor)
+                    h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = self.dataset.interpolate_superres(old_hidden_state, self.params.resolution_factor)
 
                     # Display water level thickness h
                     window.set_data(h[0,0], u[0,0], v[0,0], s[0,0], b[0,0], sim_index)
                     # window.append_loss(loss_h, loss_u, loss_v, loss_s, loss_b)
+
+                    # Uncomment the following line to store images in their respective ablation study folder:
+                    # torch.save(torch.cat([h, u, v, s, b], dim=1), f"./ablation_output/ablation {self.params.ablation_model}/iteration_{sim_index}.pt")
 
                 sim_index += 1
 
