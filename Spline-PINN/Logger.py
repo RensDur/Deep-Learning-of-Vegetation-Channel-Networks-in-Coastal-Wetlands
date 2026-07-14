@@ -60,6 +60,7 @@ class Logger():
 				raise Exception("Unable to walk logger directory to find latest date-time")
 
 		collection = []
+		iteration_indices = None
 
 		for item in items:
 			filename = 'Logger/{}/{}/logs/{}.log'.format(self.name,datetime,item)
@@ -67,10 +68,17 @@ class Logger():
 			# Read the logs from the csv file and add the value column to the collection
 			item_df = pd.read_csv(filename)
 			collection.append(item_df[item])
-		
-		return pd.concat(collection, axis=1)
 
-	
+            # When not yet loaded, load the iteration index from the first item (they're identical across items)
+			if iteration_indices is None:
+			    iteration_indices = item_df["Index"]
+
+		# Append the indices to the dataframe
+		collection.append(iteration_indices)
+
+		return pd.concat(collection, axis=1).set_index("Index")
+
+
 	def log(self,item,value,index):
 		"""
 		log index value couple for specific item into csv file / tensorboard

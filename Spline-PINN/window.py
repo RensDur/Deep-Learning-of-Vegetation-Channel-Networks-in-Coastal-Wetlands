@@ -112,7 +112,13 @@ class PerformanceSummaryWindow:
         self.is_open = False
 
     def set_training_loss(self, training_loss):
-        training_loss.plot(ax=self.loss_figure.add_subplot(111))
+        plt_ax = self.loss_figure.add_subplot(111)
+        training_loss.plot(ax=plt_ax)
+        plt_ax.set(
+            title="Training Loss",
+            xlabel="Training iteration",
+            ylabel="Log square loss (bias +1E-4)"
+        )
 
     def open(self):
 
