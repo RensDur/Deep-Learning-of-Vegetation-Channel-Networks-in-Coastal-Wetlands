@@ -312,8 +312,8 @@ class SplinePINNSolver:
         #
         self.optimizer = Adam([
             {"params": self.water_net.parameters(), "lr": self.params.lr},
-            # {"params": self.sediment_net.parameters(), "lr": self.params.lr},
-            # {"params": self.vegetation_net.parameters(), "lr": self.params.lr},
+            {"params": self.sediment_net.parameters(), "lr": self.params.lr},
+            {"params": self.vegetation_net.parameters(), "lr": self.params.lr},
         ])
         self.optimizer = PCGrad(self.optimizer)
 
