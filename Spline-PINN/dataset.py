@@ -65,23 +65,23 @@ class Dataset:
         self.closed_mask_fullres = torch.zeros(self.dataset_size, 2, self.width_fullres, self.height_fullres)
         self.opened_mask_fullres = torch.zeros(self.dataset_size, 2, self.width_fullres, self.height_fullres)
 
-        # # Create a CompoundFitNet (which is a compound of 5 Image Fitting CNNs: one for each variable h u v s b)
-        # self.imfit_net = CompoundFitNet(self.variables, self.device)
-        # self.imfit_net.load_state_from(f"imfit_output/{self.variables.summary()}") # Immediately load the pre-trained state from disk
-        # self.imfit_net.eval()
+        # Create a CompoundFitNet (which is a compound of 5 Image Fitting CNNs: one for each variable h u v s b)
+        self.imfit_net = CompoundFitNet(self.variables, self.device)
+        self.imfit_net.load_state_from(f"imfit_output/{self.variables.summary()}") # Immediately load the pre-trained state from disk
+        self.imfit_net.eval()
 
-        # # Load snapshots from disk onto CPU memory
-        # self.num_sfere_samples = self.params.sfere_end - self.params.sfere_start
-        # self.sfere_snapshots = torch.zeros(self.num_sfere_samples, 5, 800, 800).to(torch.device("cpu"))
+        # Load snapshots from disk onto CPU memory
+        self.num_sfere_samples = self.params.sfere_end - self.params.sfere_start
+        self.sfere_snapshots = torch.zeros(self.num_sfere_samples, 5, 800, 800).to(torch.device("cpu"))
 
-        # for i, snapshot_index in enumerate(range(self.params.sfere_start, self.params.sfere_end)):
-        #     self.sfere_snapshots[i:i+1] = torch.cat([
-        #         torch.load(f"snapshots-log-slowdown/snapshot_{snapshot_index}/h.pt", map_location=torch.device("cpu")),
-        #         torch.load(f"snapshots-log-slowdown/snapshot_{snapshot_index}/u.pt", map_location=torch.device("cpu")),
-        #         torch.load(f"snapshots-log-slowdown/snapshot_{snapshot_index}/v.pt", map_location=torch.device("cpu")),
-        #         torch.load(f"snapshots-log-slowdown/snapshot_{snapshot_index}/s.pt", map_location=torch.device("cpu")),
-        #         torch.load(f"snapshots-log-slowdown/snapshot_{snapshot_index}/b.pt", map_location=torch.device("cpu")),
-        #     ], dim=1)
+        for i, snapshot_index in enumerate(range(self.params.sfere_start, self.params.sfere_end)):
+            self.sfere_snapshots[i:i+1] = torch.cat([
+                torch.load(f"snapshots-log-slowdown/snapshot_{snapshot_index}/h.pt", map_location=torch.device("cpu")),
+                torch.load(f"snapshots-log-slowdown/snapshot_{snapshot_index}/u.pt", map_location=torch.device("cpu")),
+                torch.load(f"snapshots-log-slowdown/snapshot_{snapshot_index}/v.pt", map_location=torch.device("cpu")),
+                torch.load(f"snapshots-log-slowdown/snapshot_{snapshot_index}/s.pt", map_location=torch.device("cpu")),
+                torch.load(f"snapshots-log-slowdown/snapshot_{snapshot_index}/b.pt", map_location=torch.device("cpu")),
+            ], dim=1)
 
         # Environment information
         self.types = [
