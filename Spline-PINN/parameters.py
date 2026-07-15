@@ -45,7 +45,7 @@ def params():
 	
 	# Network parameters
 	parser.add_argument('--net', default="ShallowWaterUNet + SedimentUNet + VegetationUNet", type=str, help='network to train', choices=["Shortcut","Shortcut2","Shortcut2_residual","Shortcut4","Shortcut4_residual","Shortcut3","Fluid_model","Wave_model"])
-	parser.add_argument('--hidden_size', default=20, type=int, help='hidden size of network (default: 20)')
+	parser.add_argument('--hidden_size', default=25, type=int, help='hidden size of network (default: 20)')
 	parser.add_argument('--orders_h', default=1, type=int, help='spline order for water layer thickness [h]')
 	parser.add_argument('--orders_u', default=1, type=int, help='spline order for horizontal momentum [u]')
 	parser.add_argument('--orders_v', default=1, type=int, help='spline order for vertical momentum [v]')
