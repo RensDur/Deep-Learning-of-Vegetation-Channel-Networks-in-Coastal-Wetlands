@@ -294,7 +294,7 @@ class SplinePINNSolver:
         loss_bound = loss_bound / self.params.n_samples
 
         # Normalize vegetation loss for scale-difference
-        # loss_b = loss_b / self.params.k**2
+        loss_b = loss_b / self.params.k**2
 
         return loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound
 
