@@ -63,12 +63,17 @@ class ShallowWaterUNet(nn.Module):
 		self.outc = OutConv(hidden_size, self.hidden_output_size)
 
 		self.input_scalar = torch.ones(1, self.hidden_input_size, 1, 1)*2
+		self.input_scalar[:,spline_variables.get_singular_slice_for("h"),:,:] = 2
+		self.input_scalar[:,spline_variables.get_singular_slice_for("u"),:,:] = 5
+		self.input_scalar[:,spline_variables.get_singular_slice_for("v"),:,:] = 5
+		self.input_scalar[:,spline_variables.get_singular_slice_for("s"),:,:] = 2
+		self.input_scalar[:,spline_variables.get_slice_for("b"),:,:] = 500
 		self.input_scalar[:,spline_variables.get_singular_slice_for("b"),:,:] = 1500
 
 		self.output_scalar = torch.ones(1, self.hidden_output_size, 1, 1)*2
 		self.output_scalar[:,spline_variables.get_singular_slice_for("h"),:,:] = 2
-		self.output_scalar[:,spline_variables.get_singular_slice_for("u"),:,:] = 10
-		self.output_scalar[:,spline_variables.get_singular_slice_for("v"),:,:] = 10
+		self.output_scalar[:,spline_variables.get_singular_slice_for("u"),:,:] = 5
+		self.output_scalar[:,spline_variables.get_singular_slice_for("v"),:,:] = 5
 
 	def to(self, torch_device):
 		super(ShallowWaterUNet, self).to(torch_device)
@@ -154,9 +159,15 @@ class SedimentUNet(nn.Module):
 		self.outc = OutConv(hidden_size, self.hidden_output_size)
 
 		self.input_scalar = torch.ones(1, self.hidden_input_size, 1, 1)*2
+		self.input_scalar[:,spline_variables.get_singular_slice_for("h"),:,:] = 2
+		self.input_scalar[:,spline_variables.get_singular_slice_for("u"),:,:] = 5
+		self.input_scalar[:,spline_variables.get_singular_slice_for("v"),:,:] = 5
+		self.input_scalar[:,spline_variables.get_singular_slice_for("s"),:,:] = 2
+		self.input_scalar[:,spline_variables.get_slice_for("b"),:,:] = 500
 		self.input_scalar[:,spline_variables.get_singular_slice_for("b"),:,:] = 1500
 
 		self.output_scalar = torch.ones(1, self.hidden_output_size, 1, 1)*2
+		self.output_scalar[:,0,:,:] = 2
 
 	def to(self, torch_device):
 		super(SedimentUNet, self).to(torch_device)
@@ -238,9 +249,15 @@ class VegetationUNet(nn.Module):
 		self.outc = OutConv(hidden_size, self.hidden_output_size)
 
 		self.input_scalar = torch.ones(1, self.hidden_input_size, 1, 1)*2
+		self.input_scalar[:,spline_variables.get_singular_slice_for("h"),:,:] = 2
+		self.input_scalar[:,spline_variables.get_singular_slice_for("u"),:,:] = 5
+		self.input_scalar[:,spline_variables.get_singular_slice_for("v"),:,:] = 5
+		self.input_scalar[:,spline_variables.get_singular_slice_for("s"),:,:] = 2
+		self.input_scalar[:,spline_variables.get_slice_for("b"),:,:] = 500
 		self.input_scalar[:,spline_variables.get_singular_slice_for("b"),:,:] = 1500
 
-		self.output_scalar = torch.ones(1, self.hidden_output_size, 1, 1)*1500
+		self.output_scalar = torch.ones(1, self.hidden_output_size, 1, 1)*500
+		self.output_scalar[:,0,:,:] = 1500
 
 	def to(self, torch_device):
 		super(VegetationUNet, self).to(torch_device)
