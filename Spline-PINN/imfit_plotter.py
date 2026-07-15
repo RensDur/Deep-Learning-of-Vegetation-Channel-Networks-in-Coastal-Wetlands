@@ -18,7 +18,7 @@ def main(dataset, snapshot_id):
 
     # Load the requested snapshot
     if dataset == "train":
-        
+
         sfere_output = training_dataset.numerical_output_states[snapshot_id:snapshot_id+1]
 
         imfit_output = imfit_net(sfere_output)
@@ -39,6 +39,21 @@ def main(dataset, snapshot_id):
 
         h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = training_dataset.interpolate_superres(imfit_output, resolution_factor=4)
 
+    elif dataset == "benchmark":
+
+        sfere_output = torch.zeros(1, 5, 800, 800)
+
+        for x in range(800):
+            sfere_output[:, :, x:(x+1), :] = torch.sin(torch.pow(torch.Tensor([x]), 1.5) / 200).unsqueeze(1).unsqueeze(2).unsqueeze(3).repeat(1, 5, 1, 800)
+
+        imfit_output = imfit_net(sfere_output)
+
+        h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = training_dataset.interpolate_superres(imfit_output, resolution_factor=4)
+
+    # Store the vegetation profile
+    torch.save(b.detach().cpu(), f"./imfit_vegetation_ic.pt")
+    exit()
+
     #
     # Compute log loss between the images
     #
@@ -54,7 +69,7 @@ def main(dataset, snapshot_id):
         loss_image = loss_image / torch.max(loss_image)
         loss_image = torch.log(loss_image)
         return loss_image
-    
+
     loss_h = __norm(loss_h)
     loss_u = __norm(loss_u)
     loss_v = __norm(loss_v)
@@ -89,6 +104,8 @@ def main(dataset, snapshot_id):
     loss_plot_s = axs[2, 3].imshow(loss_s, cmap="gray", vmin=-10)
     loss_plot_b = axs[2, 4].imshow(loss_b, cmap="gray", vmin=-10)
 
+    plt.colorbar(loss_plot_s)
+
 
     plt.show()
 
@@ -97,4 +114,4 @@ def main(dataset, snapshot_id):
 
 
 if __name__ == "__main__":
-    main("verify", 499)
+    main("verify", 1)

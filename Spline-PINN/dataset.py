@@ -151,7 +151,7 @@ class Dataset:
             current_batch = min(batch_size, self.dataset_size - processed)
 
             print(f"Processing batch {range(processed, processed + current_batch)}")
-
+            
             self.reset(range(processed, processed + current_batch))
             processed += current_batch
 
