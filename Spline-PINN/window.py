@@ -86,11 +86,11 @@ class PerformanceSummaryWindow:
         self.loss_ax.set_xticks(np.arange(0, self.stages * self.interval, self.interval))
 
         # Create all the image plots
-        self.h_img_plots = [self.h_axs[col].imshow(self.h[col,0].detach().cpu().numpy(), cmap="Blues", vmin=0, vmax=0.1) for col in range(self.stages)]
-        self.u_img_plots = [self.u_axs[col].imshow(self.u[col,0].detach().cpu().numpy(), cmap="bwr", vmin=-0.5, vmax=0.5) for col in range(self.stages)]
-        self.v_img_plots = [self.v_axs[col].imshow(self.v[col,0].detach().cpu().numpy(), cmap="bwr", vmin=-0.5, vmax=0.5) for col in range(self.stages)]
-        self.s_img_plots = [self.s_axs[col].imshow(self.s[col,0].detach().cpu().numpy(), cmap="YlOrBr", vmin=0, vmax=0.2) for col in range(self.stages)]
-        self.b_img_plots = [self.b_axs[col].imshow(self.b[col,0].detach().cpu().numpy(), cmap="YlGn", vmin=0,  vmax=1400) for col in range(self.stages)]
+        self.h_img_plots = [self.h_axs[col].imshow(self.h[col,0].detach().cpu().numpy(), cmap="Blues", vmin=0, vmax=0.2) for col in range(self.stages)]
+        self.u_img_plots = [self.u_axs[col].imshow(self.u[col,0].detach().cpu().numpy(), cmap="bwr", vmin=-1, vmax=1) for col in range(self.stages)]
+        self.v_img_plots = [self.v_axs[col].imshow(self.v[col,0].detach().cpu().numpy(), cmap="bwr", vmin=-1, vmax=1) for col in range(self.stages)]
+        self.s_img_plots = [self.s_axs[col].imshow(self.s[col,0].detach().cpu().numpy(), cmap="YlOrBr", vmin=0, vmax=0.3) for col in range(self.stages)]
+        self.b_img_plots = [self.b_axs[col].imshow(self.b[col,0].detach().cpu().numpy(), cmap="YlGn", vmin=0,  vmax=1500) for col in range(self.stages)]
 
         # Create loss plots
         self.h_loss_plot = self.loss_ax.plot(range(self.h_loss_data.shape[0]), self.h_loss_data, label="h-loss")[0]
