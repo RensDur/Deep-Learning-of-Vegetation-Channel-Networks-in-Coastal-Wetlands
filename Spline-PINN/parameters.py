@@ -56,7 +56,7 @@ def params():
 	parser.add_argument('--separation', default=0.05, type=float, help='cell separation in meters')
 
 	# Data parameters
-	parser.add_argument("--sfere_start", default=400, type=int, help='SFERE snapshot starting index (incl)')
+	parser.add_argument("--sfere_start", default=0, type=int, help='SFERE snapshot starting index (incl)')
 	parser.add_argument("--sfere_end", default=500, type=int, help='SFERE snapshot ending index (excl)')
 	parser.add_argument("--ablation_model", default=None, type=str, help='Ablation study model selector (Choose from: 0-100; 100-200; 200-300; 300-400; 400-500.')
 

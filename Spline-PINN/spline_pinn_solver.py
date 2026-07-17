@@ -329,7 +329,7 @@ class SplinePINNSolver:
         h, grad_h, laplacian_h, u, grad_u, laplacian_u, v, grad_v, laplacian_v, s, grad_s, laplacian_s, b, grad_b, laplacian_b = self.dataset.interpolate_superres(old_hidden_state, 4)
 
         # Use timestep calculated as 0.0125 x 44712 [SFERE's dt x morphacc] = +/- 500
-        dt = (0.0125 * 44712) / self.params.dt
+        # dt = (0.0125 * 44712) / self.params.dt
 
         #
         # Precalculations
@@ -375,8 +375,8 @@ class SplinePINNSolver:
         ds_dt = self.params.Sin * (he / (self.params.Qs + he)) - self.params.Es * (1.0 - self.params.pE * (b / self.params.k)) * s * tau_b_per_rho + div_Ds_grad_S
         db_dt = self.params.r * b * (1.0 - (b/self.params.k)) * (self.params.Qq / (self.params.Qq + he)) - self.params.EB * b * tau_b_per_rho + self.params.DB * laplacian_b
 
-        s = s + ds_dt * dt
-        b = b + db_dt * dt
+        s = s + ds_dt * (self.params.dt * self.params.morphological_acc_factor)
+        b = b + db_dt * (self.params.dt * self.params.morphological_acc_factor)
 
         #
         # Enforce boundary conditions for S and B
