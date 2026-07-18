@@ -18,7 +18,7 @@ def get_Net(params, spline_variables):
 			ShallowWaterUNet(spline_variables, hidden_size=params.hidden_size),
 			SedimentUNet(spline_variables, hidden_size=params.hidden_size)
 		)
-	elif params.net == "ShallowWaterUNet + SedimentUNet + VegetationUNet":
+	elif params.net == "ShallowWaterUNet + SedimentUNet + VegetationUNet" or params.net == "ShallowWaterUNet + Hybrid":
 		net = (
 			ShallowWaterUNet(spline_variables, hidden_size=params.hidden_size),
 			SedimentUNet(spline_variables, hidden_size=params.hidden_size),
