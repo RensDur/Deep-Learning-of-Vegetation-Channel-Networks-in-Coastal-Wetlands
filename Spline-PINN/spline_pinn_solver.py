@@ -393,13 +393,13 @@ class SplinePINNSolver:
 
                 # After 2 epochs of training, start prioritizing training the hydrodynamics over sediment and vegetation
                 # S & B converge much quicker, therefore after 2 epochs we can start only training S & B every so many iterations
-                if epoch >= 2:
-                    self.training_sediment = False
-                    self.training_vegetation = False
+                # if epoch >= 2:
+                #     self.training_sediment = False
+                #     self.training_vegetation = False
 
-                    if i % 4 == 0:
-                        self.training_sediment = True
-                        self.training_vegetation = True
+                #     if i % 4 == 0:
+                #         self.training_sediment = True
+                #         self.training_vegetation = True
 
                 # Ask for a batch from the dataset
                 old_hidden_state, closed_mask, opened_mask, grid_offsets, sample_closed_masks, sample_opened_masks = self.dataset.ask()
