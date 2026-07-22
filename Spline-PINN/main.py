@@ -44,11 +44,22 @@ def main():
     # Create solver
     solver = spline_pinn_solver.SplinePINNSolver(data, params, torch_device)
 
+    # Whether or not to print loss images
+    print_loss_images = False
+
+    # Window dimensions
+    window_width = params.width * params.resolution_factor
+    window_height = params.height * params.resolution_factor
+
+    if print_loss_images:
+        window_width = 198
+        window_height = 198
+
     # Spawn a MultiView window
-    window = PerformanceSummaryWindow_Hydrology(params.width * params.resolution_factor, params.height * params.resolution_factor, 6, 200)
+    window = PerformanceSummaryWindow_Hydrology(window_width, window_height, 6, 200, print_loss_images)
 
     # Visualize the output
-    solver.visualize(window)
+    solver.visualize(window, print_loss_images)
 
 
 if __name__ == "__main__":
