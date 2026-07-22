@@ -51,7 +51,7 @@ class Logger():
 
 		if datetime == None:
 			for _,dirs,_ in os.walk('Logger/{}/'.format(self.name)):
-				datetime = sorted(dirs)[-1]
+				datetime = sorted(dirs)[0] # ALWAYS SELECT THE FIRST ENTRY IN THE FOLDER (FOR OLD ABLATION RESULTS, WITHOUT VARIABLE SCALING!!)
 				if datetime == self.datetime:
 					datetime = sorted(dirs)[-2]
 				break
@@ -254,7 +254,7 @@ class Logger():
 		
 		if datetime is None:
 			for _,dirs,_ in os.walk('Logger/{}/'.format(self.name)):
-				datetime = sorted(dirs)[-1]
+				datetime = sorted(dirs)[0] # ALWAYS SELECT THE FIRST ENTRY IN THE FOLDER (FOR OLD ABLATION RESULTS, WITHOUT VARIABLE SCALING!!)
 				if datetime == self.datetime:
 					datetime = sorted(dirs)[-2]
 				break
