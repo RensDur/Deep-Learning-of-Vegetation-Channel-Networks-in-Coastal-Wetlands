@@ -119,6 +119,7 @@ class PerformanceSummaryWindow:
             xlabel="Training iteration",
             ylabel="Log square loss (bias +1E-4)"
         )
+        plt_ax.set_ylim(-9.6, 1)
 
     def open(self):
 
