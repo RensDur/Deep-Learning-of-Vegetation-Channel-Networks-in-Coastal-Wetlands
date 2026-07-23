@@ -277,7 +277,7 @@ class PerformanceSummaryWindow_Hydrology:
             # self.b_axs[i].tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
 
         # Titles and labels
-        self.h_axs[0].set(title=f"Iteration: 1", ylabel="h")
+        self.h_axs[0].set(title=f"Iteration: 0", ylabel="h")
         for i in range(1, self.stages):
             self.h_axs[i].set(title=f"{i*self.interval}")
 
@@ -300,8 +300,8 @@ class PerformanceSummaryWindow_Hydrology:
             self.v_img_plots = [self.v_axs[col].imshow(self.v[col,0].detach().cpu().numpy(), cmap="gray", vmin=-10) for col in range(self.stages)]
         else:
             self.h_img_plots = [self.h_axs[col].imshow(self.h[col,0].detach().cpu().numpy(), cmap="Blues", vmin=0, vmax=0.1) for col in range(self.stages)]
-            self.u_img_plots = [self.u_axs[col].imshow(self.u[col,0].detach().cpu().numpy(), cmap="bwr", vmin=-0.5, vmax=0.5) for col in range(self.stages)]
-            self.v_img_plots = [self.v_axs[col].imshow(self.v[col,0].detach().cpu().numpy(), cmap="bwr", vmin=-0.5, vmax=0.5) for col in range(self.stages)]
+            self.u_img_plots = [self.u_axs[col].imshow(self.u[col,0].detach().cpu().numpy(), cmap="bwr", vmin=-1, vmax=1) for col in range(self.stages)]
+            self.v_img_plots = [self.v_axs[col].imshow(self.v[col,0].detach().cpu().numpy(), cmap="bwr", vmin=-1, vmax=1) for col in range(self.stages)]
         # self.s_img_plots = [self.s_axs[col].imshow(self.s[col,0].detach().cpu().numpy(), cmap="YlOrBr", vmin=0, vmax=0.2) for col in range(self.stages)]
         # self.b_img_plots = [self.b_axs[col].imshow(self.b[col,0].detach().cpu().numpy(), cmap="YlGn", vmin=0,  vmax=1400) for col in range(self.stages)]
 
