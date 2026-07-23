@@ -438,8 +438,8 @@ class SplinePINNSolver:
                 loss_h = loss_h * self.params.loss_h
                 loss_u = loss_u * self.params.loss_momentum
                 loss_v = loss_v * self.params.loss_momentum
-                loss_s = loss_s * self.params.loss_s
-                loss_b = loss_b * self.params.loss_b
+                loss_s = loss_s * self.params.loss_s * (self.params.morphological_acc_factor**2)
+                loss_b = loss_b * self.params.loss_b * (self.params.morphological_acc_factor**2)
                 loss_bound = loss_bound * self.params.loss_bound
 
                 # Log loss (per term)
