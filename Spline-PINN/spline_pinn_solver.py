@@ -454,7 +454,12 @@ class SplinePINNSolver:
             # Store the newly obtained result in the dataset
             self.dataset.tell(new_hidden_state)
 
-            window.set_data(h[0,0], u[0,0], v[0,0], u[0,0], v[0,0])
+            # Prepare a boundary mask for the visualisation
+            # Upsample the uv_mask with the resolution_factor
+            upsampler = torch.nn.Upsample(scale_factor=self.params.resolution_factor)
+            vis_mask = upsampler(uv_mask)
+
+            window.set_data(h[0,0], u[0,0], v[0,0], u[0,0], v[0,0], vis_mask[0,0])
             window.update()
 
 

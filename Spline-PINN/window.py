@@ -227,6 +227,9 @@ class MultiWindow:
         self.s = torch.zeros(1, 1, height, width)
         self.b = torch.zeros(1, 1, height, width)
 
+        # Initial boundary overlay
+        self.bound_overlay = torch.zeros(height, width, 4) # RGBA to support transparency
+
         # Matplotlib interactive mode
         plt.ion()
 
@@ -246,6 +249,12 @@ class MultiWindow:
         self.momentum_v_plot = self.axs[0, 2].imshow(self.v[0,0].clone().detach().cpu().numpy(), cmap="bwr", vmin=-1, vmax=1, alpha=self.img_alpha)
         self.sediment_plot = self.axs[1, 0].imshow(self.s[0,0].clone().detach().cpu().numpy(), cmap="YlOrBr", vmin=0, vmax=0.2, alpha=self.img_alpha)
         self.vegetation_plot = self.axs[1, 1].imshow(self.b[0,0].clone().detach().cpu().numpy(), cmap="YlGn", vmin=0, vmax=1500, alpha=self.img_alpha)
+
+        self.water_overlay = self.axs[0, 0].imshow(self.bound_overlay)
+        self.momentum_u_overlay = self.axs[0, 1].imshow(self.bound_overlay)
+        self.momentum_v_overlay = self.axs[0, 2].imshow(self.bound_overlay)
+        self.sediment_overlay = self.axs[1, 0].imshow(self.bound_overlay)
+        self.vegetation_overlay = self.axs[1, 1].imshow(self.bound_overlay)
 
         # Title and axes configuration
         self.axs[0, 0].set(title="Water Layer Thickness", xlabel="Cross shore", ylabel="Along shore")
@@ -301,13 +310,21 @@ class MultiWindow:
         # Toggling the window closed will stop the ui thread
         self.is_open = False
 
-    def set_data(self, h, u, v, s, b):
+    def set_data(self, h, u, v, s, b, vis_mask):
 
         self.water_plot.set_data(h.detach().cpu().numpy())
         self.momentum_u_plot.set_data(u.detach().cpu().numpy())
         self.momentum_v_plot.set_data(v.detach().cpu().numpy())
         self.sediment_plot.set_data(s.detach().cpu().numpy())
         self.vegetation_plot.set_data(b.detach().cpu().numpy())
+
+        self.bound_overlay[:, :, 3] = vis_mask
+
+        self.water_overlay.set_data(self.bound_overlay)
+        self.momentum_u_overlay.set_data(self.bound_overlay)
+        self.momentum_v_overlay.set_data(self.bound_overlay)
+        self.sediment_overlay.set_data(self.bound_overlay)
+        self.vegetation_overlay.set_data(self.bound_overlay)
 
     def set_loss(self, loss_h, loss_u, loss_v, loss_s, loss_b):
 
