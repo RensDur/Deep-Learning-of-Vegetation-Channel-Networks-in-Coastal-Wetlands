@@ -138,6 +138,13 @@ class Dataset:
         self.uv_mask_fullres[indices] = 1
         self.uv_mask_fullres[indices, :, self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
 
+        # Uncomment to create circular basins
+        # for x in range(-self.width_fullres//2, self.width_fullres//2):
+        #     for y in range(-self.height_fullres//2, self.height_fullres//2):
+        #         if (x**2 + y**2 <= (self.width_fullres//2 - self.padding_fullres)**2):
+        #             # Inside the circle
+        #             self.uv_mask_fullres[indices, :, self.height_fullres//2+y, self.width_fullres//2+x] = 0
+
         # Velocity condition zero
         self.uv_cond_fullres[indices] = 0
 
@@ -283,7 +290,8 @@ class Dataset:
         self.uv_mask[indices] = F.avg_pool2d(self.uv_mask_fullres[indices],self.resolution_factor)
         
         # Update the time for each environment
-        self.env_time[indices] = self.env_time[indices] + math.pi / 10.0
+        freq = 1/40
+        self.env_time[indices] = self.env_time[indices] + (2 * math.pi) * freq * self.params.dt
         
 
     def ask(self):
