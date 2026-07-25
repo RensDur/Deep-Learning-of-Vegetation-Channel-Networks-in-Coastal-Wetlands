@@ -244,7 +244,8 @@ class MultiWindow:
 
         self.img_alpha = 1
 
-        self.water_plot = self.axs[0, 0].imshow(self.h[0,0].clone().detach().cpu().numpy(), cmap="Blues", vmin=-0.15, vmax=0.15, alpha=self.img_alpha)
+        self.water_plot = self.axs[0, 0].imshow(self.h[0,0].clone().detach().cpu().numpy(), cmap="Blues", vmin=-0.2, vmax=0.2, alpha=self.img_alpha)
+        # self.water_plot = self.axs[0, 0].imshow(self.h[0,0].clone().detach().cpu().numpy(), cmap="GnBu", vmin=-0.025, vmax=0.025, alpha=self.img_alpha)
         self.momentum_u_plot = self.axs[0, 1].imshow(self.u[0,0].clone().detach().cpu().numpy(), cmap="bwr", vmin=-1, vmax=1, alpha=self.img_alpha)
         self.momentum_v_plot = self.axs[0, 2].imshow(self.v[0,0].clone().detach().cpu().numpy(), cmap="bwr", vmin=-1, vmax=1, alpha=self.img_alpha)
         self.sediment_plot = self.axs[1, 0].imshow(self.s[0,0].clone().detach().cpu().numpy(), cmap="YlOrBr", vmin=0, vmax=0.2, alpha=self.img_alpha)

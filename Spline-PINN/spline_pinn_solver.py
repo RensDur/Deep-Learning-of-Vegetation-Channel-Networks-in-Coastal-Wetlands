@@ -437,8 +437,10 @@ class SplinePINNSolver:
         window.set_training_loss(training_loss)
         window.open()
 
+        sim_index = 0
+
         # Simulation loop
-        while window.is_open:
+        while window.is_open and sim_index < 25:
 
             # Ask for a batch from the dataset
             old_hidden_state, h_cond, h_mask, uv_cond, uv_mask, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks = self.dataset.ask()
@@ -460,6 +462,13 @@ class SplinePINNSolver:
             vis_mask = upsampler(uv_mask)
 
             window.set_data(h[0,0], u[0,0], v[0,0], u[0,0], v[0,0], vis_mask[0,0])
+            # window.update()
+
+            sim_index += 1
+            print(f"\rFinished {sim_index} iterations", end="")
+
+        # Keep the window open after finishing the last frame
+        while window.is_open:
             window.update()
 
 

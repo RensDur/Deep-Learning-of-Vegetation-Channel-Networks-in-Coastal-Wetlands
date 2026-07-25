@@ -27,8 +27,8 @@ def main():
     print(f"Using torch device '{torch_device}'")
 
     # Initialize randomization seeds
-    torch.manual_seed(0)
-    np.random.seed(0)
+    torch.manual_seed(5)
+    np.random.seed(5)
 
     # Because we're visualizing, create only one domain
     params.dataset_size = 1
