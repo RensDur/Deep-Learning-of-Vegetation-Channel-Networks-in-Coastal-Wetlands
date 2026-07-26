@@ -230,6 +230,18 @@ class Dataset:
                 barrier_thickness = 10 * self.resolution_factor
                 self.uv_mask_fullres[group_indices,:, 0:(self.height_fullres//2), (self.width_fullres//2-barrier_thickness//2):(self.width_fullres//2+barrier_thickness//2)+1] = 1
 
+                # Complex obstacle shape (two corners of a squircle)
+                # circle_radius = 200
+
+                # for x in range(-circle_radius, -50):
+                #     for y in range(-circle_radius, -50):
+                #         if (x**4 + y**4 <= circle_radius**4 and x**4 + y**4 > (circle_radius-30)**4):
+                #             self.uv_mask_fullres[group_indices, :, self.height_fullres//2 + y, self.width_fullres//2 + 100 + x] = 1
+                            
+                #     for y in range(50, circle_radius):
+                #         if (x**4 + y**4 <= circle_radius**4 and x**4 + y**4 > (circle_radius-30)**4):
+                #             self.uv_mask_fullres[group_indices, :, self.height_fullres//2 + y, self.width_fullres//2 + 100 + x] = 1
+
                 # Set the masks and conditions
                 self.uv_cond_fullres[group_indices,:,self.padding_fullres:-self.padding_fullres, self.padding_fullres:-self.padding_fullres] = 0
                 self.uv_cond_fullres[group_indices] = self.uv_cond_fullres[group_indices] * self.h_mask_fullres[group_indices]
@@ -290,7 +302,7 @@ class Dataset:
         self.uv_mask[indices] = F.avg_pool2d(self.uv_mask_fullres[indices],self.resolution_factor)
         
         # Update the time for each environment
-        freq = 1/40
+        freq = 1/8
         self.env_time[indices] = self.env_time[indices] + (2 * math.pi) * freq * self.params.dt
         
 
