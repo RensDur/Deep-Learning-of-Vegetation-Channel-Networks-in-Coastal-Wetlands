@@ -4,7 +4,7 @@ import numpy as np
 import parameters
 import dataset
 import spline_pinn_solver
-from window import MultiWindow, PerformanceSummaryWindow
+from window import MultiWindow, PerformanceSummaryWindow, PerformanceSummaryWindow_Hydrology
 
 def main():
 
@@ -45,7 +45,7 @@ def main():
     solver = spline_pinn_solver.SplinePINNSolver(data, params, torch_device)
 
     # Spawn a MultiView window
-    window = PerformanceSummaryWindow(params.width * params.resolution_factor, params.height * params.resolution_factor, 10, 5)
+    window = PerformanceSummaryWindow_Hydrology(params.width * params.resolution_factor, params.height * params.resolution_factor, 6, 200)
 
     # Visualize the output
     solver.visualize(window)
