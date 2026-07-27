@@ -92,7 +92,7 @@ def params():
 	# Logger / Load parameters
 	parser.add_argument('--plot', default=False, type=str2bool, help='plot during training')
 	parser.add_argument('--log', default=True, type=str2bool, help='log models / metrics during training (turn off for debugging)')
-	parser.add_argument('--load_date_time', default=None, type=str, help='date_time of run to load (default: None)')
+	parser.add_argument('--load_date_time', default='2026-07-25 18:17:20', type=str, help='date_time of run to load (default: None)')
 	parser.add_argument('--load_index', default=None, type=int, help='index of run to load (default: None)')
 	parser.add_argument('--n_warmup_steps', default=None, type=int, help='number of warm up steps to perform when loading model in order to initialize dataset (default: None)')
 	parser.add_argument('--load_optimizer', default=False, type=str2bool, help='load state of optimizer (default: True)')
