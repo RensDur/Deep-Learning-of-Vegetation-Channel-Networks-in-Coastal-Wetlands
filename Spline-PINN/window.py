@@ -42,12 +42,12 @@ class PerformanceSummaryWindow:
         # Create subplots
         self.figure = plt.figure(figsize=(20, 10))
 
-        self.h_axs = [plt.subplot2grid((6, self.stages), (0, col), colspan=1) for col in range(self.stages)]
-        self.u_axs = [plt.subplot2grid((6, self.stages), (1, col), colspan=1) for col in range(self.stages)]
-        self.v_axs = [plt.subplot2grid((6, self.stages), (2, col), colspan=1) for col in range(self.stages)]
-        self.s_axs = [plt.subplot2grid((6, self.stages), (3, col), colspan=1) for col in range(self.stages)]
-        self.b_axs = [plt.subplot2grid((6, self.stages), (4, col), colspan=1) for col in range(self.stages)]
-        self.loss_ax = plt.subplot2grid((6, self.stages), (5, 0), colspan=self.stages)
+        self.h_axs = [plt.subplot2grid((6, 1+self.stages), (0, col), colspan=1) for col in range(self.stages)]
+        self.u_axs = [plt.subplot2grid((6, 1+self.stages), (1, col), colspan=1) for col in range(self.stages)]
+        self.v_axs = [plt.subplot2grid((6, 1+self.stages), (2, col), colspan=1) for col in range(self.stages)]
+        self.s_axs = [plt.subplot2grid((6, 1+self.stages), (3, col), colspan=1) for col in range(self.stages)]
+        self.b_axs = [plt.subplot2grid((6, 1+self.stages), (4, col), colspan=1) for col in range(self.stages)]
+        self.loss_ax = plt.subplot2grid((6, 1+self.stages), (5, 0), colspan=self.stages)
         plt.tight_layout()
 
         # Custom spacing
@@ -69,9 +69,9 @@ class PerformanceSummaryWindow:
             self.b_axs[i].tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
 
         # Titles and labels
-        self.h_axs[0].set(title=f"Iteration: 0", ylabel="h")
+        self.h_axs[0].set(title=f"{self.interval}", ylabel="h")
         for i in range(1, self.stages):
-            self.h_axs[i].set(title=f"{i*self.interval}")
+            self.h_axs[i].set(title=f"{(i+1)*self.interval}")
 
         self.u_axs[0].set(ylabel="u")
         self.v_axs[0].set(ylabel="v")
@@ -90,7 +90,7 @@ class PerformanceSummaryWindow:
         self.u_img_plots = [self.u_axs[col].imshow(self.u[col,0].detach().cpu().numpy(), cmap="bwr", vmin=-1, vmax=1) for col in range(self.stages)]
         self.v_img_plots = [self.v_axs[col].imshow(self.v[col,0].detach().cpu().numpy(), cmap="bwr", vmin=-1, vmax=1) for col in range(self.stages)]
         self.s_img_plots = [self.s_axs[col].imshow(self.s[col,0].detach().cpu().numpy(), cmap="YlOrBr", vmin=0, vmax=0.5) for col in range(self.stages)]
-        self.b_img_plots = [self.b_axs[col].imshow(self.b[col,0].detach().cpu().numpy(), cmap="YlGn", vmin=0,  vmax=1500) for col in range(self.stages)]
+        self.b_img_plots = [self.b_axs[col].imshow(self.b[col,0].detach().cpu().numpy(), cmap="YlGn", vmin=0,  vmax=50) for col in range(self.stages)]
 
         # Create loss plots
         self.h_loss_plot = self.loss_ax.plot(range(self.h_loss_data.shape[0]), self.h_loss_data, label="h-loss")[0]
@@ -156,7 +156,7 @@ class PerformanceSummaryWindow:
 
     def set_data(self, h, u, v, s, b, index):
 
-        if index % self.interval == 0:
+        if index % self.interval == 0 and index > 0:
             stage = self.current_stage
 
             if stage == self.stages:
@@ -170,6 +170,18 @@ class PerformanceSummaryWindow:
                 self.v_img_plots[stage].set_data(v.detach().cpu().numpy())
                 self.s_img_plots[stage].set_data(s.detach().cpu().numpy())
                 self.b_img_plots[stage].set_data(b.detach().cpu().numpy())
+
+            actual_stage = index // self.interval
+
+            if actual_stage > self.stages:
+                num_cycles = actual_stage //self.stages
+
+                # Update the titles and labels
+                self.h_axs[0].set(title=f"{num_cycles * self.stages * self.interval + self.interval}", ylabel="h")
+                for i in range(1, self.stages):
+                    self.h_axs[i].set(title=f"{(i+1)*self.interval + num_cycles * self.stages * self.interval}")
+
+                
 
     def append_loss(self, loss_h, loss_u, loss_v, loss_s, loss_b):
 
