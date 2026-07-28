@@ -4,7 +4,7 @@ import numpy as np
 import parameters
 import dataset
 import spline_pinn_solver
-from window import MultiWindow, PerformanceSummaryWindow
+from window import MultiWindow, PerformanceSummaryWindow, PerformanceSummaryWindow_Hydrology
 
 def main():
 
