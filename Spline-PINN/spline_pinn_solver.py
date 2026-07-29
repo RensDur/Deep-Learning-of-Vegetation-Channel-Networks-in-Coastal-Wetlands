@@ -440,7 +440,7 @@ class SplinePINNSolver:
         sim_index = 0
 
         # Simulation loop
-        while window.is_open and sim_index < 50:
+        while window.is_open and sim_index < window.num_frames:
 
             # Ask for a batch from the dataset
             old_hidden_state, h_cond, h_mask, uv_cond, uv_mask, grid_offsets, sample_h_conds, sample_h_masks, sample_uv_conds, sample_uv_masks = self.dataset.ask()

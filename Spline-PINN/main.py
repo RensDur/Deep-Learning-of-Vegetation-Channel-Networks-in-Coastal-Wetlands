@@ -5,6 +5,7 @@ import parameters
 import dataset
 import spline_pinn_solver
 from window import MultiWindow
+from videoplayer import VideoChannel, VideoPlayer
 
 def main():
 
@@ -47,8 +48,17 @@ def main():
     # Create window
     win = MultiWindow(params.width * params.resolution_factor, params.height * params.resolution_factor)
 
+    # Create video player
+    video_channels = [
+        VideoChannel("h", (-0.2, 0.2), "Blues"),
+        VideoChannel("u", (-1, 1), "bwr"),
+        VideoChannel("v", (-1, 1), "bwr")
+    ]
+
+    video_player = VideoPlayer(params.width * params.resolution_factor, params.height * params.resolution_factor, video_channels, 300, 24)
+
     # Visualize the output
-    solver.visualize(win)
+    solver.visualize(video_player)
 
 
 if __name__ == "__main__":
