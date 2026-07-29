@@ -55,7 +55,7 @@ def main():
         VideoChannel("v", (-1, 1), "bwr")
     ]
 
-    video_player = VideoPlayer(params.width * params.resolution_factor, params.height * params.resolution_factor, video_channels, 300, 24)
+    video_player = VideoPlayer(params.width * params.resolution_factor, params.height * params.resolution_factor, video_channels, 60, 24)
 
     # Visualize the output
     solver.visualize(video_player)
