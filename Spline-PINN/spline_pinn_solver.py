@@ -298,6 +298,104 @@ class SplinePINNSolver:
 
         return loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound
 
+    def solve_morphology_numerical(self, old_hidden_state, closed_mask, opened_mask):
+        """
+        Numerical implementation for the sedimentary bed elevation and vegetation stem density.
+        Implemented by sampling the spline image at 800x800, solving numerically and image-fitting back to a hidden spline representation.
+        """
+
+        # Interpolate spline coefficients to obtain regular images for each quantity (and gradients)
+        # Use resolution factor 4 to obtain an 800x800 image
+        h, grad_h, laplacian_h, u, grad_u, laplacian_u, v, grad_v, laplacian_v, s, grad_s, laplacian_s, b, grad_b, laplacian_b = self.dataset.interpolate_superres(old_hidden_state, 4)
+
+        # Use timestep calculated as 0.0125 x 44712 [SFERE's dt x morphacc] = +/- 500
+        # dt = (0.0125 * 44712) / self.params.dt
+
+        #
+        # Precalculations
+        #
+
+        # Add mean water level height
+        h_before_relu = h
+        h = F.softplus(h - self.params.Hc) + self.params.Hc
+
+        #
+        # Derive bed friction coefficients
+        #
+
+        # n: Manning's coefficient
+        n = self.params.nb  + (self.params.nv - self.params.nb) * b / self.params.k
+
+        # Cz: Chezy coefficient
+        chezy = (1.0 / n) * torch.pow(h, 1.0 / 6.0)
+
+        # Bed friction components
+        # Add really small value to u2+v2 to prevent dividing by zero in backprop (deriv of sqroot is 1/sqrt)
+        tau_precalc = (self.params.grav / torch.pow(chezy, 2)) * torch.pow(torch.pow(u, 2) + torch.pow(v, 2) + 1e-12, 0.5)
+        tau_bx_per_rho = tau_precalc * u
+        tau_by_per_rho = tau_precalc * v
+        tau_b_per_rho  = (self.params.grav / torch.pow(chezy, 2)) * (torch.pow(u, 2) + torch.pow(v, 2))
+
+        # Effective water height
+        he = h - self.params.Hc
+
+        # Compute topographic diffusion term (\/(Ds\/S)) (Ds is a field)
+        Ds = self.params.D0 * (1.0 - self.params.pD * (b / self.params.k))
+        grad_Ds = - ((self.params.D0 * self.params.pD) / self.params.k) * grad_b
+
+        gradDs_dot_gradS = grad_Ds[:, 1:2] * grad_s[:, 1:2] + grad_Ds[:, 0:1] * grad_s[:, 0:1]
+
+        # Full divergence term
+        div_Ds_grad_S = Ds * laplacian_s + gradDs_dot_gradS
+
+        #
+        # Compute numerical update steps for S and B
+        #
+
+        ds_dt = self.params.Sin * (he / (self.params.Qs + he)) - self.params.Es * (1.0 - self.params.pE * (b / self.params.k)) * s * tau_b_per_rho + div_Ds_grad_S
+        db_dt = self.params.r * b * (1.0 - (b/self.params.k)) * (self.params.Qq / (self.params.Qq + he)) - self.params.EB * b * tau_b_per_rho + self.params.DB * laplacian_b
+
+        s = s + ds_dt * (self.params.dt * self.params.morphological_acc_factor)
+        b = b + db_dt * (self.params.dt * self.params.morphological_acc_factor)
+
+        #
+        # Enforce boundary conditions for S and B
+        # This can be done by considering that (1-opened_mask)*s sets all s-values at the open boundary to zero which is the prescribed BC for s
+        # This is also the only BC that is not zero-grad, so all other boundaries are trivial
+        #
+
+        # Upsample the opened_mask to 800x800
+        upsampler = torch.nn.Upsample(scale_factor=4)
+        opened_mask = upsampler(opened_mask)
+
+        # Zero-grad at all boundaries
+        # s zerograd everywhere except open bound
+        s[:,:,:,0] = s[:,:,:,1]
+        s[:,:,:,-1] = s[:,:,:,-2]
+        s[:,:,0,:] = s[:,:,1,:]
+        s[:,:,-1,:] = s[:,:,-2,:]
+
+        # b zerograd everywhere
+        b[:,:,:,0] = b[:,:,:,1]
+        b[:,:,:,-1] = b[:,:,:,-2]
+        b[:,:,0,:] = b[:,:,1,:]
+        b[:,:,-1,:] = b[:,:,-2,:]
+
+        # Open boundary: S = 0
+        s = s * (1 - opened_mask)
+
+        #
+        # Image Fitting
+        # Use the image fitting CNN to convert 800x800 images S and B to spline latent space
+        #
+
+        new_hidden_state = self.dataset.imfit_net(
+            torch.cat([h, u, v, s, b], dim=1)
+        ).detach()
+
+        return self.dataset.variables.extract_from(new_hidden_state, "s"), self.dataset.variables.extract_from(new_hidden_state, "b")
+
+
     def train(self):
         """
         TRAINING ROUTINE
@@ -422,6 +520,13 @@ class SplinePINNSolver:
 
                 # Compile the full new hidden state
                 new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment, new_hidden_state_vegetation], dim=1)
+
+                # Hybrid: Compute update steps for S and B numerically if not training with S and B
+                if not self.training_sediment and not self.training_vegetation:
+                    new_hidden_state_sediment, new_hidden_state_vegetation = self.solve_morphology_numerical(new_hidden_state, closed_mask, opened_mask)
+
+                    # Re-compile the full new hidden state
+                    new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment, new_hidden_state_vegetation], dim=1)
 
                 dim = [1,2,3]
                 loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, dim)
@@ -608,6 +713,13 @@ class SplinePINNSolver:
                 # Compile the full new hidden state
                 new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment, new_hidden_state_vegetation], dim=1)
 
+                # Hybrid: Compute update steps for S and B numerically if not training with S and B
+                if not self.training_sediment and not self.training_vegetation:
+                    new_hidden_state_sediment, new_hidden_state_vegetation = self.solve_morphology_numerical(new_hidden_state, closed_mask, opened_mask)
+
+                    # Re-compile the full new hidden state
+                    new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment, new_hidden_state_vegetation], dim=1)
+
                 # dim = [1]
                 # loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, dim)
 
@@ -647,7 +759,7 @@ class SplinePINNSolver:
 
                 if sim_index % window.interval == 0:
                     # Interpolate spline coefficients to obtain the necessary quantities
-                    h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = self.dataset.interpolate_superres(old_hidden_state, self.params.resolution_factor)
+                    h, grad_h, laplacian_h, u, grad_u, laplacian_u, v, grad_v, laplacian_v, s, grad_s, laplacian_s, b, grad_b, laplacian_b = self.dataset.interpolate_superres(old_hidden_state, self.params.resolution_factor)
 
                     # Display water level thickness h
                     window.set_data(h[0,0], u[0,0], v[0,0], s[0,0], b[0,0], sim_index)
@@ -739,4 +851,3 @@ class SplinePINNSolver:
 
                 # Store the newly obtained result in the dataset
                 self.dataset.tell(h, u, v, random_reset=False)
-

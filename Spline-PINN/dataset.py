@@ -875,18 +875,18 @@ class Dataset:
         """
 
         # h field: requires first derivative
-        h, grad_h, _ = self.variables["h"].interpolate_superres_at(self.variables.extract_from(hidden_states, "h"), resolution_factor)
+        h, grad_h, laplacian_h = self.variables["h"].interpolate_superres_at(self.variables.extract_from(hidden_states, "h"), resolution_factor)
 
         # u field: requires first derivative + laplace
-        u, grad_u, _ = self.variables["u"].interpolate_superres_at(self.variables.extract_from(hidden_states, "u"), resolution_factor)
+        u, grad_u, laplacian_u = self.variables["u"].interpolate_superres_at(self.variables.extract_from(hidden_states, "u"), resolution_factor)
 
         # v field: requires first derivative + laplace
-        v, grad_v, _ = self.variables["v"].interpolate_superres_at(self.variables.extract_from(hidden_states, "v"), resolution_factor)
+        v, grad_v, laplacian_v = self.variables["v"].interpolate_superres_at(self.variables.extract_from(hidden_states, "v"), resolution_factor)
 
         # s field: requires first derivative + laplace
-        s, grad_s, _ = self.variables["s"].interpolate_superres_at(self.variables.extract_from(hidden_states, "s"), resolution_factor)
+        s, grad_s, laplacian_s = self.variables["s"].interpolate_superres_at(self.variables.extract_from(hidden_states, "s"), resolution_factor)
 
         # b field: requires first derivative + laplace
-        b, grad_b, _ = self.variables["b"].interpolate_superres_at(self.variables.extract_from(hidden_states, "b"), resolution_factor)
+        b, grad_b, laplacian_b = self.variables["b"].interpolate_superres_at(self.variables.extract_from(hidden_states, "b"), resolution_factor)
 
-        return h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b
+        return h, grad_h, laplacian_h, u, grad_u, laplacian_u, v, grad_v, laplacian_v, s, grad_s, laplacian_s, b, grad_b, laplacian_b
