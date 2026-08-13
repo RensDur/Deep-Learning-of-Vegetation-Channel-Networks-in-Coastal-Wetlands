@@ -56,11 +56,11 @@ class SplinePINNSolver:
         #
         # Training Stage
         #
-        self.training_sediment = True
-        self.training_sediment_start_epoch = 0
+        self.training_sediment = False
+        self.training_sediment_start_epoch = 5
 
-        self.training_vegetation = True
-        self.training_vegetation_start_epoch = 0
+        self.training_vegetation = False
+        self.training_vegetation_start_epoch = 5
 
         #
         # Diffusion operation (needed, if we want to put more loss-weight to regions close to the domain boundaries)
@@ -488,6 +488,14 @@ class SplinePINNSolver:
 
             # Each epoch consists of a configurable number of batches.
             for i in range(self.params.n_batches_per_epoch):
+
+                if epoch >= self.training_sediment_start_epoch and not self.training_sediment:
+                    self.training_sediment = True
+                    print(f"\nSTARTING TO TRAIN SEDIMENT NET\n")
+
+                if epoch >= self.training_vegetation_start_epoch and not self.training_vegetation:
+                    self.training_vegetation = True
+                    print(f"\nSTARTING TO TRAIN VEGETATION NET\n")
 
                 # After 2 epochs of training, start prioritizing training the hydrodynamics over sediment and vegetation
                 # S & B converge much quicker, therefore after 2 epochs we can start only training S & B every so many iterations
