@@ -303,7 +303,16 @@ class SplinePINNSolver:
             v
         ), dim)
 
+
+        # To have the option of separately using the different boundary loss terms, treat them separately first and then combine them
+        loss_bound_closed = loss_bound_closed / self.params.n_samples
+        loss_bound_open = loss_bound_open / self.params.n_samples
+        loss_bound_h = loss_bound_h / self.params.n_samples
+        loss_bound_aux = loss_bound_aux / self.params.n_samples
+
+        # Combined boundary loss
         loss_bound = loss_bound_closed + loss_bound_open + loss_bound_h + loss_bound_aux
+        
 
         # Normalize towards the number of samples taken
         loss_h = loss_h / self.params.n_samples
@@ -311,12 +320,12 @@ class SplinePINNSolver:
         loss_v = loss_v / self.params.n_samples
         loss_s = loss_s / self.params.n_samples
         loss_b = loss_b / self.params.n_samples
-        loss_bound = loss_bound / self.params.n_samples
+        # loss_bound = loss_bound / self.params.n_samples # Boundary loss has already been normalised by n_samples above (separately per term)
 
         # Normalize vegetation loss for scale-difference
         loss_b = loss_b / self.params.k**2
 
-        return loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound
+        return loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound, (loss_bound_closed, loss_bound_open, loss_bound_h, loss_bound_aux)
 
     def train(self):
         """
@@ -444,7 +453,7 @@ class SplinePINNSolver:
                 new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment, new_hidden_state_vegetation], dim=1)
 
                 dim = [1,2,3]
-                loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, sample_h_masks, sample_h_conds, dim)
+                loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound, _ = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, sample_h_masks, sample_h_conds, dim)
 
                 # Compute the mean loss
                 loss_h = torch.mean(loss_h)
@@ -628,7 +637,7 @@ class SplinePINNSolver:
 
                     if print_loss_images:
                         dim = [0, 1]
-                        loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, sample_h_masks, sample_h_conds, dim)
+                        loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound, (loss_bound_closed, loss_bound_open, loss_bound_h, loss_bound_aux) = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, sample_h_masks, sample_h_conds, dim)
                         
                         def __norm(loss_image):
                             loss_image = loss_image - torch.min(loss_image)
