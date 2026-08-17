@@ -5,6 +5,7 @@ import parameters
 import dataset
 import spline_pinn_solver
 from window import *
+from videoplayer import VideoChannel, VideoPlayer
 
 def main():
 
@@ -57,6 +58,20 @@ def main():
 
     # Spawn a MultiView window
     window = PerformanceSummaryWindow_Hydrology(window_width, window_height, 6, 200, print_loss_images)
+
+    # # Create video player
+    # video_channels = [
+    #     VideoChannel("h", (-0.2, 0.2), "Blues"),
+    #     VideoChannel("u", (-1, 1), "bwr"),
+    #     VideoChannel("v", (-1, 1), "bwr"),
+    #     VideoChannel("S", (0, 0.5), "YlOrBr"),
+    #     VideoChannel("B", (0, 1500), "YlGn")
+    # ]
+
+    # video_player = VideoPlayer(params.width * params.resolution_factor, params.height * params.resolution_factor, video_channels, 60, 24)
+
+    # # Visualize the output
+    # solver.visualize(video_player, print_loss_images)
 
     # Visualize the output
     solver.visualize(window, print_loss_images)
