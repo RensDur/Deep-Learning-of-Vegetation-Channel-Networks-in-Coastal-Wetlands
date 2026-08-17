@@ -90,8 +90,8 @@ def main():
 
     print(f"Loaded all items from disk; computing characteristic scale for each sample")
 
-    # Characteristic scales per variable h, u and v
-    characteristic_scales = torch.zeros(500, 3)
+    # Characteristic scales per variable h, u, v, BC-closed and BC-open
+    characteristic_scales = torch.zeros(500, 5)
 
     # Load parameters
     params = Parameters()
@@ -119,8 +119,8 @@ def main():
         tau_bx_per_rho = tau_precalc * u
         tau_by_per_rho = tau_precalc * v
 
-        u_scale_local = torch.abs(d_dx(h) + d_dx(s)) + torch.abs(u * d_dx(u)) + torch.abs(v * d_dy(u)) + torch.abs(tau_bx_per_rho / h) + torch.abs(d2_dx2(u) + d2_dy2(u))
-        v_scale_local = torch.abs(d_dy(h) + d_dy(s)) + torch.abs(u * d_dx(v)) + torch.abs(v * d_dy(v)) + torch.abs(tau_by_per_rho / h) + torch.abs(d2_dx2(v) + d2_dy2(v))
+        u_scale_local = torch.abs(d_dx(h)) + torch.abs(d_dx(s)) + torch.abs(u * d_dx(u)) + torch.abs(v * d_dy(u)) + torch.abs(tau_bx_per_rho / h) + torch.abs(d2_dx2(u) + d2_dy2(u))
+        v_scale_local = torch.abs(d_dy(h)) + torch.abs(d_dy(s)) + torch.abs(u * d_dx(v)) + torch.abs(v * d_dy(v)) + torch.abs(tau_by_per_rho / h) + torch.abs(d2_dx2(v) + d2_dy2(v))
 
         # Compute 90th percentile
         u_scale_90th_percentile = torch.quantile(u_scale_local.flatten(), 0.9)
@@ -129,11 +129,33 @@ def main():
         characteristic_scales[i, 1] = u_scale_90th_percentile
         characteristic_scales[i, 2] = v_scale_90th_percentile
 
+        # Compute boundary term magnitude [CLOSED | OPEN] over boundary band of width 5%
+        boundary_band_width = int(800 * 0.05)
+
+        bc_closed_scale_local = torch.abs(d_dx(h)) + torch.abs(d_dy(h)) + torch.abs(u) + torch.abs(v)
+        bc_closed_scale_local[0, 0, boundary_band_width:, boundary_band_width:-boundary_band_width] = 0 # Remove everything that's not included in the closed boundary band
+
+        bc_open_scale_local = torch.abs(d_dx(h)) + torch.abs(d_dy(h))
+        bc_open_scale_local[0, 0, :-boundary_band_width, :] = 0 # Remove everything that's not included in the open boundary band
+
+        # Compute 90th percentile
+        bc_closed_90th_percentile = torch.quantile(bc_closed_scale_local.flatten(), 0.9)
+        bc_open_90th_percentile = torch.quantile(bc_open_scale_local.flatten(), 0.9)
+
+        characteristic_scales[i, 3] = bc_closed_90th_percentile
+        characteristic_scales[i, 4] = bc_open_90th_percentile
+
+
+    # Store the characteristic scales per sample and per variable to disk
+    torch.save(characteristic_scales.detach().cpu(), f"./snapshots-log-slowdown/characteristic_scales_per_sample.pt")
+
 
 
     plt.plot(characteristic_scales[:, 0])
     plt.plot(characteristic_scales[:, 1])
     plt.plot(characteristic_scales[:, 2])
+    plt.plot(characteristic_scales[:, 3])
+    plt.plot(characteristic_scales[:, 4])
     plt.show()
     
 
