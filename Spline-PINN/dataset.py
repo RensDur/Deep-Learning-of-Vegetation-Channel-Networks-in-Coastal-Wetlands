@@ -765,6 +765,72 @@ class Dataset:
                 sample_opened_mask, \
                 sample_h_mask, \
                 sample_h_cond
+
+    def ask_all_ordered(self):
+        """
+		:return:
+			grids:
+				hidden_state					-> shape: bs x hidden_size x (w-1) x (h-1)
+				boundary-features:
+					u_cond						-> shape: bs x 1 x w x h
+					u_mask (continuous) 		-> shape: bs x 1 x w x h differentiable renderer would allow for differentiable geometries
+					v_cond						-> shape: bs x 1 x w x h
+					v_mask (continuous) 		-> shape: bs x 1 x w x h differentiable renderer would allow for differentiable geometries
+			sample-grids:
+				- grid-offsets (x,y,t) 			-> shape: bs x 3 x 1 x 1 (values between 0,1; all offsets are the same within an "image" - otherwise: bsx3xwxh)
+				- sample_u_cond					-> shape: bs x 1 x w x h
+				- sample_u_mask (boolean)		-> shape: bs x 1 x w x h
+				- sample_v_cond					-> shape: bs x 1 x w x h
+				- sample_v_mask (boolean)		-> shape: bs x 1 x w x h
+		"""
+
+        # Store which indices we gather in the batch, so we can
+        # update the corresponding environments upon 'tell' after 'ask'
+        self.asked_indices = [i for i in range(self.dataset_size)]
+
+        # Update the environments before sending them out
+        self.update(self.asked_indices)
+
+        # Compute grid offsets and sample BCs
+        grid_offsets = []
+        sample_closed_mask = []
+        sample_opened_mask = []
+        sample_h_mask = []
+        sample_h_cond = []
+
+        for _ in range(self.n_samples):
+
+            # Grid offsets
+            offset = torch.rand(3)
+            grid_offsets.append(offset)
+
+            x_offset = min(int(self.resolution_factor*offset[0]),self.resolution_factor-1)
+            y_offset = min(int(self.resolution_factor*offset[1]),self.resolution_factor-1)
+
+            sample_closed_mask.append(self.closed_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
+            sample_opened_mask.append(self.opened_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
+            sample_h_mask.append(self.h_mask_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
+            sample_h_cond.append(self.h_cond_fullres[self.asked_indices,:,x_offset::self.resolution_factor,y_offset::self.resolution_factor])
+
+        # Move all data to the desired device
+        for i in range(self.n_samples):
+            grid_offsets[i] = grid_offsets[i].to(self.device)
+            sample_closed_mask[i] = sample_closed_mask[i].to(self.device)
+            sample_opened_mask[i] = sample_opened_mask[i].to(self.device)
+            sample_h_mask[i] = sample_h_mask[i].to(self.device)
+            sample_h_cond[i] = sample_h_cond[i].to(self.device)
+
+        # Return the hidden states and boundary conditions after moving them to the desired device
+        return self.hidden_states[self.asked_indices].to(self.device), \
+                self.closed_mask[self.asked_indices].to(self.device), \
+                self.opened_mask[self.asked_indices].to(self.device), \
+                self.h_mask[self.asked_indices].to(self.device), \
+                self.h_cond[self.asked_indices].to(self.device), \
+                grid_offsets, \
+                sample_closed_mask, \
+                sample_opened_mask, \
+                sample_h_mask, \
+                sample_h_cond
     
     def tell(self, hidden_states):
 
