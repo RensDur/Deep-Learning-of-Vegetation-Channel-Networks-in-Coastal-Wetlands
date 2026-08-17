@@ -146,6 +146,19 @@ def main():
         characteristic_scales[i, 4] = bc_open_90th_percentile
 
 
+    # To prevent division-by-zero when using these scales for normalisation, add a small epsilon to each channel
+    h_char_scale_10th_percentile = torch.clamp(torch.quantile(characteristic_scales[:, 0], 0.1), min=1e-5)
+    u_char_scale_10th_percentile = torch.clamp(torch.quantile(characteristic_scales[:, 1], 0.1), min=1e-5)
+    v_char_scale_10th_percentile = torch.clamp(torch.quantile(characteristic_scales[:, 2], 0.1), min=1e-5)
+    bc_closed_char_scale_10th_percentile = torch.clamp(torch.quantile(characteristic_scales[:, 3], 0.1), min=1e-5)
+    bc_open_char_scale_10th_percentile = torch.clamp(torch.quantile(characteristic_scales[:, 4], 0.1), min=1e-5)
+
+    characteristic_scales[:, 0] = characteristic_scales[:, 0] + h_char_scale_10th_percentile
+    characteristic_scales[:, 1] = characteristic_scales[:, 1] + u_char_scale_10th_percentile
+    characteristic_scales[:, 2] = characteristic_scales[:, 2] + v_char_scale_10th_percentile
+    characteristic_scales[:, 3] = characteristic_scales[:, 3] + bc_closed_char_scale_10th_percentile
+    characteristic_scales[:, 4] = characteristic_scales[:, 4] + bc_open_char_scale_10th_percentile
+
     # Store the characteristic scales per sample and per variable to disk
     torch.save(characteristic_scales.detach().cpu(), f"./snapshots-log-slowdown/characteristic_scales_per_sample.pt")
 
