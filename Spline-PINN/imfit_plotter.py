@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from imfit_general import CompoundFitNet, FitDataset
 import matplotlib.pyplot as plt
 
@@ -51,8 +52,8 @@ def main(dataset, snapshot_id):
         h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = training_dataset.interpolate_superres(imfit_output, resolution_factor=4)
 
     # Store the vegetation profile
-    torch.save(b.detach().cpu(), f"./imfit_vegetation_ic.pt")
-    exit()
+    # torch.save(b.detach().cpu(), f"./imfit_vegetation_ic.pt")
+    # exit()
 
     #
     # Compute log loss between the images
@@ -83,6 +84,12 @@ def main(dataset, snapshot_id):
     # Create subplots
     figure, axs = plt.subplots(3, 5, figsize=(20, 10))
 
+    # Disable ticks
+    for i in range(3):
+        for j in range(5):
+            axs[i,j].set_xticks([])
+            axs[i,j].set_yticks([])
+
     # Upper row (originals)
     sfere_plot_h = axs[0, 0].imshow(sfere_output[0, 0], cmap="Blues", vmin=0, vmax=0.1)
     sfere_plot_u = axs[0, 1].imshow(sfere_output[0, 1], cmap="bwr", vmin=-0.2, vmax=0.2)
@@ -104,7 +111,17 @@ def main(dataset, snapshot_id):
     loss_plot_s = axs[2, 3].imshow(loss_s, cmap="gray", vmin=-10)
     loss_plot_b = axs[2, 4].imshow(loss_b, cmap="gray", vmin=-10)
 
-    plt.colorbar(loss_plot_s)
+    plt.colorbar(sfere_plot_h, ticks=np.linspace(0, 0.1, 6, endpoint=True))
+    plt.colorbar(sfere_plot_u, ticks=np.linspace(-0.2, 0.2, 9, endpoint=True))
+    plt.colorbar(sfere_plot_v, ticks=np.linspace(-0.2, 0.2, 9, endpoint=True))
+    plt.colorbar(sfere_plot_s, ticks=np.linspace(0, 0.3, 7, endpoint=True))
+    plt.colorbar(sfere_plot_b, ticks=np.linspace(0, 1500, 7, endpoint=True))
+    
+    plt.colorbar(imfit_plot_h, ticks=np.linspace(0, 0.1, 6, endpoint=True))
+    plt.colorbar(imfit_plot_u, ticks=np.linspace(-0.2, 0.2, 9, endpoint=True))
+    plt.colorbar(imfit_plot_v, ticks=np.linspace(-0.2, 0.2, 9, endpoint=True))
+    plt.colorbar(imfit_plot_s, ticks=np.linspace(0, 0.3, 7, endpoint=True))
+    plt.colorbar(imfit_plot_b, ticks=np.linspace(0, 1500, 7, endpoint=True))
 
 
     plt.show()
@@ -114,4 +131,4 @@ def main(dataset, snapshot_id):
 
 
 if __name__ == "__main__":
-    main("verify", 1)
+    main("verify", 99)

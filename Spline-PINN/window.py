@@ -4,6 +4,7 @@ import colormaps
 
 import torch
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 
 
 
@@ -218,7 +219,7 @@ class PerformanceSummaryWindow:
 
 class PerformanceSummaryWindow_Hydrology:
 
-    def __init__(self, width, height, stages, interval, print_loss_images=False):
+    def __init__(self, width, height, stages, interval, print_loss_images=False, params=None):
 
         self.width = width
         self.height = height
@@ -226,6 +227,8 @@ class PerformanceSummaryWindow_Hydrology:
         self.interval = interval
 
         self.current_stage = 0
+
+        self.params = params
 
         # Initial blank images
         self.h = torch.zeros(self.stages, 1, height, width)
@@ -243,29 +246,47 @@ class PerformanceSummaryWindow_Hydrology:
 
         # Matplotlib interactive mode
         plt.ion()
+        
+        fig_width = 12.0
+        fig_height = 6.0
+        left = 0.9
+        right = 0.6
+        top = 0.4
+        bottom = 0.4
 
         # Create window for training loss
         self.loss_figure = plt.figure(figsize=(5, 5))
 
         # Create subplots
-        self.figure = plt.figure(figsize=(20, 10))
+        self.figure = plt.figure(figsize=(fig_width, fig_height))
 
-        self.h_axs = [plt.subplot2grid((3, self.stages), (0, col), colspan=1) for col in range(self.stages)]
-        self.u_axs = [plt.subplot2grid((3, self.stages), (1, col), colspan=1) for col in range(self.stages)]
-        self.v_axs = [plt.subplot2grid((3, self.stages), (2, col), colspan=1) for col in range(self.stages)]
+        width_ratios = [1] * self.stages + [0.1]
+        self.grid_spec = GridSpec(3, self.stages+1, width_ratios=width_ratios, figure=self.figure) # Add one for the color bars
+
+        self.h_axs = [self.figure.add_subplot(self.grid_spec[0, col]) for col in range(self.stages)]
+        self.u_axs = [self.figure.add_subplot(self.grid_spec[1, col]) for col in range(self.stages)]
+        self.v_axs = [self.figure.add_subplot(self.grid_spec[2, col]) for col in range(self.stages)]
         # self.s_axs = [plt.subplot2grid((6, self.stages), (3, col), colspan=1) for col in range(self.stages)]
         # self.b_axs = [plt.subplot2grid((6, self.stages), (4, col), colspan=1) for col in range(self.stages)]
         # self.loss_ax = plt.subplot2grid((6, self.stages), (5, 0), colspan=self.stages)
-        plt.tight_layout()
+
+        # Separate column for color bars
+        self.h_cax = self.figure.add_subplot(self.grid_spec[0, self.stages])
+        self.u_cax = self.figure.add_subplot(self.grid_spec[1, self.stages])
+        self.v_cax = self.figure.add_subplot(self.grid_spec[2, self.stages])
 
         # Custom spacing
+        left   = left   / fig_width
+        right  = 1 - right / fig_width
+        bottom = bottom / fig_height
+        top    = 1 - top / fig_height
         plt.subplots_adjust(
-            left=0.05,
-            right=1-0.05,
-            top=1-0.1,
-            bottom=0.1,
-            hspace=0.2,
-            wspace=0.025
+            left=left,
+            right=right,
+            top=top,
+            bottom=bottom,
+            hspace=0.15,
+            wspace=0.01
         )
 
         # Disable axis numbers for image plots
@@ -315,9 +336,9 @@ class PerformanceSummaryWindow_Hydrology:
         # self.loss_ax.grid(True, which="major", axis="both", linestyle="--", alpha=0.4)
         
         # Color bars
-        plt.colorbar(self.h_img_plots[-1])
-        plt.colorbar(self.u_img_plots[-1])
-        plt.colorbar(self.v_img_plots[-1])
+        plt.colorbar(self.h_img_plots[-1], cax=self.h_cax)
+        plt.colorbar(self.u_img_plots[-1], cax=self.u_cax)
+        plt.colorbar(self.v_img_plots[-1], cax=self.v_cax)
         # plt.colorbar(self.s_img_plots[-1])
         # plt.colorbar(self.b_img_plots[-1])
 
@@ -368,6 +389,8 @@ class PerformanceSummaryWindow_Hydrology:
             if stage == self.stages:
                 self.current_stage = 0
                 stage = 0
+
+                self.figure.savefig(f"./ablation_study_evaluation/figures/Hydro solution ablation {self.params.ablation_model}.jpg", dpi=150)
 
             if stage < self.stages:
                 self.current_stage += 1

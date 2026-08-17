@@ -57,7 +57,7 @@ def main():
         window_height = 198
 
     # Spawn a MultiView window
-    window = PerformanceSummaryWindow_Hydrology(window_width, window_height, 6, 200, print_loss_images)
+    window = PerformanceSummaryWindow_Hydrology(window_width, window_height, 6, 200, print_loss_images, params)
 
     # # Create video player
     # video_channels = [
