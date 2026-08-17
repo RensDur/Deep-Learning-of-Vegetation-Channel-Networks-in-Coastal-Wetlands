@@ -32,13 +32,14 @@ def main():
     np.random.seed(0)
 
     # Because we're visualizing, create only one domain
-    params.dataset_size = params.sfere_end - params.sfere_start
+    params.dataset_size = 4 * (params.sfere_end - params.sfere_start)
     params.batch_size = params.dataset_size
 
     print(f"Parameters: {vars(params)}")
 
     # Create dataset
-    data = dataset.Dataset(params, torch_device, types=["numerical-saltmarsh"], water_strategies=["Hin"], vegetation_ics=["elsewhere-specified"], orientations=["east"])
+    data = dataset.Dataset(params, torch_device, types=["numerical-saltmarsh"], water_strategies=["Hin"], vegetation_ics=["elsewhere-specified"], orientations=["north","east","south","west"])
+    data.reset_controlled_saltmarsh_order_for_eval()
 
     # print(data.env_info[0])
 
@@ -74,7 +75,7 @@ def main():
     # solver.visualize(video_player, print_loss_images)
 
     # Visualize the output
-    solver.compute_residual_during_eval(25)
+    solver.compute_residual_during_eval(10)
 
 
 if __name__ == "__main__":

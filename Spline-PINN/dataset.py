@@ -640,6 +640,161 @@ class Dataset:
 
 
 
+
+
+    def reset_controlled_saltmarsh_order_for_eval(self):
+        """
+        Reset all environments using saltmarsh landscapes.
+        After reset, the dataset will be ordered ["north","east","south","west"] for each sample between [sfere_start, sfere_end) in that order
+        """
+
+
+        # This function accepts both arrays and a single integer as input,
+        # make sure we can process everything as an np array
+        indices = np.array([i for i in range(self.dataset_size)]).flatten()
+
+        # Set all hidden coefficients to zero
+        self.hidden_states[indices, :, :, :] = 0
+
+        # Reset all masks and conditions
+        self.closed_mask_fullres[indices] = 0
+        self.opened_mask_fullres[indices] = 0
+        self.h_mask_fullres[indices] = 0
+        self.h_cond_fullres[indices] = 0
+
+        # Ensure each environment has the correct settings
+        # types=["numerical-saltmarsh"], water_strategies=["Hin"], vegetation_ics=["elsewhere-specified"]
+        self.env_type[indices] = np.repeat("numerical-saltmarsh", self.dataset_size)
+        self.env_water_strategy[indices] = np.repeat("Hin", self.dataset_size)
+        self.env_vegetation_ics[indices] = np.repeat("elsewhere-specified", self.dataset_size)
+
+        # Tile the orientations so that each orientation appears once in the same order for each sample between sfere_start and sfere_end
+        self.env_orientation[indices] = np.tile(self.orientations, self.dataset_size//len(self.orientations))
+        
+        self.env_seed[indices] = 2.0 * math.pi * torch.floor(1000 * torch.rand(indices.shape))
+        self.env_time[indices] = torch.zeros(indices.shape)
+
+        # Helper function 1/4 -- Reset the type of environment (grouped)
+        ### Only the numerical-saltmarsh part of this helper function has been adopted here and randomisation has been removed
+
+        # Collect the randomly selected SFERE outputs and move them to the GPU
+        selected_sfere_outputs = self.sfere_snapshots[np.array([i for i in range(self.dataset_size//len(self.orientations))]).repeat(len(self.orientations))].to(self.device) # Repeat with interleave for all orientations
+
+        # Pull them through the Image-Fitting CNN and move the result back to CPU
+        imfitted_sfere_outputs = self.imfit_net(selected_sfere_outputs).detach().cpu()
+
+        #
+        # Set the initial condition
+        #
+        self.hidden_states[indices] = imfitted_sfere_outputs
+
+        #
+        # Set the boundary conditions
+        #
+
+        # All sides are closed, except the right edge
+        self.closed_mask_fullres[indices] = 1
+        self.closed_mask_fullres[indices,:,self.padding_fullres:-self.padding_fullres,self.padding_fullres:] = 0
+
+        # The right edge is open
+        self.opened_mask_fullres[indices,:,self.padding_fullres:-self.padding_fullres,-self.padding_fullres:] = 1
+
+
+
+        # Helper function 2/4 -- Reset the water strategy of the environment (grouped)
+        ### This helper function is not needed in this evaluation function
+
+        # Helper function 3/4 -- Reset the vegetation initial condition of the environment (grouped)
+        ### This helper function is not needed in this evaluation function
+
+
+        # Helper function 4/4 -- Reset the orientation of environment (grouped)
+        def rotate_all_of_orientation(orientation, group_indices):
+            """
+            group_indices is guaranteed to be non-empty
+            """
+            
+            if orientation == "east":
+                # East is the default orientation of every environment
+                pass
+
+            if orientation == "north":
+                # Rotate PI/2 rads (1 turn) to orient the open boundary towards north
+                # Rotate the initial condition
+                self.hidden_states[group_indices] = torch.rot90(self.hidden_states[group_indices], k=1, dims=(2,3))
+
+                # Swap u and v
+                temp = self.hidden_states[group_indices, self.variables.get_slice_for("u")]
+                self.hidden_states[group_indices, self.variables.get_slice_for("u")] = self.hidden_states[group_indices, self.variables.get_slice_for("v")]
+                self.hidden_states[group_indices, self.variables.get_slice_for("v")] = temp
+
+                # Multiply v by -1 to align the flow velocities with this new orientation
+                self.hidden_states[group_indices, self.variables.get_slice_for("v")] *= -1
+
+                # Rotate the boundary conditions
+                self.closed_mask_fullres[group_indices] = torch.rot90(self.closed_mask_fullres[group_indices], k=1, dims=(2,3))
+                self.opened_mask_fullres[group_indices] = torch.rot90(self.opened_mask_fullres[group_indices], k=1, dims=(2,3))
+                self.h_mask_fullres[group_indices] = torch.rot90(self.h_mask_fullres[group_indices], k=1, dims=(2,3))
+                self.h_cond_fullres[group_indices] = torch.rot90(self.h_cond_fullres[group_indices], k=1, dims=(2,3))
+
+            if orientation == "west":
+                # Rotate PI rads (2 turns) to orient the open boundary towards west
+                # Rotate the initial condition
+                self.hidden_states[group_indices] = torch.rot90(self.hidden_states[group_indices], k=2, dims=(2,3))
+
+                # Multiply u and v by -1 to align the flow velocities with this new orientation
+                self.hidden_states[group_indices, self.variables.get_slice_for("u")] *= -1
+                self.hidden_states[group_indices, self.variables.get_slice_for("v")] *= -1
+
+                # Rotate the boundary conditions
+                self.closed_mask_fullres[group_indices] = torch.rot90(self.closed_mask_fullres[group_indices], k=2, dims=(2,3))
+                self.opened_mask_fullres[group_indices] = torch.rot90(self.opened_mask_fullres[group_indices], k=2, dims=(2,3))
+                self.h_mask_fullres[group_indices] = torch.rot90(self.h_mask_fullres[group_indices], k=2, dims=(2,3))
+                self.h_cond_fullres[group_indices] = torch.rot90(self.h_cond_fullres[group_indices], k=2, dims=(2,3))
+            
+            if orientation == "south":
+                # Rotate -PI/2 rads (-1 turns) to orient the open boundary towards south
+                # Rotate the initial condition
+                self.hidden_states[group_indices] = torch.rot90(self.hidden_states[group_indices], k=-1, dims=(2,3))
+
+                # Swap u and v
+                temp = self.hidden_states[group_indices, self.variables.get_slice_for("u")]
+                self.hidden_states[group_indices, self.variables.get_slice_for("u")] = self.hidden_states[group_indices, self.variables.get_slice_for("v")]
+                self.hidden_states[group_indices, self.variables.get_slice_for("v")] = temp
+
+                # Multiply u by -1 to align the flow velocities with this new orientation
+                self.hidden_states[group_indices, self.variables.get_slice_for("u")] *= -1
+
+                # Rotate the boundary conditions
+                self.closed_mask_fullres[group_indices] = torch.rot90(self.closed_mask_fullres[group_indices], k=-1, dims=(2,3))
+                self.opened_mask_fullres[group_indices] = torch.rot90(self.opened_mask_fullres[group_indices], k=-1, dims=(2,3))
+                self.h_mask_fullres[group_indices] = torch.rot90(self.h_mask_fullres[group_indices], k=-1, dims=(2,3))
+                self.h_cond_fullres[group_indices] = torch.rot90(self.h_cond_fullres[group_indices], k=-1, dims=(2,3))
+            
+            
+
+        # Group environments by their type [Groups are guaranteed to be non-empty]
+        # Not needed here
+
+        # Group environments by their water strategy [Groups are guaranteed to be non-empty]
+        # Not needed here
+
+        # Group environments by their vegetation initial condition type [Groups are guaranteed to be non-empty]
+        # Not needed here
+
+        # Group environments by their orientation [Groups are guaranteed to be non-empty]
+        grouping = self.group_by_orientation(indices)
+        for orientation in grouping.keys():
+            rotate_all_of_orientation(orientation, grouping[orientation])
+    
+        # Average pooling to create downsampled versions of the BCs
+        self.closed_mask[indices] = F.avg_pool2d(self.closed_mask_fullres[indices],self.resolution_factor)
+        self.opened_mask[indices] = F.avg_pool2d(self.opened_mask_fullres[indices],self.resolution_factor)
+        self.h_mask[indices] = F.avg_pool2d(self.h_mask_fullres[indices],self.resolution_factor)
+        self.h_cond[indices] = F.avg_pool2d(self.h_cond_fullres[indices],self.resolution_factor)
+
+
+
     def update(self, indices):
         """
         Update given environments

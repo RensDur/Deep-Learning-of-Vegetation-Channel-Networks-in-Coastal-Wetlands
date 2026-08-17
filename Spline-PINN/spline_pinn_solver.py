@@ -736,11 +736,14 @@ class SplinePINNSolver:
             # Select only the samples that are included here
             characteristic_scale_per_sample = characteristic_scale_per_sample[self.params.sfere_start:self.params.sfere_end]
 
+            # Number of samples
+            num_samples_in_set = self.params.sfere_end - self.params.sfere_start
+
             # Num eval iterations
             num_eval_iterations = 1000
 
             # At each interval point, store 5 residual terms corresponding to Lh/Sh Lu/Su Lv/Sv Lbound-closed/Sbound-closed and Lbound-open/Sbound-open
-            evaluation_loss_residuals = torch.zeros(self.params.dataset_size, 5, num_eval_iterations // interval)
+            evaluation_loss_residuals = torch.zeros(num_samples_in_set, 5, num_eval_iterations // interval)
             
             for i in tqdm(range(num_eval_iterations)):
 
@@ -784,6 +787,17 @@ class SplinePINNSolver:
                     loss_v = merge_samples(loss_v)
                     loss_bound_closed = merge_samples(loss_bound_closed)
                     loss_bound_open = merge_samples(loss_bound_open)
+
+                    # Merge the four orientations for each landscape
+                    def merge_orientations(loss_term):
+                        loss_term = loss_term.view(num_samples_in_set, 4, *loss_term.shape[1:])
+                        return torch.mean(loss_term, dim=1)
+
+                    loss_h = merge_orientations(loss_h)
+                    loss_u = merge_orientations(loss_u)
+                    loss_v = merge_orientations(loss_v)
+                    loss_bound_closed = merge_orientations(loss_bound_closed)
+                    loss_bound_open = merge_orientations(loss_bound_open)
 
                     # Normalise each of the relevant terms by their characteristic scale
                     loss_h = loss_h / characteristic_scale_per_sample[:, 0]
