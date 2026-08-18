@@ -873,6 +873,9 @@ class SplinePINNSolver:
 
         print(f"Loaded {self.params.net}: {date_time}, index: {index}")
 
+
+        self.training_sediment = False
+        self.training_vegetation = False
         
 
         # Simulation loop
@@ -965,8 +968,8 @@ class SplinePINNSolver:
                     # 
             
             # Store the loss residuals to disk
-            os.makedirs(f"./ablation_study_evaluation/eval_residuals/ablation {self.params.ablation_model}", exist_ok=True)
-            torch.save(evaluation_loss_residuals.detach().cpu(), f"./ablation_study_evaluation/eval_residuals/ablation {self.params.ablation_model}/sfere_start {self.params.sfere_start} sfere_end {self.params.sfere_end}.pt")
+            os.makedirs(f"./Hybrid Hydro-PINN evaluation/eval_residuals", exist_ok=True)
+            torch.save(evaluation_loss_residuals.detach().cpu(), f"./Hybrid Hydro-PINN evaluation/eval_residuals/sfere_start {self.params.sfere_start} sfere_end {self.params.sfere_end}.pt")
 
         # Start the simulation loop
         simulation_loop()
