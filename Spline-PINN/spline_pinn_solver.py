@@ -737,11 +737,11 @@ class SplinePINNSolver:
                 new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment, new_hidden_state_vegetation], dim=1)
 
                 # Hybrid: Compute update steps for S and B numerically if not training with S and B
-                if not self.training_sediment and not self.training_vegetation:
-                    new_hidden_state_sediment, new_hidden_state_vegetation = self.solve_morphology_numerical(new_hidden_state, closed_mask, opened_mask)
+                # if not self.training_sediment and not self.training_vegetation:
+                #     new_hidden_state_sediment, new_hidden_state_vegetation = self.solve_morphology_numerical(new_hidden_state, closed_mask, opened_mask)
 
-                    # Re-compile the full new hidden state
-                    new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment, new_hidden_state_vegetation], dim=1)
+                #     # Re-compile the full new hidden state
+                #     new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment, new_hidden_state_vegetation], dim=1)
 
                 # dim = [1]
                 # loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, sample_h_masks, sample_h_conds, dim)
@@ -782,7 +782,7 @@ class SplinePINNSolver:
 
                 if sim_index % window.interval == 0:
                     # Interpolate spline coefficients to obtain the necessary quantities
-                    h, grad_h, laplacian_h, u, grad_u, laplacian_u, v, grad_v, laplacian_v, s, grad_s, laplacian_s, b, grad_b, laplacian_b = self.dataset.interpolate_superres(old_hidden_state, self.params.resolution_factor)
+                    # h, grad_h, laplacian_h, u, grad_u, laplacian_u, v, grad_v, laplacian_v, s, grad_s, laplacian_s, b, grad_b, laplacian_b = self.dataset.interpolate_superres(old_hidden_state, self.params.resolution_factor)
 
                     if print_loss_images:
                         dim = [0, 1]
@@ -805,7 +805,7 @@ class SplinePINNSolver:
 
                     else:
                         # Interpolate spline coefficients to obtain the necessary quantities
-                        h, grad_h, u, grad_u, v, grad_v, s, grad_s, b, grad_b = self.dataset.interpolate_superres(old_hidden_state, self.params.resolution_factor)
+                        h, grad_h, laplacian_h, u, grad_u, laplacian_u, v, grad_v, laplacian_v, s, grad_s, laplacian_s, b, grad_b, laplacian_b = self.dataset.interpolate_superres(old_hidden_state, self.params.resolution_factor)
     
                         # Display water level thickness h
                         window.set_data(h[0,0], u[0,0], v[0,0], s[0,0], b[0,0], sim_index)
