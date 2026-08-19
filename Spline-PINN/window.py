@@ -260,20 +260,32 @@ class PerformanceSummaryWindow_Hydrology:
         # Create subplots
         self.figure = plt.figure(figsize=(fig_width, fig_height))
 
-        width_ratios = [1] * self.stages + [0.1]
-        self.grid_spec = GridSpec(3, self.stages+1, width_ratios=width_ratios, figure=self.figure) # Add one for the color bars
+        width_ratios = [1, 0.4] + [1] * (self.stages-1) + [0.1] # [0.1] is for the color bars. The first and last column each get a color bar
+        self.grid_spec = GridSpec(3, self.stages+2, width_ratios=width_ratios, figure=self.figure) # Add one for the color bars
 
-        self.h_axs = [self.figure.add_subplot(self.grid_spec[0, col]) for col in range(self.stages)]
-        self.u_axs = [self.figure.add_subplot(self.grid_spec[1, col]) for col in range(self.stages)]
-        self.v_axs = [self.figure.add_subplot(self.grid_spec[2, col]) for col in range(self.stages)]
+        self.h_axs = [self.figure.add_subplot(self.grid_spec[0, col]) for col in range(self.stages+1) if not col == 1] # Skip the color bar column
+        self.u_axs = [self.figure.add_subplot(self.grid_spec[1, col]) for col in range(self.stages+1) if not col == 1]
+        self.v_axs = [self.figure.add_subplot(self.grid_spec[2, col]) for col in range(self.stages+1) if not col == 1]
         # self.s_axs = [plt.subplot2grid((6, self.stages), (3, col), colspan=1) for col in range(self.stages)]
         # self.b_axs = [plt.subplot2grid((6, self.stages), (4, col), colspan=1) for col in range(self.stages)]
         # self.loss_ax = plt.subplot2grid((6, self.stages), (5, 0), colspan=self.stages)
 
         # Separate column for color bars
-        self.h_cax = self.figure.add_subplot(self.grid_spec[0, self.stages])
-        self.u_cax = self.figure.add_subplot(self.grid_spec[1, self.stages])
-        self.v_cax = self.figure.add_subplot(self.grid_spec[2, self.stages])
+        self.h_cax_1_fullspan = self.figure.add_subplot(self.grid_spec[0, 1])
+        self.u_cax_1_fullspan = self.figure.add_subplot(self.grid_spec[1, 1])
+        self.v_cax_1_fullspan = self.figure.add_subplot(self.grid_spec[2, 1])
+
+        self.h_cax_1_fullspan.axis("off")
+        self.u_cax_1_fullspan.axis("off")
+        self.v_cax_1_fullspan.axis("off")
+
+        self.h_cax_1 = self.h_cax_1_fullspan.inset_axes([0, 0, 0.25, 1])
+        self.u_cax_1 = self.u_cax_1_fullspan.inset_axes([0, 0, 0.25, 1])
+        self.v_cax_1 = self.v_cax_1_fullspan.inset_axes([0, 0, 0.25, 1])
+        
+        self.h_cax_2 = self.figure.add_subplot(self.grid_spec[0, self.stages+1])
+        self.u_cax_2 = self.figure.add_subplot(self.grid_spec[1, self.stages+1])
+        self.v_cax_2 = self.figure.add_subplot(self.grid_spec[2, self.stages+1])
 
         # Custom spacing
         left   = left   / fig_width
@@ -298,12 +310,15 @@ class PerformanceSummaryWindow_Hydrology:
             # self.b_axs[i].tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
 
         # Titles and labels
-        self.h_axs[0].set(title=f"Iteration: 0", ylabel="h")
+        self.h_axs[0].set(title=f"Starting condition")
         for i in range(1, self.stages):
             self.h_axs[i].set(title=f"{i*self.interval}")
 
-        self.u_axs[0].set(ylabel="u")
-        self.v_axs[0].set(ylabel="v")
+        self.h_axs[1].set(title=f"Iteration: {1*self.interval}")
+
+        self.h_axs[0].set_ylabel("Water level ($h$)")
+        self.u_axs[0].set_ylabel("Flow velocity [x] ($u$)")
+        self.v_axs[0].set_ylabel("Flow velocity [y] ($v$)")
         # self.s_axs[0].set(ylabel="s")
         # self.b_axs[0].set(ylabel="b")
 
@@ -320,9 +335,16 @@ class PerformanceSummaryWindow_Hydrology:
             self.u_img_plots = [self.u_axs[col].imshow(self.u[col,0].detach().cpu().numpy(), cmap="gray", vmin=-10) for col in range(self.stages)]
             self.v_img_plots = [self.v_axs[col].imshow(self.v[col,0].detach().cpu().numpy(), cmap="gray", vmin=-10) for col in range(self.stages)]
         else:
+            
             self.h_img_plots = [self.h_axs[col].imshow(self.h[col,0].detach().cpu().numpy(), cmap="Blues", vmin=0, vmax=0.1) for col in range(self.stages)]
             self.u_img_plots = [self.u_axs[col].imshow(self.u[col,0].detach().cpu().numpy(), cmap="bwr", vmin=-1, vmax=1) for col in range(self.stages)]
             self.v_img_plots = [self.v_axs[col].imshow(self.v[col,0].detach().cpu().numpy(), cmap="bwr", vmin=-1, vmax=1) for col in range(self.stages)]
+
+            # Adjust the color limits of the first plots, as they are generally narrower in SFERE compared to our PINNs
+            self.h_img_plots[0].set_clim(vmin=0, vmax=0.05)
+            self.u_img_plots[0].set_clim(vmin=-0.2, vmax=0.2)
+            self.v_img_plots[0].set_clim(vmin=-0.2, vmax=0.2)
+            
         # self.s_img_plots = [self.s_axs[col].imshow(self.s[col,0].detach().cpu().numpy(), cmap="YlOrBr", vmin=0, vmax=0.2) for col in range(self.stages)]
         # self.b_img_plots = [self.b_axs[col].imshow(self.b[col,0].detach().cpu().numpy(), cmap="YlGn", vmin=0,  vmax=1400) for col in range(self.stages)]
 
@@ -336,9 +358,12 @@ class PerformanceSummaryWindow_Hydrology:
         # self.loss_ax.grid(True, which="major", axis="both", linestyle="--", alpha=0.4)
         
         # Color bars
-        plt.colorbar(self.h_img_plots[-1], cax=self.h_cax)
-        plt.colorbar(self.u_img_plots[-1], cax=self.u_cax)
-        plt.colorbar(self.v_img_plots[-1], cax=self.v_cax)
+        plt.colorbar(self.h_img_plots[0], cax=self.h_cax_1)
+        plt.colorbar(self.u_img_plots[0], cax=self.u_cax_1)
+        plt.colorbar(self.v_img_plots[0], cax=self.v_cax_1)
+        plt.colorbar(self.h_img_plots[-1], cax=self.h_cax_2)
+        plt.colorbar(self.u_img_plots[-1], cax=self.u_cax_2)
+        plt.colorbar(self.v_img_plots[-1], cax=self.v_cax_2)
         # plt.colorbar(self.s_img_plots[-1])
         # plt.colorbar(self.b_img_plots[-1])
 

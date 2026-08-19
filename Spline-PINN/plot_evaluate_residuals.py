@@ -58,10 +58,10 @@ def main():
 
     skip_first_entries = 1
 
-    ax.plot([i*10 for i in range(skip_first_entries, evaluation_residuals.shape[0])], torch.mean(evaluation_residuals[:,0,skip_first_entries:], dim=0), label="$L_h / S_h$")
-    ax.plot([i*10 for i in range(skip_first_entries, evaluation_residuals.shape[0])], torch.mean(evaluation_residuals[:,1,skip_first_entries:], dim=0), label="$L_u / S_u$")
-    ax.plot([i*10 for i in range(skip_first_entries, evaluation_residuals.shape[0])], torch.mean(evaluation_residuals[:,2,skip_first_entries:], dim=0), label="$L_v / S_v$")
-    ax.plot([i*10 for i in range(skip_first_entries, evaluation_residuals.shape[0])], torch.mean(evaluation_residuals[:,3,skip_first_entries:], dim=0), label="$L_{bound} / S_{bound}$")
+    ax.semilogy([i*10 for i in range(skip_first_entries, evaluation_residuals.shape[0])], torch.mean(evaluation_residuals[:,0,skip_first_entries:], dim=0), label="$L_h / S_h$")
+    ax.semilogy([i*10 for i in range(skip_first_entries, evaluation_residuals.shape[0])], torch.mean(evaluation_residuals[:,1,skip_first_entries:], dim=0), label="$L_u / S_u$")
+    ax.semilogy([i*10 for i in range(skip_first_entries, evaluation_residuals.shape[0])], torch.mean(evaluation_residuals[:,2,skip_first_entries:], dim=0), label="$L_v / S_v$")
+    ax.semilogy([i*10 for i in range(skip_first_entries, evaluation_residuals.shape[0])], torch.mean(evaluation_residuals[:,3,skip_first_entries:], dim=0), label="$L_{bound} / S_{bound}$")
 
     
     plt.legend(loc="upper right")
