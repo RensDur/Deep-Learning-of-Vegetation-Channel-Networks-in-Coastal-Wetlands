@@ -415,7 +415,7 @@ class PerformanceSummaryWindow_Hydrology:
                 self.current_stage = 0
                 stage = 0
 
-                self.figure.savefig(f"./ablation_study_evaluation/figures/Hydro solution ablation {self.params.ablation_model}.jpg", dpi=150)
+                self.figure.savefig(f"./Hybrid Hydro-PINN evaluation/figures/Hybrid Hydro-PINN solution {self.params.sfere_start}-{self.params.sfere_end}.jpg", dpi=150)
 
             if stage < self.stages:
                 self.current_stage += 1
