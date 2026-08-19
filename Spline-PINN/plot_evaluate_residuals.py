@@ -10,16 +10,14 @@ from matplotlib.gridspec import GridSpec
 
 def main():
 
-    ablation_start = 0
-    ablation_end = ablation_start + 100
-
-    ablation_model = f"{ablation_start}-{ablation_end}"
+    category_start = 0
+    category_end = category_start + 100
 
     # Load the residuals from disk and merge them into one tensor
     evaluation_residuals = torch.zeros(100, 5, 100) # Number of samples per ablation, number of channels, sample every 10 iterations for 1000 iters
 
-    for i, start in enumerate(range(ablation_start, ablation_end, 10)):
-        evaluation_residuals[i:(i+10)] = torch.load(f"./ablation_study_evaluation/eval_residuals/ablation {ablation_model}/sfere_start {start} sfere_end {start+10}.pt")
+    for i, start in enumerate(range(category_start, category_end, 10)):
+        evaluation_residuals[i:(i+10)] = torch.load(f"./Hybrid Hydro-PINN evaluation/eval_residuals/sfere_start {start} sfere_end {start+10}.pt")
 
     # Compute shared boundary residual as mean
     boundary_residual = torch.mean(evaluation_residuals[:, 3:5], dim=1)
@@ -68,8 +66,8 @@ def main():
     
     plt.legend(loc="upper right")
 
-    os.makedirs(f"./ablation_study_evaluation/figures", exist_ok=True)
-    plt.savefig(f"./ablation_study_evaluation/figures/Non-dim residual ablation {ablation_model}.jpg", dpi=150)
+    os.makedirs(f"./Hybrid Hydro-PINN evaluation/figures", exist_ok=True)
+    plt.savefig(f"./Hybrid Hydro-PINN evaluation/figures/Non-dim residual hybrid {category_start}-{category_end}.jpg", dpi=150)
 
 
 if __name__ == "__main__":
