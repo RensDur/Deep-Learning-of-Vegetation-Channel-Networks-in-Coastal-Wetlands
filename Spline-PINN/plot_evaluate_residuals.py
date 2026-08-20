@@ -71,17 +71,15 @@ def main():
 
 
 
-def compute_mean_residual_for_model(ablation_start):
+def compute_mean_residual_for_model(category_start):
 
-    ablation_end = ablation_start + 100
-
-    ablation_model = f"{ablation_start}-{ablation_end}"
+    category_end = category_start + 100
 
     # Load the residuals from disk and merge them into one tensor
     evaluation_residuals = torch.zeros(100, 5, 100) # Number of samples per ablation, number of channels, sample every 10 iterations for 1000 iters
 
-    for i, start in enumerate(range(ablation_start, ablation_end, 10)):
-        evaluation_residuals[i:(i+10)] = torch.load(f"./ablation_study_evaluation/eval_residuals/ablation {ablation_model}/sfere_start {start} sfere_end {start+10}.pt")
+    for i, start in enumerate(range(category_start, category_end, 10)):
+        evaluation_residuals[i:(i+10)] = torch.load(f"./Hybrid Hydro-PINN evaluation/eval_residuals/sfere_start {start} sfere_end {start+10}.pt")
 
     # Merge the two momentum channels (direction distinction has been removed by evaluating across all landscape orientations)
     vel_residuals = torch.mean(evaluation_residuals[:, [1,2]], dim=1)
@@ -135,32 +133,32 @@ def main_boxplot(quantity):
 
     if quantity == "h":
         plt.bar(ablation_models, h_residuals, label=r"$\mathcal{R}_h$", color=colors[0])
-        plt.title(r"Water Level Residual ($\mathcal{R}_h$) per Ablation Model")
+        plt.title(r"Water Level Residual ($\mathcal{R}_h$) per Landscape Category")
 
     elif quantity == "uv":
         plt.bar(ablation_models, vel_residuals, label=r"$\mathcal{R}_{uv}$", color=colors[1])
-        plt.title(r"Momentum Residual ($\mathcal{R}_{uv}$) per Ablation Model")
+        plt.title(r"Momentum Residual ($\mathcal{R}_{uv}$) per Landscape Category")
 
     elif quantity == "closed_bound":
         plt.bar(ablation_models, closed_bound_residuals, label=r"$\mathcal{R}_{bound,closed}$", color=colors[2])
-        plt.title(r"Closed Boundary Residual ($\mathcal{R}_{bound,closed}$) per Ablation Model")
+        plt.title(r"Closed Boundary Residual ($\mathcal{R}_{bound,closed}$) per Landscape Category")
 
     elif quantity == "open_bound":
         plt.bar(ablation_models, open_bound_residuals, label=r"$\mathcal{R}_{bound,open}$", color=colors[3])
-        plt.title(r"Open Boundary Residual ($\mathcal{R}_{bound,open}$) per Ablation Model")
+        plt.title(r"Open Boundary Residual ($\mathcal{R}_{bound,open}$) per Landscape Category")
 
     
-    plt.xlabel("Ablation Model")
+    plt.xlabel("Landscape Category")
     plt.ylabel("Non-Dimensionalised Residual")
     plt.legend(loc="upper right", ncols=1)
 
-    os.makedirs(f"./ablation_study_evaluation/figures", exist_ok=True)
-    plt.savefig(f"./ablation_study_evaluation/figures/Non-dim residual bar per model {quantity}.jpg", dpi=150)
+    # os.makedirs(f"./Hybrid Hydro-PINN evaluation/figures", exist_ok=True)
+    # plt.savefig(f"./Hybrid Hydro-PINN evaluation/figures/Non-dim residual bar per model {quantity}.jpg", dpi=150)
 
-    # plt.show()
+    plt.show()
 
 
 if __name__ == "__main__":
 
     # main()
-    main_boxplot("open_bound")
+    main_boxplot("h")
