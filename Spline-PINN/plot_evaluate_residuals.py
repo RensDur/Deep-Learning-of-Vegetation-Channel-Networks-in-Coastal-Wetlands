@@ -152,8 +152,8 @@ def main_boxplot(quantity):
     plt.ylabel("Non-Dimensionalised Residual")
     plt.legend(loc="upper right", ncols=1)
 
-    # os.makedirs(f"./Hybrid Hydro-PINN evaluation/figures", exist_ok=True)
-    # plt.savefig(f"./Hybrid Hydro-PINN evaluation/figures/Non-dim residual bar per model {quantity}.jpg", dpi=150)
+    os.makedirs(f"./Hybrid Hydro-PINN evaluation/figures", exist_ok=True)
+    plt.savefig(f"./Hybrid Hydro-PINN evaluation/figures/Non-dim residual bar per landscape category {quantity}.jpg", dpi=150)
 
     plt.show()
 
