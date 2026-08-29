@@ -807,11 +807,11 @@ class SplinePINNSolver:
                     loss_bound_open = loss_bound_open / characteristic_scale_per_sample[:, 4]
 
                     # Store the resulting normalised residuals (after taking the average)
-                    evaluation_loss_residuals[:, 0, i//interval] = torch.mean(loss_h).detach().cpu()
-                    evaluation_loss_residuals[:, 1, i//interval] = torch.mean(loss_u).detach().cpu()
-                    evaluation_loss_residuals[:, 2, i//interval] = torch.mean(loss_v).detach().cpu()
-                    evaluation_loss_residuals[:, 3, i//interval] = torch.mean(loss_bound_closed).detach().cpu()
-                    evaluation_loss_residuals[:, 4, i//interval] = torch.mean(loss_bound_open).detach().cpu()
+                    evaluation_loss_residuals[:, 0, i//interval] = loss_h.detach().cpu()
+                    evaluation_loss_residuals[:, 1, i//interval] = loss_u.detach().cpu()
+                    evaluation_loss_residuals[:, 2, i//interval] = loss_v.detach().cpu()
+                    evaluation_loss_residuals[:, 3, i//interval] = loss_bound_closed.detach().cpu()
+                    evaluation_loss_residuals[:, 4, i//interval] = loss_bound_open.detach().cpu()
 
                     # print(f"Computed and stored loss for iteration {i} in location {i//interval}")
                     # 
