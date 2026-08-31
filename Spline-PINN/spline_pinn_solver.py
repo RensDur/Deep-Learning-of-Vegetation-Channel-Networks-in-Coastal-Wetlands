@@ -773,7 +773,7 @@ class SplinePINNSolver:
 
                     if print_loss_images:
                         dim = [0, 1]
-                        loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound, (loss_bound_closed, loss_bound_open, loss_bound_h, loss_bound_aux) = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, sample_h_masks, sample_h_conds, dim)
+                        loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound, (loss_bound_closed, loss_bound_open, loss_bound_aux) = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, dim)
                         
                         def __norm(loss_image):
                             loss_image = loss_image - torch.min(loss_image)
@@ -886,11 +886,11 @@ class SplinePINNSolver:
             for i in tqdm(range(num_eval_iterations)):
 
                 # Ask for a batch from the dataset
-                old_hidden_state, closed_mask, opened_mask, h_mask, h_cond, grid_offsets, sample_closed_masks, sample_opened_masks, sample_h_masks, sample_h_conds = self.dataset.ask_all_ordered()
+                old_hidden_state, closed_mask, opened_mask, grid_offsets, sample_closed_masks, sample_opened_masks = self.dataset.ask_all_ordered()
 
                 # Predict the new domain state by performing a forward pass through the network
                 # Water
-                new_hidden_state_water = self.water_net(old_hidden_state, closed_mask, opened_mask, h_mask, h_cond)
+                new_hidden_state_water = self.water_net(old_hidden_state, closed_mask, opened_mask)
 
                 # Sediment
                 if self.training_sediment:
@@ -913,7 +913,7 @@ class SplinePINNSolver:
                 if i % interval == 0:
 
                     dim = [1, 2, 3]
-                    loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound, (loss_bound_closed, loss_bound_open, loss_bound_aux) = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, sample_h_masks, sample_h_conds, dim)
+                    loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound, (loss_bound_closed, loss_bound_open, loss_bound_aux) = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, dim)
 
                     # Merge the n_samples that were taken for each entry in the batch into one channel
                     def merge_samples(loss_term):
@@ -957,8 +957,8 @@ class SplinePINNSolver:
                     # 
             
             # Store the loss residuals to disk
-            os.makedirs(f"./Hybrid Hydro-PINN evaluation/eval_residuals", exist_ok=True)
-            torch.save(evaluation_loss_residuals.detach().cpu(), f"./Hybrid Hydro-PINN evaluation/eval_residuals/sfere_start {self.params.sfere_start} sfere_end {self.params.sfere_end}.pt")
+            os.makedirs(f"./Saltmarsh component Hydro-PINN evaluation/eval_residuals", exist_ok=True)
+            torch.save(evaluation_loss_residuals.detach().cpu(), f"./Saltmarsh component Hydro-PINN evaluation/eval_residuals/sfere_start {self.params.sfere_start} sfere_end {self.params.sfere_end}.pt")
 
         # Start the simulation loop
         simulation_loop()
