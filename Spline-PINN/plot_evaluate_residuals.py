@@ -70,10 +70,10 @@ def main():
 
     skip_first_entries = 1
 
-    ax.semilogy([i*10 for i in range(skip_first_entries, evaluation_residuals.shape[0])], torch.mean(evaluation_residuals[:,0,skip_first_entries:], dim=0), label=r"$\mathcal{R}_h$")
-    ax.semilogy([i*10 for i in range(skip_first_entries, evaluation_residuals.shape[0])], torch.mean(evaluation_residuals[:,1,skip_first_entries:], dim=0), label=r"$\mathcal{R}_{uv}$")
-    ax.semilogy([i*10 for i in range(skip_first_entries, evaluation_residuals.shape[0])], torch.mean(evaluation_residuals[:,2,skip_first_entries:], dim=0), label=r"$\mathcal{R}_{bound,closed}$")
-    ax.semilogy([i*10 for i in range(skip_first_entries, evaluation_residuals.shape[0])], torch.mean(evaluation_residuals[:,3,skip_first_entries:], dim=0), label=r"$\mathcal{R}_{bound,open}$")
+    ax.semilogy([i*10 for i in range(skip_first_entries, evaluation_residuals.shape[2])], torch.mean(evaluation_residuals[:,0,skip_first_entries:], dim=0), label=r"$\mathcal{R}_h$")
+    ax.semilogy([i*10 for i in range(skip_first_entries, evaluation_residuals.shape[2])], torch.mean(evaluation_residuals[:,1,skip_first_entries:], dim=0), label=r"$\mathcal{R}_{uv}$")
+    ax.semilogy([i*10 for i in range(skip_first_entries, evaluation_residuals.shape[2])], torch.mean(evaluation_residuals[:,2,skip_first_entries:], dim=0), label=r"$\mathcal{R}_{bound,closed}$")
+    ax.semilogy([i*10 for i in range(skip_first_entries, evaluation_residuals.shape[2])], torch.mean(evaluation_residuals[:,3,skip_first_entries:], dim=0), label=r"$\mathcal{R}_{bound,open}$")
 
     
     plt.legend(loc="upper right")
