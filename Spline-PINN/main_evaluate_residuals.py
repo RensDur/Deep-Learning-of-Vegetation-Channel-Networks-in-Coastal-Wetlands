@@ -28,8 +28,8 @@ def main():
     print(f"Using torch device '{torch_device}'")
 
     # Initialize randomization seeds
-    torch.manual_seed(0)
-    np.random.seed(0)
+    # torch.manual_seed(0)
+    # np.random.seed(0)
 
     # Because we're visualizing, create only one domain
     params.dataset_size = 4 * (params.sfere_end - params.sfere_start)
