@@ -26,13 +26,13 @@ def main():
 
     plt.figure(figsize=(7, 4))
 
-    # plt.scatter(characteristic_scales[:, 0], evaluation_residuals[:, 0], label="$S_h$")
-    # plt.scatter(characteristic_scales[:, 1], vel_residuals[:], label="$S_{uv}$")
-    # plt.scatter(characteristic_scales[:, 3], evaluation_residuals[:, 3], label="$S_{bound,closed}$")
-    plt.scatter(characteristic_scales[:, 4], evaluation_residuals[:, 4], label="$S_{bound,open}$")
+    # plt.scatter(characteristic_scales[:, 0], evaluation_residuals[:, 0], label=r"$\mathcal{R}_h$", color="tab:blue")
+    # plt.scatter(characteristic_scales[:, 1], vel_residuals[:], label=r"$\mathcal{R}_{uv}$", color="tab:orange")
+    # plt.scatter(characteristic_scales[:, 3], evaluation_residuals[:, 3], label=r"$\mathcal{R}_{bound,closed}$", color="tab:green")
+    plt.scatter(characteristic_scales[:, 4], evaluation_residuals[:, 4], label=r"$\mathcal{R}_{bound,open}$", color="tab:red")
 
 
-    plt.title(r"Characteristic Scales per Landscape")
+    plt.title(r"Residual against Characteristic Scale per Landscape")
 
 
     plt.xlabel("Landscape Characteristic Scale")
