@@ -68,7 +68,7 @@ def main():
     os.makedirs(f"./ablation_study_evaluation/figures", exist_ok=True)
     plt.savefig(f"./ablation_study_evaluation/figures/Non-dim residual ablation {ablation_model}.jpg", dpi=150)
 
-    # plt.show()
+    plt.show()
 
 
 
@@ -164,5 +164,5 @@ def main_boxplot(quantity):
 
 if __name__ == "__main__":
 
-    # main()
-    main_boxplot("open_bound")
+    main()
+    # main_boxplot("open_bound")

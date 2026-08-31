@@ -30,28 +30,28 @@ def main():
     quantity = "open_bound"
 
     if quantity == "h":
-        plt.scatter(characteristic_scales[:, 0], evaluation_residuals[:, 0], label=r"$\mathcal{R}_h$", color="tab:blue", s=10)
+        plt.plot(evaluation_residuals[:, 0], label=r"$\mathcal{R}_h$", color="tab:blue")
         
     if quantity == "uv":
-        plt.scatter(characteristic_scales[:, 1], vel_residuals[:], label=r"$\mathcal{R}_{uv}$", color="tab:orange", s=10)
+        plt.plot(vel_residuals[:], label=r"$\mathcal{R}_{uv}$", color="tab:orange")
         
     if quantity == "closed_bound":
-        plt.scatter(characteristic_scales[:, 3], evaluation_residuals[:, 3], label=r"$\mathcal{R}_{bound,closed}$", color="tab:green", s=10)
+        plt.plot(evaluation_residuals[:, 3], label=r"$\mathcal{R}_{bound,closed}$", color="tab:green")
         
     if quantity == "open_bound":
-        plt.scatter(characteristic_scales[:, 4], evaluation_residuals[:, 4], label=r"$\mathcal{R}_{bound,open}$", color="tab:red", s=10)
+        plt.plot(evaluation_residuals[:, 4], label=r"$\mathcal{R}_{bound,open}$", color="tab:red")
         
 
 
-    plt.title(r"Residual against Characteristic Scale per Landscape")
+    plt.title(r"Residual per Landscape, averaged over 1000 iterations")
 
 
-    plt.xlabel("Landscape Characteristic Scale")
+    plt.xlabel("Landscape index $n$, sampled at $k(n)$ iterations of SFERE")
     plt.ylabel("Residual")
     plt.legend(loc="upper right", ncols=1)
 
     os.makedirs(f"./ablation_study_evaluation/figures", exist_ok=True)
-    plt.savefig(f"./ablation_study_evaluation/figures/Scatter plot residual against c-scale {quantity}.jpg", dpi=150)
+    plt.savefig(f"./ablation_study_evaluation/figures/Residual per landscape {quantity}.jpg", dpi=150)
 
     plt.show()
 
