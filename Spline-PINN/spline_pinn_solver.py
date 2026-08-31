@@ -12,6 +12,7 @@ import os
 import psutil
 import threading
 import time
+from tqdm import tqdm
 
 def _dbg(_desc='',_expr=None):
     print(f"DBG! >> {_desc}: {_expr}")
@@ -283,7 +284,15 @@ class SplinePINNSolver:
             v
         ), dim)
 
+
+        # To have the option of separately using the different boundary loss terms, treat them separately first and then combine them
+        loss_bound_closed = loss_bound_closed / self.params.n_samples
+        loss_bound_open = loss_bound_open / self.params.n_samples
+        loss_bound_aux = loss_bound_aux / self.params.n_samples
+
+        # Combined boundary loss
         loss_bound = loss_bound_closed + loss_bound_open + loss_bound_aux
+        
 
         # Normalize towards the number of samples taken
         loss_h = loss_h / self.params.n_samples
@@ -291,12 +300,12 @@ class SplinePINNSolver:
         loss_v = loss_v / self.params.n_samples
         loss_s = loss_s / self.params.n_samples
         loss_b = loss_b / self.params.n_samples
-        loss_bound = loss_bound / self.params.n_samples
+        # loss_bound = loss_bound / self.params.n_samples # Boundary loss has already been normalised by n_samples above (separately per term)
 
         # Normalize vegetation loss for scale-difference
         loss_b = loss_b / self.params.k**2
 
-        return loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound
+        return loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound, (loss_bound_closed, loss_bound_open, loss_bound_aux)
 
     def solve_morphology_numerical(self, old_hidden_state, closed_mask, opened_mask):
         """
@@ -529,7 +538,7 @@ class SplinePINNSolver:
                     new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment, new_hidden_state_vegetation], dim=1)
 
                 dim = [1,2,3]
-                loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, dim)
+                loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound, _ = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, dim)
 
                 # Compute the mean loss
                 loss_h = torch.mean(loss_h)
@@ -670,7 +679,7 @@ class SplinePINNSolver:
             self.training_vegetation = False
 
         # Load loss progression in pandas dataframe
-        training_loss = self.logger.load_logs("loss_h", "loss_u", "loss_v", "loss_s", "loss_b", "loss_bound", datetime=self.params.load_date_time)
+        training_loss = self.logger.load_logs("loss_h", "loss_u", "loss_v", "loss_bound", datetime=self.params.load_date_time)
 
         # Enable evaluation of the model
         self.water_net.eval()
@@ -760,14 +769,38 @@ class SplinePINNSolver:
 
                 if sim_index % window.interval == 0:
                     # Interpolate spline coefficients to obtain the necessary quantities
-                    h, grad_h, laplacian_h, u, grad_u, laplacian_u, v, grad_v, laplacian_v, s, grad_s, laplacian_s, b, grad_b, laplacian_b = self.dataset.interpolate_superres(old_hidden_state, self.params.resolution_factor)
+                    # h, grad_h, laplacian_h, u, grad_u, laplacian_u, v, grad_v, laplacian_v, s, grad_s, laplacian_s, b, grad_b, laplacian_b = self.dataset.interpolate_superres(old_hidden_state, self.params.resolution_factor)
 
-                    # Display water level thickness h
-                    window.set_data(h[0,0], u[0,0], v[0,0], s[0,0], b[0,0], sim_index)
-                    # window.append_loss(loss_h, loss_u, loss_v, loss_s, loss_b)
+                    if print_loss_images:
+                        dim = [0, 1]
+                        loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound, (loss_bound_closed, loss_bound_open, loss_bound_h, loss_bound_aux) = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, sample_h_masks, sample_h_conds, dim)
+                        
+                        def __norm(loss_image):
+                            loss_image = loss_image - torch.min(loss_image)
+                            loss_image = loss_image / torch.max(loss_image)
+                            loss_image = torch.log(loss_image)
+                            return loss_image
+                    
+                        # Scale the loss so they can be projected in the images
+                        loss_h = __norm(loss_h)
+                        loss_u = __norm(loss_u)
+                        loss_v = __norm(loss_v)
+                        loss_s = __norm(loss_s)
+                        loss_b = __norm(loss_b)
+                        
+                        window.set_data(loss_h, loss_u, loss_v, loss_s, loss_b, sim_index)
 
-                    # Uncomment the following line to store images in their respective ablation study folder:
-                    # torch.save(torch.cat([h, u, v, s, b], dim=1), f"./ablation_output/ablation {self.params.ablation_model}/iteration_{sim_index}.pt")
+                    else:
+                        # Interpolate spline coefficients to obtain the necessary quantities
+                        h, grad_h, laplacian_h, u, grad_u, laplacian_u, v, grad_v, laplacian_v, s, grad_s, laplacian_s, b, grad_b, laplacian_b = self.dataset.interpolate_superres(old_hidden_state, self.params.resolution_factor)
+    
+                        # Display water level thickness h
+                        window.set_data(h[0,0], u[0,0], v[0,0], s[0,0], b[0,0], sim_index)
+                        # window.append_loss(loss_h, loss_u, loss_v, loss_s, loss_b)
+    
+                        # Uncomment the following line to store images in their respective ablation study folder:
+                        # torch.save(torch.cat([h, u, v, s, b], dim=1), f"./ablation_output/ablation {self.params.ablation_model}/iteration_{sim_index}.pt")
+                
 
                 sim_index += 1
 
@@ -783,6 +816,152 @@ class SplinePINNSolver:
 
         # Join the sim thread
         sim_thread.join()
+
+
+
+
+
+    def compute_residual_during_eval(self, interval):
+        """
+        EVALUATING THE NETWORK IN BATCH MODE WHILE COMPUTING AND STORING RESIDUALS, NORMALISED BY CHARACTERISTIC LANDSCAPE SCALE
+        """
+
+        # Initialize randomization seeds
+        torch.manual_seed(1)
+        np.random.seed(6)
+
+        #
+        # Logger
+        #
+        self.logger = Logger(parameters.get_description(self.params), use_csv=False, use_tensorboard=False, device=self.device)
+
+        # Load the trained model state
+        date_time, index = self.logger.load_state("water_net", self.water_net, None, datetime=self.params.load_date_time, index=self.params.load_index)
+
+        try:
+            date_time, index = self.logger.load_state("sediment_net", self.sediment_net, None, datetime=self.params.load_date_time, index=self.params.load_index)
+            self.training_sediment = True
+        except:
+            self.training_sediment = False
+        
+        try:
+            date_time, index = self.logger.load_state("vegetation_net", self.vegetation_net, None, datetime=self.params.load_date_time, index=self.params.load_index)
+            self.training_vegetation = True
+        except:
+            self.training_vegetation = False
+
+        # Load loss progression in pandas dataframe
+        training_loss = self.logger.load_logs("loss_h", "loss_u", "loss_v", "loss_bound", datetime=self.params.load_date_time)
+
+        # Enable evaluation of the model
+        self.water_net.eval()
+        self.sediment_net.eval()
+        self.vegetation_net.eval()
+
+        print(f"Loaded {self.params.net}: {date_time}, index: {index}")
+
+
+        self.training_sediment = False
+        self.training_vegetation = False
+        
+
+        # Simulation loop
+        def simulation_loop():
+
+            # Load the characteristic scale for each sample from disk
+            characteristic_scale_per_sample = torch.load(f"./snapshots-log-slowdown/characteristic_scales_per_sample.pt").to(self.device)
+
+            # Select only the samples that are included here
+            characteristic_scale_per_sample = characteristic_scale_per_sample[self.params.sfere_start:self.params.sfere_end]
+
+            # Number of samples
+            num_samples_in_set = self.params.sfere_end - self.params.sfere_start
+
+            # Num eval iterations
+            num_eval_iterations = 1000
+
+            # At each interval point, store 5 residual terms corresponding to Lh/Sh Lu/Su Lv/Sv Lbound-closed/Sbound-closed and Lbound-open/Sbound-open
+            evaluation_loss_residuals = torch.zeros(num_samples_in_set, 5, num_eval_iterations // interval)
+            
+            for i in tqdm(range(num_eval_iterations)):
+
+                # Ask for a batch from the dataset
+                old_hidden_state, closed_mask, opened_mask, h_mask, h_cond, grid_offsets, sample_closed_masks, sample_opened_masks, sample_h_masks, sample_h_conds = self.dataset.ask_all_ordered()
+
+                # Predict the new domain state by performing a forward pass through the network
+                # Water
+                new_hidden_state_water = self.water_net(old_hidden_state, closed_mask, opened_mask, h_mask, h_cond)
+
+                # Sediment
+                if self.training_sediment:
+                    new_hidden_state_sediment = self.sediment_net(old_hidden_state, closed_mask, opened_mask)
+                else:
+                    new_hidden_state_sediment = self.dataset.variables.extract_from(old_hidden_state, "s")
+
+                # Vegetation
+                if self.training_vegetation:
+                    new_hidden_state_vegetation = self.vegetation_net(old_hidden_state, closed_mask, opened_mask)
+                else:
+                    new_hidden_state_vegetation = self.dataset.variables.extract_from(old_hidden_state, "b")
+
+                # Compile the full new hidden state
+                new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment, new_hidden_state_vegetation], dim=1)
+
+                # Store the newly obtained result in the dataset
+                self.dataset.tell(new_hidden_state)
+
+                if i % interval == 0:
+
+                    dim = [1, 2, 3]
+                    loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound, (loss_bound_closed, loss_bound_open, loss_bound_aux) = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, sample_h_masks, sample_h_conds, dim)
+
+                    # Merge the n_samples that were taken for each entry in the batch into one channel
+                    def merge_samples(loss_term):
+                        loss_term = loss_term.view(self.params.batch_size, self.params.n_samples, *loss_term.shape[1:])
+                        return torch.mean(loss_term, dim=1)
+
+                    loss_h = merge_samples(loss_h)
+                    loss_u = merge_samples(loss_u)
+                    loss_v = merge_samples(loss_v)
+                    loss_bound_closed = merge_samples(loss_bound_closed)
+                    loss_bound_open = merge_samples(loss_bound_open)
+
+                    # Merge the four orientations for each landscape
+                    def merge_orientations(loss_term):
+                        loss_term = loss_term.view(num_samples_in_set, 4, *loss_term.shape[1:])
+                        return torch.mean(loss_term, dim=1)
+
+                    loss_h = merge_orientations(loss_h)
+                    loss_u = merge_orientations(loss_u)
+                    loss_v = merge_orientations(loss_v)
+                    loss_bound_closed = merge_orientations(loss_bound_closed)
+                    loss_bound_open = merge_orientations(loss_bound_open)
+
+                    # Normalise each of the relevant terms by their characteristic scale
+                    # loss_h = loss_h / characteristic_scale_per_sample[:, 0]
+                    # loss_u = loss_u / characteristic_scale_per_sample[:, 1]
+                    # loss_v = loss_v / characteristic_scale_per_sample[:, 2]
+                    # loss_bound_closed = loss_bound_closed / characteristic_scale_per_sample[:, 3]
+                    # loss_bound_open = loss_bound_open / characteristic_scale_per_sample[:, 4]
+                    # 
+                    # >>> NORMALISATION HAS BEEN MOVED TO POST-PROCESSING
+
+                    # Store the resulting normalised residuals (after taking the average)
+                    evaluation_loss_residuals[:, 0, i//interval] = loss_h.detach().cpu()
+                    evaluation_loss_residuals[:, 1, i//interval] = loss_u.detach().cpu()
+                    evaluation_loss_residuals[:, 2, i//interval] = loss_v.detach().cpu()
+                    evaluation_loss_residuals[:, 3, i//interval] = loss_bound_closed.detach().cpu()
+                    evaluation_loss_residuals[:, 4, i//interval] = loss_bound_open.detach().cpu()
+
+                    # print(f"Computed and stored loss for iteration {i} in location {i//interval}")
+                    # 
+            
+            # Store the loss residuals to disk
+            os.makedirs(f"./Hybrid Hydro-PINN evaluation/eval_residuals", exist_ok=True)
+            torch.save(evaluation_loss_residuals.detach().cpu(), f"./Hybrid Hydro-PINN evaluation/eval_residuals/sfere_start {self.params.sfere_start} sfere_end {self.params.sfere_end}.pt")
+
+        # Start the simulation loop
+        simulation_loop()
 
 
     def visualize_numerical(self, window):

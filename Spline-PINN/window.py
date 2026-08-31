@@ -217,8 +217,6 @@ class PerformanceSummaryWindow:
 
         self.loss_ax.set_ylim([min_y, max_y])
 
-
-
 class PerformanceSummaryWindow_Hydrology:
 
     def __init__(self, width, height, stages, interval, print_loss_images=False, params=None):
@@ -476,8 +474,6 @@ class PerformanceSummaryWindow_Hydrology:
         max_y = max_y + 0.1*min_max_range
 
         self.loss_ax.set_ylim([min_y, max_y])
-
-
 
 
 

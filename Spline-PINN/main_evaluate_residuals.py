@@ -4,7 +4,7 @@ import numpy as np
 import parameters
 import dataset
 import spline_pinn_solver
-from window import MultiWindow, PerformanceSummaryWindow, PerformanceSummaryWindow_Hydrology
+from window import *
 from videoplayer import VideoChannel, VideoPlayer
 
 def main():
@@ -28,17 +28,18 @@ def main():
     print(f"Using torch device '{torch_device}'")
 
     # Initialize randomization seeds
-    torch.manual_seed(0)
-    np.random.seed(0)
+    # torch.manual_seed(0)
+    # np.random.seed(0)
 
     # Because we're visualizing, create only one domain
-    params.dataset_size = 1
-    params.batch_size = 1
+    params.dataset_size = 4 * (params.sfere_end - params.sfere_start)
+    params.batch_size = params.dataset_size
 
     print(f"Parameters: {vars(params)}")
 
     # Create dataset
-    data = dataset.Dataset(params, torch_device, types=["numerical-saltmarsh"], water_strategies=["Hin"], vegetation_ics=["elsewhere-specified"], orientations=["east"])
+    data = dataset.Dataset(params, torch_device, types=["numerical-saltmarsh"], water_strategies=["Hin"], vegetation_ics=["elsewhere-specified"], orientations=["north","east","south","west"])
+    data.reset_controlled_saltmarsh_order_for_eval()
 
     # print(data.env_info[0])
 
@@ -57,7 +58,7 @@ def main():
         window_height = 198
 
     # Spawn a MultiView window
-    window = PerformanceSummaryWindow_Hydrology(window_width, window_height, 6, 200, print_loss_images, params)
+    # window = PerformanceSummaryWindow_Hydrology(window_width, window_height, 6, 200, print_loss_images)
 
     # # Create video player
     # video_channels = [
@@ -74,7 +75,7 @@ def main():
     # solver.visualize(video_player, print_loss_images)
 
     # Visualize the output
-    solver.visualize(window, print_loss_images)
+    solver.compute_residual_during_eval(10)
 
 
 if __name__ == "__main__":
