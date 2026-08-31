@@ -338,9 +338,9 @@ class PerformanceSummaryWindow_Hydrology:
             self.v_img_plots = [self.v_axs[col].imshow(self.v[col,0].detach().cpu().numpy(), cmap="gray", vmin=-10) for col in range(self.stages)]
         else:
             
-            self.h_img_plots = [self.h_axs[col].imshow(self.h[col,0].detach().cpu().numpy(), cmap="Blues", vmin=0, vmax=0.1) for col in range(self.stages)]
-            self.u_img_plots = [self.u_axs[col].imshow(self.u[col,0].detach().cpu().numpy(), cmap="bwr", vmin=-1, vmax=1) for col in range(self.stages)]
-            self.v_img_plots = [self.v_axs[col].imshow(self.v[col,0].detach().cpu().numpy(), cmap="bwr", vmin=-1, vmax=1) for col in range(self.stages)]
+            self.h_img_plots = [self.h_axs[col].imshow(self.h[col,0].detach().cpu().numpy(), cmap="Blues", vmin=0, vmax=0.15) for col in range(self.stages)]
+            self.u_img_plots = [self.u_axs[col].imshow(self.u[col,0].detach().cpu().numpy(), cmap="bwr", vmin=-0.2, vmax=0.2) for col in range(self.stages)]
+            self.v_img_plots = [self.v_axs[col].imshow(self.v[col,0].detach().cpu().numpy(), cmap="bwr", vmin=-0.2, vmax=0.2) for col in range(self.stages)]
 
             # Adjust the color limits of the first plots, as they are generally narrower in SFERE compared to our PINNs
             self.h_img_plots[0].set_clim(vmin=0, vmax=0.05)
@@ -417,8 +417,11 @@ class PerformanceSummaryWindow_Hydrology:
                 self.current_stage = 0
                 stage = 0
 
-                os.makedirs(f"./Saltmarsh component Hydro-PINN evaluation/figures", exists_ok=True)
+                os.makedirs(f"./Saltmarsh component Hydro-PINN evaluation/figures", exist_ok=True)
                 self.figure.savefig(f"./Saltmarsh component Hydro-PINN evaluation/figures/Saltmarsh component Hydro-PINN solution {self.params.sfere_start}-{self.params.sfere_end}.jpg", dpi=150)
+
+                self.is_open = False
+                exit()
 
             if stage < self.stages:
                 self.current_stage += 1
