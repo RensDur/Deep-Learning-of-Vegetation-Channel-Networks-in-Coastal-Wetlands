@@ -66,7 +66,7 @@ def main():
     os.makedirs(f"./Hybrid Hydro-PINN evaluation/figures", exist_ok=True)
     plt.savefig(f"./Hybrid Hydro-PINN evaluation/figures/Non-dim residual hybrid {category_start}-{category_end}.jpg", dpi=150)
 
-    # plt.show()
+    plt.show()
 
 
 
@@ -160,5 +160,5 @@ def main_boxplot(quantity):
 
 if __name__ == "__main__":
 
-    # main()
-    main_boxplot("h")
+    main()
+    # main_boxplot("open_bound")
