@@ -1,10 +1,10 @@
 import numpy as np
 import time
 import colormaps
-
+import os
 import torch
 import matplotlib.pyplot as plt
-
+from matplotlib.gridspec import GridSpec
 
 
 
@@ -417,6 +417,7 @@ class PerformanceSummaryWindow_Hydrology:
                 self.current_stage = 0
                 stage = 0
 
+                os.makedirs(f"./Saltmarsh component Hydro-PINN evaluation/figures", exists_ok=True)
                 self.figure.savefig(f"./Saltmarsh component Hydro-PINN evaluation/figures/Saltmarsh component Hydro-PINN solution {self.params.sfere_start}-{self.params.sfere_end}.jpg", dpi=150)
 
             if stage < self.stages:

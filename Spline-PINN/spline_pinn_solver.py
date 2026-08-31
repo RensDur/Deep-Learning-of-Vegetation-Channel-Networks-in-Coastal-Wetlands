@@ -648,7 +648,7 @@ class SplinePINNSolver:
                 self.logger.save_state("vegetation_net", self.vegetation_net, self.optimizer, epoch + 1)
 
 
-    def visualize(self, window):
+    def visualize(self, window, print_loss_images=False):
         """
         VISUALIZING RESULTS
         """
@@ -691,7 +691,8 @@ class SplinePINNSolver:
         window.set_training_loss(training_loss)
         window.open()
 
-        
+        self.training_sediment = False
+        self.training_vegetation = False
 
         # Simulation loop
         def simulation_loop():
@@ -722,11 +723,11 @@ class SplinePINNSolver:
                 new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment, new_hidden_state_vegetation], dim=1)
 
                 # Hybrid: Compute update steps for S and B numerically if not training with S and B
-                if not self.training_sediment and not self.training_vegetation:
-                    new_hidden_state_sediment, new_hidden_state_vegetation = self.solve_morphology_numerical(new_hidden_state, closed_mask, opened_mask)
+                # if not self.training_sediment and not self.training_vegetation:
+                #     new_hidden_state_sediment, new_hidden_state_vegetation = self.solve_morphology_numerical(new_hidden_state, closed_mask, opened_mask)
 
-                    # Re-compile the full new hidden state
-                    new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment, new_hidden_state_vegetation], dim=1)
+                #     # Re-compile the full new hidden state
+                #     new_hidden_state = torch.cat([new_hidden_state_water, new_hidden_state_sediment, new_hidden_state_vegetation], dim=1)
 
                 # dim = [1]
                 # loss_h, loss_u, loss_v, loss_s, loss_b, loss_bound = self.compute_batch_loss(old_hidden_state, new_hidden_state, grid_offsets, sample_closed_masks, sample_opened_masks, dim)
