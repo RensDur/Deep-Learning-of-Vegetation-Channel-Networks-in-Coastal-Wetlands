@@ -951,11 +951,13 @@ class SplinePINNSolver:
                     loss_bound_open = merge_orientations(loss_bound_open)
 
                     # Normalise each of the relevant terms by their characteristic scale
-                    loss_h = loss_h / characteristic_scale_per_sample[:, 0]
-                    loss_u = loss_u / characteristic_scale_per_sample[:, 1]
-                    loss_v = loss_v / characteristic_scale_per_sample[:, 2]
-                    loss_bound_closed = loss_bound_closed / characteristic_scale_per_sample[:, 3]
-                    loss_bound_open = loss_bound_open / characteristic_scale_per_sample[:, 4]
+                    # loss_h = loss_h / characteristic_scale_per_sample[:, 0]
+                    # loss_u = loss_u / characteristic_scale_per_sample[:, 1]
+                    # loss_v = loss_v / characteristic_scale_per_sample[:, 2]
+                    # loss_bound_closed = loss_bound_closed / characteristic_scale_per_sample[:, 3]
+                    # loss_bound_open = loss_bound_open / characteristic_scale_per_sample[:, 4]
+                    # 
+                    # >>> NORMALISATION HAS BEEN MOVED TO POST-PROCESSING
 
                     # Store the resulting normalised residuals (after taking the average)
                     evaluation_loss_residuals[:, 0, i//interval] = loss_h.detach().cpu()
