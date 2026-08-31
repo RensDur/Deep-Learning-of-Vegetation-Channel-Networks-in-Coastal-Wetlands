@@ -240,3 +240,5 @@ Logger
 
 # Ignore the snapshots taken from SFERE
 snapshots-log-slowdown/
+ablation_study_evaluation/
+Hybrid Hydro-PINN evaluation/
