@@ -679,8 +679,6 @@ class Dataset:
         # Reset all masks and conditions
         self.closed_mask_fullres[indices] = 0
         self.opened_mask_fullres[indices] = 0
-        self.h_mask_fullres[indices] = 0
-        self.h_cond_fullres[indices] = 0
 
         # Ensure each environment has the correct settings
         # types=["numerical-saltmarsh"], water_strategies=["Hin"], vegetation_ics=["elsewhere-specified"]
@@ -754,8 +752,6 @@ class Dataset:
                 # Rotate the boundary conditions
                 self.closed_mask_fullres[group_indices] = torch.rot90(self.closed_mask_fullres[group_indices], k=1, dims=(2,3))
                 self.opened_mask_fullres[group_indices] = torch.rot90(self.opened_mask_fullres[group_indices], k=1, dims=(2,3))
-                self.h_mask_fullres[group_indices] = torch.rot90(self.h_mask_fullres[group_indices], k=1, dims=(2,3))
-                self.h_cond_fullres[group_indices] = torch.rot90(self.h_cond_fullres[group_indices], k=1, dims=(2,3))
 
             if orientation == "west":
                 # Rotate PI rads (2 turns) to orient the open boundary towards west
@@ -769,8 +765,6 @@ class Dataset:
                 # Rotate the boundary conditions
                 self.closed_mask_fullres[group_indices] = torch.rot90(self.closed_mask_fullres[group_indices], k=2, dims=(2,3))
                 self.opened_mask_fullres[group_indices] = torch.rot90(self.opened_mask_fullres[group_indices], k=2, dims=(2,3))
-                self.h_mask_fullres[group_indices] = torch.rot90(self.h_mask_fullres[group_indices], k=2, dims=(2,3))
-                self.h_cond_fullres[group_indices] = torch.rot90(self.h_cond_fullres[group_indices], k=2, dims=(2,3))
             
             if orientation == "south":
                 # Rotate -PI/2 rads (-1 turns) to orient the open boundary towards south
@@ -788,8 +782,6 @@ class Dataset:
                 # Rotate the boundary conditions
                 self.closed_mask_fullres[group_indices] = torch.rot90(self.closed_mask_fullres[group_indices], k=-1, dims=(2,3))
                 self.opened_mask_fullres[group_indices] = torch.rot90(self.opened_mask_fullres[group_indices], k=-1, dims=(2,3))
-                self.h_mask_fullres[group_indices] = torch.rot90(self.h_mask_fullres[group_indices], k=-1, dims=(2,3))
-                self.h_cond_fullres[group_indices] = torch.rot90(self.h_cond_fullres[group_indices], k=-1, dims=(2,3))
             
             
 
@@ -810,8 +802,6 @@ class Dataset:
         # Average pooling to create downsampled versions of the BCs
         self.closed_mask[indices] = F.avg_pool2d(self.closed_mask_fullres[indices],self.resolution_factor)
         self.opened_mask[indices] = F.avg_pool2d(self.opened_mask_fullres[indices],self.resolution_factor)
-        self.h_mask[indices] = F.avg_pool2d(self.h_mask_fullres[indices],self.resolution_factor)
-        self.h_cond[indices] = F.avg_pool2d(self.h_cond_fullres[indices],self.resolution_factor)
 
 
 
