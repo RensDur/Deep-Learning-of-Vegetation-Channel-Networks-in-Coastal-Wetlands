@@ -115,7 +115,7 @@ class ShallowWaterUNet(nn.Module):
 			self.spline_variables.extract_from(hidden_state, "u"),
 			self.spline_variables.extract_from(hidden_state, "v")
 		], dim=1)
-		out[:,:,:,:] = self.output_scalar*torch.tanh(out[:,:,:,:] + extracted_water_hidden_state[:,:,:,:])
+		out[:,:,:,:] = self.output_scalar*torch.tanh((out[:,:,:,:]+extracted_water_hidden_state[:,:,:,:])/self.output_scalar)
 		
 		# # Substract the mean of every variable
 		# out[:,self.spline_variables.get_singular_slice_for("h"),:,:] = out[:,self.spline_variables.get_singular_slice_for("h"),:,:] - torch.mean(out[:,self.spline_variables.get_singular_slice_for("h"),:,:],dim=(2,3)).unsqueeze(2).unsqueeze(3)
@@ -205,7 +205,7 @@ class SedimentUNet(nn.Module):
 		
 		# residual connections
 		extracted_sediment_hidden_state = self.spline_variables.extract_from(hidden_state, "s")
-		out[:,:,:,:] = self.output_scalar*torch.tanh(out[:,:,:,:] + extracted_sediment_hidden_state[:,:,:,:])
+		out[:,:,:,:] = self.output_scalar*torch.tanh((out[:,:,:,:]+extracted_sediment_hidden_state[:,:,:,:])/self.output_scalar)
 		
 		# # Substract the mean of every variable
 		# out[:,self.spline_variables.get_singular_slice_for("h"),:,:] = out[:,self.spline_variables.get_singular_slice_for("h"),:,:] - torch.mean(out[:,self.spline_variables.get_singular_slice_for("h"),:,:],dim=(2,3)).unsqueeze(2).unsqueeze(3)
@@ -295,7 +295,7 @@ class VegetationUNet(nn.Module):
 		
 		# residual connections
 		extracted_sediment_hidden_state = self.spline_variables.extract_from(hidden_state, "b")
-		out[:,:,:,:] = self.output_scalar*torch.tanh(out[:,:,:,:] + extracted_sediment_hidden_state[:,:,:,:])
+		out[:,:,:,:] = self.output_scalar*torch.tanh((out[:,:,:,:]+extracted_sediment_hidden_state[:,:,:,:])/self.output_scalar)
 		
 		# # Substract the mean of every variable
 		# out[:,self.spline_variables.get_singular_slice_for("h"),:,:] = out[:,self.spline_variables.get_singular_slice_for("h"),:,:] - torch.mean(out[:,self.spline_variables.get_singular_slice_for("h"),:,:],dim=(2,3)).unsqueeze(2).unsqueeze(3)
