@@ -19,7 +19,7 @@ def main():
     evaluation_loss_terms = torch.zeros(100, 5, 100) # Number of samples per ablation, number of channels, sample every 10 iterations for 1000 iters
 
     for i, start in enumerate(range(category_start, category_end, 10)):
-        evaluation_loss_terms[i:(i+10)] = torch.load(f"./Hybrid Hydro-PINN evaluation/eval_residuals/sfere_start {start} sfere_end {start+10}.pt")
+        evaluation_loss_terms[i:(i+10)] = torch.load(f"./Saltmarsh component Hydro-PINN evaluation/eval_residuals/sfere_start {start} sfere_end {start+10}.pt")
 
     # Compute residuals
     evaluation_residuals = torch.zeros(100, 4, 100)
@@ -78,8 +78,8 @@ def main():
     
     plt.legend(loc="upper right")
 
-    os.makedirs(f"./Hybrid Hydro-PINN evaluation/figures", exist_ok=True)
-    plt.savefig(f"./Hybrid Hydro-PINN evaluation/figures/Non-dim residual hybrid {category_start}-{category_end}.jpg", dpi=150)
+    os.makedirs(f"./Saltmarsh component Hydro-PINN evaluation/figures", exist_ok=True)
+    plt.savefig(f"./Saltmarsh component Hydro-PINN evaluation/figures/Non-dim residual hybrid {category_start}-{category_end}.jpg", dpi=150)
 
     plt.show()
 
@@ -94,7 +94,7 @@ def compute_mean_residual_for_model(category_start):
     evaluation_residuals = torch.zeros(100, 5, 100) # Number of samples per ablation, number of channels, sample every 10 iterations for 1000 iters
 
     for i, start in enumerate(range(category_start, category_end, 10)):
-        evaluation_residuals[i:(i+10)] = torch.load(f"./Hybrid Hydro-PINN evaluation/eval_residuals/sfere_start {start} sfere_end {start+10}.pt")
+        evaluation_residuals[i:(i+10)] = torch.load(f"./Saltmarsh component Hydro-PINN evaluation/eval_residuals/sfere_start {start} sfere_end {start+10}.pt")
 
     # Merge the two momentum channels (direction distinction has been removed by evaluating across all landscape orientations)
     vel_residuals = torch.mean(evaluation_residuals[:, [1,2]], dim=1)
@@ -167,8 +167,8 @@ def main_boxplot(quantity):
     plt.ylabel("Non-Dimensionalised Residual")
     plt.legend(loc="upper right", ncols=1)
 
-    os.makedirs(f"./Hybrid Hydro-PINN evaluation/figures", exist_ok=True)
-    plt.savefig(f"./Hybrid Hydro-PINN evaluation/figures/Non-dim residual bar per landscape category {quantity}.jpg", dpi=150)
+    os.makedirs(f"./Saltmarsh component Hydro-PINN evaluation/figures", exist_ok=True)
+    plt.savefig(f"./Saltmarsh component Hydro-PINN evaluation/figures/Non-dim residual bar per landscape category {quantity}.jpg", dpi=150)
 
     plt.show()
 

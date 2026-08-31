@@ -12,7 +12,7 @@ def main():
     evaluation_residuals = torch.zeros(500, 5, 100) # Number of samples per ablation, number of channels, sample every 10 iterations for 1000 iters
 
     for i in range(0, 500, 10):
-        evaluation_residuals[i:(i+10)] = torch.load(f"./Hybrid Hydro-PINN evaluation/eval_residuals/sfere_start {i} sfere_end {i+10}.pt")
+        evaluation_residuals[i:(i+10)] = torch.load(f"./Saltmarsh component Hydro-PINN evaluation/eval_residuals/sfere_start {i} sfere_end {i+10}.pt")
 
     # Allocate memory for rescaled evaluation residuals
     rescaled_evaluation_residuals = torch.zeros_like(evaluation_residuals)
@@ -27,7 +27,7 @@ def main():
 
     # Save the rescaled residuals
     for i in range(0, 500, 10):
-        torch.save(rescaled_evaluation_residuals[i:(i+10)], f"./Hybrid Hydro-PINN evaluation/eval_residuals/sfere_start {i} sfere_end {i+10}.pt")
+        torch.save(rescaled_evaluation_residuals[i:(i+10)], f"./Saltmarsh component Hydro-PINN evaluation/eval_residuals/sfere_start {i} sfere_end {i+10}.pt")
 
 
 

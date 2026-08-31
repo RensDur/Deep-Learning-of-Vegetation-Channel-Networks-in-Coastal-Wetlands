@@ -14,8 +14,8 @@ def main():
     evaluation_loss_terms = torch.zeros(500, 5, 100) # Number of samples per ablation, number of channels, sample every 10 iterations for 1000 iters
 
     for i in range(0, 500, 10):
-        evaluation_loss_terms[i:(i+10)] = torch.load(f"./Hybrid Hydro-PINN evaluation/eval_residuals/sfere_start {i} sfere_end {i+10}.pt")
-        print(torch.load(f"./Hybrid Hydro-PINN evaluation/eval_residuals/sfere_start {i} sfere_end {i+10}.pt").shape)
+        evaluation_loss_terms[i:(i+10)] = torch.load(f"./Saltmarsh component Hydro-PINN evaluation/eval_residuals/sfere_start {i} sfere_end {i+10}.pt")
+        print(torch.load(f"./Saltmarsh component Hydro-PINN evaluation/eval_residuals/sfere_start {i} sfere_end {i+10}.pt").shape)
 
     # Compute residuals
     evaluation_residuals = torch.zeros(500, 4, 100)
@@ -61,8 +61,8 @@ def main():
     plt.ylabel("Residual")
     plt.legend(loc="upper right", ncols=1)
 
-    os.makedirs(f"./Hybrid Hydro-PINN evaluation/figures", exist_ok=True)
-    plt.savefig(f"./Hybrid Hydro-PINN evaluation/figures/Residual per landscape {quantity}.jpg", dpi=150)
+    os.makedirs(f"./Saltmarsh component Hydro-PINN evaluation/figures", exist_ok=True)
+    plt.savefig(f"./Saltmarsh component Hydro-PINN evaluation/figures/Residual per landscape {quantity}.jpg", dpi=150)
 
     plt.show()
 
