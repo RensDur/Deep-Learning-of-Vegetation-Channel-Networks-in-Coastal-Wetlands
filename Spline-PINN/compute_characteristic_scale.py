@@ -130,13 +130,13 @@ def main():
         characteristic_scales[i, 2] = v_scale_90th_percentile
 
         # Compute boundary term magnitude [CLOSED | OPEN] over boundary band of width 5%
-        boundary_band_width = int(800 * 0.05)
+        boundary_band_width = int(800 * 0.15)
 
         bc_closed_scale_local = torch.abs(d_dx(h)) + torch.abs(d_dy(h)) + torch.abs(u) + torch.abs(v)
-        bc_closed_scale_local[0, 0, boundary_band_width:, boundary_band_width:-boundary_band_width] = 0 # Remove everything that's not included in the closed boundary band
+        bc_closed_scale_local[:, :, boundary_band_width:-boundary_band_width, boundary_band_width:] = 0 # Remove everything that's not included in the closed boundary band
 
         bc_open_scale_local = torch.abs(d_dx(h)) + torch.abs(d_dy(h))
-        bc_open_scale_local[0, 0, :-boundary_band_width, :] = 0 # Remove everything that's not included in the open boundary band
+        bc_open_scale_local[:, :, :, :-boundary_band_width] = 0 # Remove everything that's not included in the open boundary band
 
         # Compute 90th percentile
         bc_closed_90th_percentile = torch.quantile(bc_closed_scale_local.flatten(), 0.9)
@@ -147,11 +147,11 @@ def main():
 
 
     # To prevent division-by-zero when using these scales for normalisation, add a small epsilon to each channel
-    h_char_scale_10th_percentile = torch.clamp(torch.quantile(characteristic_scales[:, 0], 0.1), min=1e-5)
-    u_char_scale_10th_percentile = torch.clamp(torch.quantile(characteristic_scales[:, 1], 0.1), min=1e-5)
-    v_char_scale_10th_percentile = torch.clamp(torch.quantile(characteristic_scales[:, 2], 0.1), min=1e-5)
-    bc_closed_char_scale_10th_percentile = torch.clamp(torch.quantile(characteristic_scales[:, 3], 0.1), min=1e-5)
-    bc_open_char_scale_10th_percentile = torch.clamp(torch.quantile(characteristic_scales[:, 4], 0.1), min=1e-5)
+    h_char_scale_10th_percentile = torch.clamp(torch.quantile(characteristic_scales[:, 0], 0.1), min=1e-8)
+    u_char_scale_10th_percentile = torch.clamp(torch.quantile(characteristic_scales[:, 1], 0.1), min=1e-8)
+    v_char_scale_10th_percentile = torch.clamp(torch.quantile(characteristic_scales[:, 2], 0.1), min=1e-8)
+    bc_closed_char_scale_10th_percentile = torch.clamp(torch.quantile(characteristic_scales[:, 3], 0.1), min=1e-8)
+    bc_open_char_scale_10th_percentile = torch.clamp(torch.quantile(characteristic_scales[:, 4], 0.1), min=1e-8)
 
     characteristic_scales[:, 0] = characteristic_scales[:, 0] + h_char_scale_10th_percentile
     characteristic_scales[:, 1] = characteristic_scales[:, 1] + u_char_scale_10th_percentile
