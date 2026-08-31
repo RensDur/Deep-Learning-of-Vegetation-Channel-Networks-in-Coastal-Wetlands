@@ -14,14 +14,29 @@ def main():
 
     ablation_model = f"{ablation_start}-{ablation_end}"
 
+    # Load the characteristic scales from disk
+    characteristic_scales = torch.load(f"./snapshots-log-slowdown/characteristic_scales_per_sample.pt")[ablation_start:ablation_end].unsqueeze(2).repeat(1, 1, 100)
+
     # Load the residuals from disk and merge them into one tensor
-    evaluation_residuals = torch.zeros(100, 5, 100) # Number of samples per ablation, number of channels, sample every 10 iterations for 1000 iters
+    evaluation_loss_terms = torch.zeros(100, 5, 100) # Number of samples per ablation, number of channels, sample every 10 iterations for 1000 iters
 
     for i, start in enumerate(range(ablation_start, ablation_end, 10)):
-        evaluation_residuals[i:(i+10)] = torch.load(f"./ablation_study_evaluation/eval_residuals/ablation {ablation_model}/sfere_start {start} sfere_end {start+10}.pt")
+        evaluation_loss_terms[i:(i+10)] = torch.load(f"./ablation_study_evaluation/eval_residuals/ablation {ablation_model}/sfere_start {start} sfere_end {start+10}.pt")
 
-    # Merge the two momentum channels (direction distinction has been removed by evaluating across all landscape orientations)
-    vel_residuals = torch.mean(evaluation_residuals[:, [1,2]], dim=1)
+    # Compute residuals
+    evaluation_residuals = torch.zeros(100, 4, 100)
+
+    # Index 0 - h residual
+    evaluation_residuals[:, 0, :] = evaluation_loss_terms[:, 0, :] / characteristic_scales[:, 0, :]
+
+    # Index 1 - uv residual
+    evaluation_residuals[:, 1, :] = (evaluation_loss_terms[:, 1 ,:] + evaluation_loss_terms[:, 2, :]) / (characteristic_scales[:, 1, :] + characteristic_scales[:, 2, :])
+
+    # Index 2 - closed boundary residual
+    evaluation_residuals[:, 2, :] = evaluation_loss_terms[:, 3, :] / characteristic_scales[:, 3, :]
+    
+    # Index 3 - closed boundary residual
+    evaluation_residuals[:, 3, :] = evaluation_loss_terms[:, 4, :] / characteristic_scales[:, 4, :]
 
     fig_width = 12.0
     fig_height = 3.0
@@ -58,9 +73,9 @@ def main():
     skip_first_entries = 1
 
     ax.semilogy([i*10 for i in range(skip_first_entries, evaluation_residuals.shape[0])], torch.mean(evaluation_residuals[:,0,skip_first_entries:], dim=0), label=r"$\mathcal{R}_h$")
-    ax.semilogy([i*10 for i in range(skip_first_entries, evaluation_residuals.shape[0])], torch.mean(vel_residuals[:,skip_first_entries:], dim=0), label=r"$\mathcal{R}_{uv}$")
-    ax.semilogy([i*10 for i in range(skip_first_entries, evaluation_residuals.shape[0])], torch.mean(evaluation_residuals[:,3,skip_first_entries:], dim=0), label=r"$\mathcal{R}_{bound,closed}$")
-    ax.semilogy([i*10 for i in range(skip_first_entries, evaluation_residuals.shape[0])], torch.mean(evaluation_residuals[:,4,skip_first_entries:], dim=0), label=r"$\mathcal{R}_{bound,open}$")
+    ax.semilogy([i*10 for i in range(skip_first_entries, evaluation_residuals.shape[0])], torch.mean(evaluation_residuals[:,1,skip_first_entries:], dim=0), label=r"$\mathcal{R}_{uv}$")
+    ax.semilogy([i*10 for i in range(skip_first_entries, evaluation_residuals.shape[0])], torch.mean(evaluation_residuals[:,2,skip_first_entries:], dim=0), label=r"$\mathcal{R}_{bound,closed}$")
+    ax.semilogy([i*10 for i in range(skip_first_entries, evaluation_residuals.shape[0])], torch.mean(evaluation_residuals[:,3,skip_first_entries:], dim=0), label=r"$\mathcal{R}_{bound,open}$")
 
     
     plt.legend(loc="upper right")

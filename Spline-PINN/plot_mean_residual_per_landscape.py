@@ -8,21 +8,33 @@ import matplotlib.pyplot as plt
 def main():
 
     # Load the characteristic scales from disk
-    characteristic_scales = torch.load(f"./snapshots-log-slowdown/characteristic_scales_per_sample.pt")
+    characteristic_scales = torch.load(f"./snapshots-log-slowdown/characteristic_scales_per_sample.pt").unsqueeze(2).repeat(1, 1, 100)
     
     # Load the residuals from disk and merge them into one tensor
-    evaluation_residuals = torch.zeros(500, 5, 100) # Number of samples per ablation, number of channels, sample every 10 iterations for 1000 iters
+    evaluation_loss_terms = torch.zeros(500, 5, 100) # Number of samples per ablation, number of channels, sample every 10 iterations for 1000 iters
 
     for ablation_start in range(0, 500, 100):
         for i in range(ablation_start, ablation_start+100, 10):
-            evaluation_residuals[i:(i+10)] = torch.load(f"./ablation_study_evaluation/eval_residuals/ablation {ablation_start}-{ablation_start+100}/sfere_start {i} sfere_end {i+10}.pt")
+            evaluation_loss_terms[i:(i+10)] = torch.load(f"./ablation_study_evaluation/eval_residuals/ablation {ablation_start}-{ablation_start+100}/sfere_start {i} sfere_end {i+10}.pt")
             print(torch.load(f"./ablation_study_evaluation/eval_residuals/ablation {ablation_start}-{ablation_start+100}/sfere_start {i} sfere_end {i+10}.pt").shape)
+
+    # Compute residuals
+    evaluation_residuals = torch.zeros(500, 4, 100)
+
+    # Index 0 - h residual
+    evaluation_residuals[:, 0, :] = evaluation_loss_terms[:, 0, :] / characteristic_scales[:, 0, :]
+
+    # Index 1 - uv residual
+    evaluation_residuals[:, 1, :] = (evaluation_loss_terms[:, 1 ,:] + evaluation_loss_terms[:, 2, :]) / (characteristic_scales[:, 1, :] + characteristic_scales[:, 2, :])
+
+    # Index 2 - closed boundary residual
+    evaluation_residuals[:, 2, :] = evaluation_loss_terms[:, 3, :] / characteristic_scales[:, 3, :]
+    
+    # Index 3 - closed boundary residual
+    evaluation_residuals[:, 3, :] = evaluation_loss_terms[:, 4, :] / characteristic_scales[:, 4, :]
 
     # Compute aggregate evaluation residual per landscape
     evaluation_residuals = torch.mean(evaluation_residuals, dim=2)
-
-    # Merge the two momentum channels (direction distinction has been removed by evaluating across all landscape orientations)
-    vel_residuals = torch.mean(evaluation_residuals[:, [1,2]], dim=1)
 
     plt.figure(figsize=(7, 4))
 
@@ -33,13 +45,13 @@ def main():
         plt.plot(evaluation_residuals[:, 0], label=r"$\mathcal{R}_h$", color="tab:blue")
         
     if quantity == "uv":
-        plt.plot(vel_residuals[:], label=r"$\mathcal{R}_{uv}$", color="tab:orange")
+        plt.plot(evaluation_residuals[:, 1], label=r"$\mathcal{R}_{uv}$", color="tab:orange")
         
     if quantity == "closed_bound":
-        plt.plot(evaluation_residuals[:, 3], label=r"$\mathcal{R}_{bound,closed}$", color="tab:green")
+        plt.plot(evaluation_residuals[:, 2], label=r"$\mathcal{R}_{bound,closed}$", color="tab:green")
         
     if quantity == "open_bound":
-        plt.plot(evaluation_residuals[:, 4], label=r"$\mathcal{R}_{bound,open}$", color="tab:red")
+        plt.plot(evaluation_residuals[:, 3], label=r"$\mathcal{R}_{bound,open}$", color="tab:red")
         
 
 
