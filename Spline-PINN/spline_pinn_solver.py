@@ -692,8 +692,8 @@ class SplinePINNSolver:
         window.set_training_loss(training_loss)
         window.open()
 
-        self.training_sediment = False
-        self.training_vegetation = False
+        # self.training_sediment = False
+        # self.training_vegetation = False
 
         # Simulation loop
         def simulation_loop():
