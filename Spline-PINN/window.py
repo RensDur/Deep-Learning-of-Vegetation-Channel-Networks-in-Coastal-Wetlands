@@ -607,7 +607,7 @@ class PerformanceSummaryWindow_HydroMorphology:
             self.u_img_plots = [self.u_axs[col].imshow(self.u[col,0].detach().cpu().numpy(), cmap="bwr", vmin=-1, vmax=1) for col in range(self.stages)]
             self.v_img_plots = [self.v_axs[col].imshow(self.v[col,0].detach().cpu().numpy(), cmap="bwr", vmin=-1, vmax=1) for col in range(self.stages)]
             self.s_img_plots = [self.s_axs[col].imshow(self.v[col,0].detach().cpu().numpy(), cmap="YlOrBr", vmin=0, vmax=0.5) for col in range(self.stages)]
-            self.b_img_plots = [self.b_axs[col].imshow(self.v[col,0].detach().cpu().numpy(), cmap="YlGn", vmin=0, vmax=50) for col in range(self.stages)]
+            self.b_img_plots = [self.b_axs[col].imshow(self.v[col,0].detach().cpu().numpy(), cmap="YlGn", vmin=0, vmax=1500) for col in range(self.stages)]
 
             # Adjust the color limits of the first plots, as they are generally narrower in SFERE compared to our PINNs
             self.h_img_plots[0].set_clim(vmin=0, vmax=0.05)
@@ -638,7 +638,7 @@ class PerformanceSummaryWindow_HydroMorphology:
         plt.colorbar(self.u_img_plots[-1], cax=self.u_cax_2)
         plt.colorbar(self.v_img_plots[-1], cax=self.v_cax_2)
         plt.colorbar(self.s_img_plots[-1], cax=self.s_cax_2, ticks=[0, 0.1, 0.2, 0.3, 0.4, 0.5])
-        plt.colorbar(self.b_img_plots[-1], cax=self.b_cax_2, ticks=[0, 10, 20, 30, 40, 50])
+        plt.colorbar(self.b_img_plots[-1], cax=self.b_cax_2)
 
         # Window status
         self.is_open = False
@@ -688,8 +688,8 @@ class PerformanceSummaryWindow_HydroMorphology:
                 self.current_stage = 0
                 stage = 0
 
-                os.makedirs(f"./Saltmarsh-PINN evaluation/figures", exist_ok=True)
-                self.figure.savefig(f"./Saltmarsh-PINN evaluation/figures/Saltmarsh-PINN solution {self.params.sfere_start}-{self.params.sfere_end}.jpg", dpi=150)
+                os.makedirs(f"./Hybrid HydroMorpho-PINN evaluation/figures", exist_ok=True)
+                self.figure.savefig(f"./Hybrid HydroMorpho-PINN evaluation/figures/Saltmarsh-PINN solution {self.params.sfere_start}-{self.params.sfere_end}.jpg", dpi=150)
 
                 self.is_open = False
                 exit()
