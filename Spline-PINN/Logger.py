@@ -1,5 +1,7 @@
 import os
 import time
+
+from typing_extensions import override
 import torch
 import datetime as dt
 from torch.utils.tensorboard import SummaryWriter
@@ -249,7 +251,7 @@ class Logger():
 		with open(path,"wb") as f:
 			pickle.dump(dic,f)
 	
-	def load_state(self,name,model,optimizer,datetime=None,index=None,continue_datetime=False):
+	def load_state(self,name,model,optimizer,datetime=None,index=None,continue_datetime=False,override_fetch_folder=None):
 		"""
 		loads state of model and optimizer
 		:model: model to load (if list: load multiple models)
@@ -259,6 +261,11 @@ class Logger():
 		:continue_datetime: flag whether to continue on this run. Default: False
 		:return: datetime, index (helpful, if datetime / index wasn't given)
 		"""
+		
+		temp_name = self.name
+		if override_fetch_folder is not None:
+		    # Temporarily override the self.name of this logger
+			self.name = override_fetch_folder
 		
 		if datetime is None:
 			for _,dirs,_ in os.walk('Logger/{}/'.format(self.name)):
@@ -290,6 +297,11 @@ class Logger():
 				optimizer = [optimizer]
 			for i,o in enumerate(optimizer):
 				o.load_state_dict(state['optimizer{}'.format(i)])
+
+		if override_fetch_folder is not None:
+		    # Temporarily override the self.name of this logger
+			self.name = temp_name
+			print(f"Loaded alternate model for '{name}' from directory '{override_fetch_folder}' at {datetime}, {index}")
 		
 		return datetime, index
 	

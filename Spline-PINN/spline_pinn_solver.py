@@ -665,6 +665,7 @@ class SplinePINNSolver:
 
         # Load the trained model state
         date_time, index = self.logger.load_state("water_net", self.water_net, None, datetime=self.params.load_date_time, index=self.params.load_index)
+        # date_time, index = self.logger.load_state("water_net", self.water_net, None, datetime="2026-07-17 17:59:04", index=None, override_fetch_folder="net ShallowWaterUNet + Hybrid; hs 25; dt 1;") # Uncomment if you want hybrid trained water_net
 
         try:
             date_time, index = self.logger.load_state("sediment_net", self.sediment_net, None, datetime=self.params.load_date_time, index=self.params.load_index)
