@@ -477,6 +477,287 @@ class PerformanceSummaryWindow_Hydrology:
 
 
 
+
+
+class PerformanceSummaryWindow_HydroMorphology:
+
+    def __init__(self, width, height, stages, interval, print_loss_images=False, params=None):
+
+        self.width = width
+        self.height = height
+        self.stages = stages
+        self.interval = interval
+
+        self.current_stage = 0
+
+        self.params = params
+
+        # Initial blank images
+        self.h = torch.zeros(self.stages, 1, height, width)
+        self.u = torch.zeros(self.stages, 1, height, width)
+        self.v = torch.zeros(self.stages, 1, height, width)
+        self.s = torch.zeros(self.stages, 1, height, width)
+        self.b = torch.zeros(self.stages, 1, height, width)
+
+        # Keep track of evaluation loss
+        self.h_loss_data = np.array([])
+        self.u_loss_data = np.array([])
+        self.v_loss_data = np.array([])
+        self.s_loss_data = np.array([])
+        self.b_loss_data = np.array([])
+
+        # Matplotlib interactive mode
+        plt.ion()
+        
+        fig_width = 12.0
+        fig_height = 8.0
+        left = 0.9
+        right = 0.6
+        top = 0.4
+        bottom = 0.4
+
+        # Create window for training loss
+        self.loss_figure = plt.figure(figsize=(5, 5))
+
+        # Create subplots
+        self.figure = plt.figure(figsize=(fig_width, fig_height))
+
+        width_ratios = [1, 0.4] + [1] * (self.stages-1) + [0.1] # [0.1] is for the color bars. The first and last column each get a color bar
+        self.grid_spec = GridSpec(5, self.stages+2, width_ratios=width_ratios, figure=self.figure) # Add one for the color bars
+
+        self.h_axs = [self.figure.add_subplot(self.grid_spec[0, col]) for col in range(self.stages+1) if not col == 1] # Skip the color bar column
+        self.u_axs = [self.figure.add_subplot(self.grid_spec[1, col]) for col in range(self.stages+1) if not col == 1]
+        self.v_axs = [self.figure.add_subplot(self.grid_spec[2, col]) for col in range(self.stages+1) if not col == 1]
+        self.s_axs = [self.figure.add_subplot(self.grid_spec[3, col]) for col in range(self.stages+1) if not col == 1]
+        self.b_axs = [self.figure.add_subplot(self.grid_spec[4, col]) for col in range(self.stages+1) if not col == 1]
+
+        # Separate column for color bars
+        self.h_cax_1_fullspan = self.figure.add_subplot(self.grid_spec[0, 1])
+        self.u_cax_1_fullspan = self.figure.add_subplot(self.grid_spec[1, 1])
+        self.v_cax_1_fullspan = self.figure.add_subplot(self.grid_spec[2, 1])
+        self.s_cax_1_fullspan = self.figure.add_subplot(self.grid_spec[3, 1])
+        self.b_cax_1_fullspan = self.figure.add_subplot(self.grid_spec[4, 1])
+
+        self.h_cax_1_fullspan.axis("off")
+        self.u_cax_1_fullspan.axis("off")
+        self.v_cax_1_fullspan.axis("off")
+        self.s_cax_1_fullspan.axis("off")
+        self.b_cax_1_fullspan.axis("off")
+
+        self.h_cax_1 = self.h_cax_1_fullspan.inset_axes([0, 0, 0.25, 1])
+        self.u_cax_1 = self.u_cax_1_fullspan.inset_axes([0, 0, 0.25, 1])
+        self.v_cax_1 = self.v_cax_1_fullspan.inset_axes([0, 0, 0.25, 1])
+        self.s_cax_1 = self.s_cax_1_fullspan.inset_axes([0, 0, 0.25, 1])
+        self.b_cax_1 = self.b_cax_1_fullspan.inset_axes([0, 0, 0.25, 1])
+        
+        self.h_cax_2 = self.figure.add_subplot(self.grid_spec[0, self.stages+1])
+        self.u_cax_2 = self.figure.add_subplot(self.grid_spec[1, self.stages+1])
+        self.v_cax_2 = self.figure.add_subplot(self.grid_spec[2, self.stages+1])
+        self.s_cax_2 = self.figure.add_subplot(self.grid_spec[3, self.stages+1])
+        self.b_cax_2 = self.figure.add_subplot(self.grid_spec[4, self.stages+1])
+
+        # Custom spacing
+        left   = left   / fig_width
+        right  = 1 - right / fig_width
+        bottom = bottom / fig_height
+        top    = 1 - top / fig_height
+        plt.subplots_adjust(
+            left=left,
+            right=right,
+            top=top,
+            bottom=bottom,
+            hspace=0.15,
+            wspace=0.01
+        )
+
+        # Disable axis numbers for image plots
+        for i in range(self.stages):
+            self.h_axs[i].tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+            self.u_axs[i].tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+            self.v_axs[i].tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+            self.s_axs[i].tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+            self.b_axs[i].tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+
+        # Titles and labels
+        self.h_axs[0].set(title=f"Starting condition")
+        for i in range(1, self.stages):
+            self.h_axs[i].set(title=f"{i*self.interval}")
+
+        self.h_axs[1].set(title=f"Iteration: {1*self.interval}")
+
+        self.h_axs[0].set_ylabel("Water level ($h$)")
+        self.u_axs[0].set_ylabel("Flow velocity [x] ($u$)")
+        self.v_axs[0].set_ylabel("Flow velocity [y] ($v$)")
+        self.s_axs[0].set_ylabel("Sediment ($S$)")
+        self.b_axs[0].set_ylabel("Vegetation ($B$)")
+
+        # Set loss axis limits
+        # self.loss_ax.set_xlim([-self.interval/2, self.stages * self.interval - self.interval/2])
+        # self.loss_ax.set_ylim([-20, 20])
+
+        # Set loss axis tick positions
+        # self.loss_ax.set_xticks(np.arange(0, self.stages * self.interval, self.interval))
+
+        # Create all the image plots
+        if print_loss_images:
+            self.h_img_plots = [self.h_axs[col].imshow(self.h[col,0].detach().cpu().numpy(), cmap="gray", vmin=-10) for col in range(self.stages)]
+            self.u_img_plots = [self.u_axs[col].imshow(self.u[col,0].detach().cpu().numpy(), cmap="gray", vmin=-10) for col in range(self.stages)]
+            self.v_img_plots = [self.v_axs[col].imshow(self.v[col,0].detach().cpu().numpy(), cmap="gray", vmin=-10) for col in range(self.stages)]
+            self.s_img_plots = [self.s_axs[col].imshow(self.s[col,0].detach().cpu().numpy(), cmap="gray", vmin=-10) for col in range(self.stages)]
+            self.b_img_plots = [self.b_axs[col].imshow(self.b[col,0].detach().cpu().numpy(), cmap="gray", vmin=-10) for col in range(self.stages)]
+        else:
+            
+            self.h_img_plots = [self.h_axs[col].imshow(self.h[col,0].detach().cpu().numpy(), cmap="Blues", vmin=0, vmax=0.5) for col in range(self.stages)]
+            self.u_img_plots = [self.u_axs[col].imshow(self.u[col,0].detach().cpu().numpy(), cmap="bwr", vmin=-1, vmax=1) for col in range(self.stages)]
+            self.v_img_plots = [self.v_axs[col].imshow(self.v[col,0].detach().cpu().numpy(), cmap="bwr", vmin=-1, vmax=1) for col in range(self.stages)]
+            self.s_img_plots = [self.s_axs[col].imshow(self.v[col,0].detach().cpu().numpy(), cmap="YlOrBr", vmin=0, vmax=0.5) for col in range(self.stages)]
+            self.b_img_plots = [self.b_axs[col].imshow(self.v[col,0].detach().cpu().numpy(), cmap="YlGn", vmin=0, vmax=50) for col in range(self.stages)]
+
+            # Adjust the color limits of the first plots, as they are generally narrower in SFERE compared to our PINNs
+            self.h_img_plots[0].set_clim(vmin=0, vmax=0.05)
+            self.u_img_plots[0].set_clim(vmin=-0.2, vmax=0.2)
+            self.v_img_plots[0].set_clim(vmin=-0.2, vmax=0.2)
+            self.s_img_plots[0].set_clim(vmin=0, vmax=0.2)
+            self.b_img_plots[0].set_clim(vmin=0, vmax=1500)
+            
+        # self.s_img_plots = [self.s_axs[col].imshow(self.s[col,0].detach().cpu().numpy(), cmap="YlOrBr", vmin=0, vmax=0.2) for col in range(self.stages)]
+        # self.b_img_plots = [self.b_axs[col].imshow(self.b[col,0].detach().cpu().numpy(), cmap="YlGn", vmin=0,  vmax=1400) for col in range(self.stages)]
+
+        # Create loss plots
+        # self.h_loss_plot = self.loss_ax.plot(range(self.h_loss_data.shape[0]), self.h_loss_data, label="h-loss")[0]
+        # self.u_loss_plot = self.loss_ax.plot(range(self.u_loss_data.shape[0]), self.u_loss_data, label="u-loss")[0]
+        # self.v_loss_plot = self.loss_ax.plot(range(self.v_loss_data.shape[0]), self.v_loss_data, label="v-loss")[0]
+        # self.s_loss_plot = self.loss_ax.plot(range(self.s_loss_data.shape[0]), self.s_loss_data, label="s-loss")[0]
+        # self.b_loss_plot = self.loss_ax.plot(range(self.b_loss_data.shape[0]), self.b_loss_data, label="b-loss")[0]
+        # self.loss_ax.legend()
+        # self.loss_ax.grid(True, which="major", axis="both", linestyle="--", alpha=0.4)
+        
+        # Color bars
+        plt.colorbar(self.h_img_plots[0], cax=self.h_cax_1, ticks=[0, 0.01, 0.02, 0.03, 0.04, 0.05])
+        plt.colorbar(self.u_img_plots[0], cax=self.u_cax_1)
+        plt.colorbar(self.v_img_plots[0], cax=self.v_cax_1)
+        plt.colorbar(self.s_img_plots[0], cax=self.s_cax_1)
+        plt.colorbar(self.b_img_plots[0], cax=self.b_cax_1)
+        plt.colorbar(self.h_img_plots[-1], cax=self.h_cax_2, ticks=[0, 0.1, 0.2, 0.3, 0.4, 0.5])
+        plt.colorbar(self.u_img_plots[-1], cax=self.u_cax_2)
+        plt.colorbar(self.v_img_plots[-1], cax=self.v_cax_2)
+        plt.colorbar(self.s_img_plots[-1], cax=self.s_cax_2, ticks=[0, 0.1, 0.2, 0.3, 0.4, 0.5])
+        plt.colorbar(self.b_img_plots[-1], cax=self.b_cax_2, ticks=[0, 10, 20, 30, 40, 50])
+
+        # Window status
+        self.is_open = False
+
+    def set_training_loss(self, training_loss):
+        training_loss.plot(ax=self.loss_figure.add_subplot(111))
+
+    def open(self):
+
+        def __on_figure_close(event):
+            self.is_open = False
+
+        # In interactive mode, plt.show() immediately returns
+        plt.show()
+
+        # Connect the on-close event
+        self.figure.canvas.mpl_connect('close_event', __on_figure_close)
+
+        # Toggle the window open
+        self.is_open = True
+
+
+    def update(self):
+        if self.is_open:
+
+            # Plot training loss
+            self.loss_figure.canvas.draw()
+            self.loss_figure.canvas.flush_events()
+
+            # Plot the domain (update existing plot)
+            # Draw updated values
+            self.figure.canvas.draw()
+
+            # UI Loop: process all pending UI events
+            self.figure.canvas.flush_events()
+
+    def close(self):
+        # Toggling the window closed will stop the ui thread
+        self.is_open = False
+
+    def set_data(self, h, u, v, s, b, index):
+
+        if index % self.interval == 0:
+            stage = self.current_stage
+
+            if stage == self.stages:
+                self.current_stage = 0
+                stage = 0
+
+                os.makedirs(f"./Saltmarsh-PINN evaluation/figures", exist_ok=True)
+                self.figure.savefig(f"./Saltmarsh-PINN evaluation/figures/Saltmarsh-PINN solution {self.params.sfere_start}-{self.params.sfere_end}.jpg", dpi=150)
+
+                self.is_open = False
+                exit()
+
+            if stage < self.stages:
+                self.current_stage += 1
+                self.h_img_plots[stage].set_data(h.detach().cpu().numpy())
+                self.u_img_plots[stage].set_data(u.detach().cpu().numpy())
+                self.v_img_plots[stage].set_data(v.detach().cpu().numpy())
+                self.s_img_plots[stage].set_data(s.detach().cpu().numpy())
+                self.b_img_plots[stage].set_data(b.detach().cpu().numpy())
+
+    def append_loss(self, loss_h, loss_u, loss_v, loss_s, loss_b):
+
+        # Append to data
+        self.h_loss_data = np.append(self.h_loss_data, np.array([loss_h.detach().cpu().numpy()]))
+        self.u_loss_data = np.append(self.u_loss_data, np.array([loss_u.detach().cpu().numpy()]))
+        self.v_loss_data = np.append(self.v_loss_data, np.array([loss_v.detach().cpu().numpy()]))
+        self.s_loss_data = np.append(self.s_loss_data, np.array([loss_s.detach().cpu().numpy()]))
+        self.b_loss_data = np.append(self.b_loss_data, np.array([loss_b.detach().cpu().numpy()]))
+
+        # Set X Data
+        self.h_loss_plot.set_xdata(range(self.h_loss_data.shape[0]))
+        self.u_loss_plot.set_xdata(range(self.u_loss_data.shape[0]))
+        self.v_loss_plot.set_xdata(range(self.v_loss_data.shape[0]))
+        self.s_loss_plot.set_xdata(range(self.s_loss_data.shape[0]))
+        self.b_loss_plot.set_xdata(range(self.b_loss_data.shape[0]))
+
+        # Set Y Data
+        self.h_loss_plot.set_ydata(self.h_loss_data)
+        self.u_loss_plot.set_ydata(self.u_loss_data)
+        self.v_loss_plot.set_ydata(self.v_loss_data)
+        self.s_loss_plot.set_ydata(self.s_loss_data)
+        self.b_loss_plot.set_ydata(self.b_loss_data)
+
+        # Update the axis limits
+        min_y = np.min(np.array([
+            np.min(self.h_loss_data),
+            np.min(self.u_loss_data),
+            np.min(self.v_loss_data),
+            np.min(self.s_loss_data),
+            np.min(self.b_loss_data),
+        ])).item()
+
+        max_y = np.max(np.array([
+            np.max(self.h_loss_data),
+            np.max(self.u_loss_data),
+            np.max(self.v_loss_data),
+            np.max(self.s_loss_data),
+            np.max(self.b_loss_data),
+        ])).item()
+
+        min_max_range = max_y - min_y
+        min_y = min_y - 0.1*min_max_range
+        max_y = max_y + 0.1*min_max_range
+
+        self.loss_ax.set_ylim([min_y, max_y])
+
+
+
+
+
+
+
 # MATPLOTLIB MULTI-WINDOW
 class MultiWindow:
 
