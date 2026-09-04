@@ -4,7 +4,7 @@ import numpy as np
 import parameters
 import dataset
 import spline_pinn_solver
-from window import MultiWindow, PerformanceSummaryWindow, PerformanceSummaryWindow_Hydrology
+from window import MultiWindow, PerformanceSummaryWindow, PerformanceSummaryWindow_Hydrology, PerformanceSummaryWindow_HydroMorphology
 from videoplayer import VideoChannel, VideoPlayer
 
 def main():
@@ -57,7 +57,7 @@ def main():
         window_height = 198
 
     # Spawn a MultiView window
-    window = PerformanceSummaryWindow_Hydrology(window_width, window_height, 6, 200, print_loss_images, params)
+    window = PerformanceSummaryWindow_HydroMorphology(window_width, window_height, 6, 200, print_loss_images, params)
 
     # # Create video player
     # video_channels = [
