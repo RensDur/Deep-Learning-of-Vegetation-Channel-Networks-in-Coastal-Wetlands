@@ -155,35 +155,35 @@ def main():
     ]
 
     # Select which quantity to plot
-    quantity = "uv"
+    quantity = "h"
 
     if quantity == "h":
         plt.title(r"Residual $\mathcal{R}_h$ per Landscape, averaged over 1000 iterations")
         plt.ylabel(r"Residual $\mathcal{R}_h$")
-        plt.semilogy(ablation_study.evaluation_residuals[:, 0], label=r"Static Grouped Training", color=blue[0], linestyle=linestyles[0])
-        plt.semilogy(hybrid_pinn.evaluation_residuals[:, 0], label=r"Hybrid Training", color=blue[1], linestyle=linestyles[1])
-        plt.semilogy(saltmarsh_pinn.evaluation_residuals[:, 0], label=r"PINN Ensemble Training", color=blue[2], linestyle=linestyles[2])
+        plt.semilogy(ablation_study.evaluation_residuals[:, 0], label=r"Hydro-PINN-Static", color=blue[0], linestyle=linestyles[0])
+        plt.semilogy(hybrid_pinn.evaluation_residuals[:, 0], label=r"Hydro-PINN-Hybrid", color=blue[1], linestyle=linestyles[1])
+        plt.semilogy(saltmarsh_pinn.evaluation_residuals[:, 0], label=r"Hydro-PINN-Saltmarsh", color=blue[2], linestyle=linestyles[2])
         
     if quantity == "uv":
         plt.title(r"Residual $\mathcal{R}_{uv}$ per Landscape, averaged over 1000 iterations")
         plt.ylabel(r"Residual $\mathcal{R}_{uv}$")
-        plt.semilogy(ablation_study.evaluation_residuals[:, 1], label=r"Static Grouped Training", color=orange[0], linestyle=linestyles[0])
-        plt.semilogy(hybrid_pinn.evaluation_residuals[:, 1], label=r"Hybrid Training", color=orange[1], linestyle=linestyles[1])
-        plt.semilogy(saltmarsh_pinn.evaluation_residuals[:, 1], label=r"PINN Ensemble Training", color=orange[2], linestyle=linestyles[2])
+        plt.semilogy(ablation_study.evaluation_residuals[:, 1], label=r"Hydro-PINN-Static", color=orange[0], linestyle=linestyles[0])
+        plt.semilogy(hybrid_pinn.evaluation_residuals[:, 1], label=r"Hydro-PINN-Hybrid", color=orange[1], linestyle=linestyles[1])
+        plt.semilogy(saltmarsh_pinn.evaluation_residuals[:, 1], label=r"Hydro-PINN-Saltmarsh", color=orange[2], linestyle=linestyles[2])
         
     if quantity == "closed_bound":
         plt.title(r"Residual $\mathcal{R}_{bound,closed}$ per Landscape, averaged over 1000 iterations")
         plt.ylabel(r"Residual $\mathcal{R}_{bound,closed}$")
-        plt.semilogy(ablation_study.evaluation_residuals[:, 2], label=r"Static Grouped Training", color=green[0], linestyle=linestyles[0])
-        plt.semilogy(hybrid_pinn.evaluation_residuals[:, 2], label=r"Hybrid Training", color=green[1], linestyle=linestyles[1])
-        plt.semilogy(saltmarsh_pinn.evaluation_residuals[:, 2], label=r"PINN Ensemble Training", color=green[2], linestyle=linestyles[2])
+        plt.semilogy(ablation_study.evaluation_residuals[:, 2], label=r"Hydro-PINN-Static", color=green[0], linestyle=linestyles[0])
+        plt.semilogy(hybrid_pinn.evaluation_residuals[:, 2], label=r"Hydro-PINN-Hybrid", color=green[1], linestyle=linestyles[1])
+        plt.semilogy(saltmarsh_pinn.evaluation_residuals[:, 2], label=r"Hydro-PINN-Saltmarsh", color=green[2], linestyle=linestyles[2])
         
     if quantity == "open_bound":
         plt.title(r"Residual $\mathcal{R}_{bound,open}$ per Landscape, averaged over 1000 iterations")
         plt.ylabel(r"Residual $\mathcal{R}_{bound,open}$")
-        plt.semilogy(ablation_study.evaluation_residuals[:, 3], label=r"Static Grouped Training", color=red[0], linestyle=linestyles[0])
-        plt.semilogy(hybrid_pinn.evaluation_residuals[:, 3], label=r"Hybrid Training", color=red[1], linestyle=linestyles[1])
-        plt.semilogy(saltmarsh_pinn.evaluation_residuals[:, 3], label=r"PINN Ensemble Training", color=red[2], linestyle=linestyles[2])
+        plt.semilogy(ablation_study.evaluation_residuals[:, 3], label=r"Hydro-PINN-Static", color=red[0], linestyle=linestyles[0])
+        plt.semilogy(hybrid_pinn.evaluation_residuals[:, 3], label=r"Hydro-PINN-Hybrid", color=red[1], linestyle=linestyles[1])
+        plt.semilogy(saltmarsh_pinn.evaluation_residuals[:, 3], label=r"Hydro-PINN-Saltmarsh", color=red[2], linestyle=linestyles[2])
         
 
 
